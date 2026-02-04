@@ -37,7 +37,7 @@ io.on("connection", socket => {
 
   // LOBBİYE KATIL
   socket.on("joinLobby", ({ name }, callback) => {
-    if (!name) return callback({ error: "İsim girin!" });
+    if (!name) return callback?.({ error: "İsim girin!" });
 
     let player = { 
       id: socket.id, 
@@ -50,8 +50,8 @@ io.on("connection", socket => {
 
     lobby.players.push(player);
 
-    // Güncel lobby bilgisini tüm client’lara gönder
-    io.emit("lobbyUpdate", { 
+    // Tüm client’lara güncel lobby bilgisini gönder
+    const payload = {
       players: lobby.players.map(p => ({
         id: p.id,
         name: p.name,
@@ -59,11 +59,12 @@ io.on("connection", socket => {
         y: p.y,
         color: p.color,
         ready: p.ready
-      })), 
-      machines: lobby.machines 
-    });
+      })),
+      machines: lobby.machines
+    };
 
-    callback({ success: true, machines: lobby.machines });
+    io.emit("lobbyUpdate", payload);
+    callback?.({ success: true, machines: lobby.machines });
   });
 
   // HAZIR DURUMU
@@ -72,7 +73,7 @@ io.on("connection", socket => {
     if (p) p.ready = true;
 
     // Lobby güncellemesini tüm client’lara gönder
-    io.emit("lobbyUpdate", { 
+    const payload = {
       players: lobby.players.map(p => ({
         id: p.id,
         name: p.name,
@@ -80,24 +81,15 @@ io.on("connection", socket => {
         y: p.y,
         color: p.color,
         ready: p.ready
-      })), 
-      machines: lobby.machines 
-    });
+      })),
+      machines: lobby.machines
+    };
+    io.emit("lobbyUpdate", payload);
 
     // Oyun başlat
     if (lobby.players.every(pl => pl.ready) && !lobby.started) {
       lobby.started = true;
-      io.emit("gameStart", { 
-        players: lobby.players.map(p => ({
-          id: p.id,
-          name: p.name,
-          x: p.x,
-          y: p.y,
-          color: p.color,
-          ready: p.ready
-        })), 
-        machines: lobby.machines 
-      });
+      io.emit("gameStart", payload);
       startGameLoop();
     }
   });
@@ -117,7 +109,7 @@ io.on("connection", socket => {
   // DISCONNECT
   socket.on("disconnect", () => {
     lobby.players = lobby.players.filter(pl => pl.id !== socket.id);
-    io.emit("lobbyUpdate", { 
+    const payload = {
       players: lobby.players.map(p => ({
         id: p.id,
         name: p.name,
@@ -125,9 +117,10 @@ io.on("connection", socket => {
         y: p.y,
         color: p.color,
         ready: p.ready
-      })), 
-      machines: lobby.machines 
-    });
+      })),
+      machines: lobby.machines
+    };
+    io.emit("lobbyUpdate", payload);
     console.log("❌ Ayrıldı:", socket.id);
   });
 });
