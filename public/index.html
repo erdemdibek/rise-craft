@@ -3,151 +3,104 @@
 <head>
 <meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no">
 <title>HAİN</title>
-
 <style>
-html,body{
-  margin:0;
-  background:#111;
-  color:#fff;
-  overflow:hidden;
-  touch-action:none;
-}
-#ui{
-  position:absolute;
-  top:10px;
-  left:10px;
-  z-index:10;
-}
+html,body{margin:0;background:#111;color:#fff;overflow:hidden;touch-action:none}
+#ui{position:absolute;top:10px;left:10px;z-index:10}
 button,input{font-size:16px}
 canvas{display:block}
-
-#joystick{
-  position:fixed;
-  left:30px;
-  bottom:30px;
-  width:120px;
-  height:120px;
-  border-radius:50%;
-  background:#3338;
-  display:none;
-}
-#stick{
-  position:absolute;
-  left:35px;
-  top:35px;
-  width:50px;
-  height:50px;
-  border-radius:50%;
-  background:#0f08;
-}
+#joystick{position:fixed;left:30px;bottom:30px;width:120px;height:120px;border-radius:50%;background:#3338;display:none}
+#stick{position:absolute;left:35px;top:35px;width:50px;height:50px;border-radius:50%;background:#0f08}
+#tasks{position:absolute;top:10px;right:10px;color:#0f0;font-size:16px}
+#minimap{position:absolute;bottom:10px;right:10px;width:150px;height:150px;background:#0008;border:1px solid #fff}
 </style>
 </head>
-
 <body>
-
 <div id="ui">
   <input id="nameInput" placeholder="İsmin">
   <button id="joinBtn">Lobiye Katıl</button>
   <button id="readyBtn" style="display:none">Hazır</button>
   <div id="role"></div>
 </div>
-
+<div id="tasks">Görev: 0</div>
 <canvas id="game"></canvas>
-
 <div id="joystick"><div id="stick"></div></div>
+<div id="minimap"></div>
 
 <script src="/socket.io/socket.io.js"></script>
 <script>
 const socket = io();
-
 const canvas=document.getElementById("game");
 const ctx=canvas.getContext("2d");
 const nameInput=document.getElementById("nameInput");
+const tasksDiv=document.getElementById("tasks");
+const minimap=document.getElementById("minimap");
 
-function resize(){
-  canvas.width=innerWidth;
-  canvas.height=innerHeight;
-}
+function resize(){canvas.width=innerWidth;canvas.height=innerHeight;}
 resize(); addEventListener("resize",resize);
 
-let me=null;
-let players={};
-let machines=[];
-let camX=0,camY=0;
+let me=null, players={}, machines=[], camX=0,camY=0;
 
-/* FULLSCREEN + LANDSCAPE */
+/* FULLSCREEN */
 function goFullscreen(){
   if(document.documentElement.requestFullscreen){
     document.documentElement.requestFullscreen();
   }
-  if(screen.orientation?.lock){
-    screen.orientation.lock("landscape").catch(()=>{});
-  }
+  if(screen.orientation?.lock) screen.orientation.lock("landscape").catch(()=>{});
 }
 
 /* JOIN */
 joinBtn.onclick=()=>{
   socket.emit("joinLobby",{name:nameInput.value},res=>{
     if(res.error) return alert(res.error);
-
     goFullscreen();
     joinBtn.style.display="none";
     nameInput.style.display="none";
     readyBtn.style.display="inline";
   });
 };
-
-readyBtn.onclick=()=>{
-  socket.emit("playerReady");
-  readyBtn.disabled=true;
-};
+readyBtn.onclick=()=>{socket.emit("playerReady");readyBtn.disabled=true;};
 
 /* SOCKETS */
-socket.on("lobbyUpdate",d=>{
-  players={};
-  d.players.forEach(p=>players[p.id]=p);
-  machines=d.machines;
-  me=players[socket.id];
-});
-
-socket.on("rolesAssigned",r=>{
-  const m=r.find(x=>x.id===socket.id);
-  if(m) role.innerText="ROL: "+m.role;
-});
-
-socket.on("gameStart",()=>{
-  joystick.style.display="block";
-});
-
-socket.on("state",d=>{
-  players={};
-  d.players.forEach(p=>players[p.id]=p);
-  me=players[socket.id];
-});
+socket.on("lobbyUpdate",d=>{players={};d.players.forEach(p=>players[p.id]=p);machines=d.machines;me=players[socket.id];});
+socket.on("rolesAssigned",r=>{const m=r.find(x=>x.id===socket.id);if(m) role.innerText="ROL: "+m.role;});
+socket.on("gameStart",()=>{joystick.style.display="block";});
+socket.on("state",d=>{players={};d.players.forEach(p=>players[p.id]=p);me=players[socket.id];tasksDiv.innerText="Görev: "+(me?.tasksCompleted||0);});
+socket.on("machinesUpdate",m=>machines=m);
+socket.on("playerKilled",id=>{if(players[id])players[id].alive=false;});
+socket.on("startMeeting",d=>{alert("Toplantı başladı!");});
+socket.on("endMeeting",()=>{alert("Toplantı bitti!");});
+socket.on("gameEnd",msg=>{alert(msg);});
 
 /* DRAW */
 function draw(){
   ctx.clearRect(0,0,canvas.width,canvas.height);
-  if(me){
-    camX=me.x-canvas.width/2;
-    camY=me.y-canvas.height/2;
-  }
+  if(me){camX=me.x-canvas.width/2; camY=me.y-canvas.height/2;}
 
-  /* MACHINES */
-  machines.forEach(m=>{
-    ctx.fillStyle=m.broken?"red":"lime";
-    ctx.fillRect(m.x-camX-20,m.y-camY-20,40,40);
-  });
+  // MACHINES
+  machines.forEach(m=>{ctx.fillStyle=m.broken?"red":"lime"; ctx.fillRect(m.x-camX-20,m.y-camY-20,40,40);});
 
-  /* PLAYERS */
+  // PLAYERS
   Object.values(players).forEach(p=>{
     if(!p.alive) return;
-    ctx.beginPath();
-    ctx.arc(p.x-camX,p.y-camY,20,0,Math.PI*2);
-    ctx.fillStyle=p.color;
-    ctx.fill();
-    ctx.fillStyle="#fff";
-    ctx.fillText(p.name,p.x-camX-15,p.y-camY-25);
+    ctx.beginPath(); ctx.arc(p.x-camX,p.y-camY,20,0,Math.PI*2);
+    ctx.fillStyle=p.color; ctx.fill();
+    ctx.fillStyle="#fff"; ctx.fillText(p.name,p.x-camX-15,p.y-camY-25);
+  });
+
+  // MINIMAP
+  minimapCtx = minimap.getContext("2d");
+  minimapCtx.clearRect(0,0,minimap.width,minimap.height);
+  Object.values(players).forEach(p=>{
+    minimapCtx.fillStyle=p.alive?p.color:"#555";
+    const mx = (p.x/2000)*minimap.width;
+    const my = (p.y/1200)*minimap.height;
+    minimapCtx.fillRect(mx,my,5,5);
+  });
+  machines.forEach(m=>{
+    minimapCtx.fillStyle=m.broken?"red":"lime";
+    const mx = (m.x/2000)*minimap.width;
+    const my = (m.y/1200)*minimap.height;
+    minimapCtx.fillRect(mx,my,5,5);
   });
 
   requestAnimationFrame(draw);
@@ -156,30 +109,45 @@ draw();
 
 /* JOYSTICK */
 let jx=0,jy=0,joy=false,sx=0,sy=0;
+joystick.addEventListener("touchstart",e=>{joy=true;sx=e.touches[0].clientX; sy=e.touches[0].clientY;});
+joystick.addEventListener("touchmove",e=>{if(!joy||!me)return;jx=Math.max(-40,Math.min(40,e.touches[0].clientX-sx));jy=Math.max(-40,Math.min(40,e.touches[0].clientY-sy));stick.style.transform=`translate(${jx}px,${jy}px)`;});
+joystick.addEventListener("touchend",()=>{joy=false;jx=jy=0; stick.style.transform="translate(0,0)";});
 
-joystick.addEventListener("touchstart",e=>{
-  joy=true;
-  sx=e.touches[0].clientX;
-  sy=e.touches[0].clientY;
-});
-joystick.addEventListener("touchmove",e=>{
-  if(!joy||!me) return;
-  jx=Math.max(-40,Math.min(40,e.touches[0].clientX-sx));
-  jy=Math.max(-40,Math.min(40,e.touches[0].clientY-sy));
-  stick.style.transform=`translate(${jx}px,${jy}px)`;
-});
-joystick.addEventListener("touchend",()=>{
-  joy=false;
-  jx=jy=0;
-  stick.style.transform="translate(0,0)";
-});
+setInterval(()=>{if(!me)return; me.x+=jx*0.12; me.y+=jy*0.12; socket.emit("move",{x:me.x,y:me.y});},50);
 
-setInterval(()=>{
+/* TASK INTERACTION */
+canvas.addEventListener("click",e=>{
   if(!me) return;
-  me.x+=jx*0.12;
-  me.y+=jy*0.12;
-  socket.emit("move",{x:me.x,y:me.y});
-},50);
+  const mouseX=e.clientX+camX;
+  const mouseY=e.clientY+camY;
+  machines.forEach((m,i)=>{
+    if(Math.hypot(m.x-mouseX,m.y-mouseY)<50){
+      if(me.role==="Hain") socket.emit("action",{type:"breakMachine",machineIndex:i});
+      if(me.role==="Operatör") socket.emit("action",{type:"fixMachine",machineIndex:i});
+    }
+  });
+});
+
+/* KILL ACTION (hain) */
+canvas.addEventListener("dblclick",e=>{
+  if(!me || me.role!=="Hain") return;
+  const mouseX=e.clientX+camX;
+  const mouseY=e.clientY+camY;
+  Object.values(players).forEach(p=>{
+    if(p.id!==me.id && p.alive && Math.hypot(p.x-mouseX,p.y-mouseY)<30){
+      socket.emit("killPlayer",p.id);
+    }
+  });
+});
+
+/* VOTE (toplantı) */
+document.addEventListener("keydown",e=>{
+  if(lobby?.meeting && e.key>='0' && e.key<='9'){
+    const idx=parseInt(e.key);
+    const aliveIds=Object.values(players).filter(p=>p.alive).map(p=>p.id);
+    if(idx<aliveIds.length) socket.emit("vote",aliveIds[idx]);
+  }
+});
 </script>
 </body>
 </html>
