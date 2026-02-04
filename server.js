@@ -13,68 +13,56 @@ const lobby = {
   players: [],
   machines: [],
   started: false,
-  meeting:false,
-  votes:{}
+  time: 300,
+  meeting: false,
+  votes: {}
 };
 
+/* ================= MACHINES ================= */
 function resetMachines(){
-  lobby.machines=[];
-  for(let i=0;i<10;i++){
-    lobby.machines.push({
-      x:200+(i%5)*400,
-      y:200+(i<5?0:400),
-      broken:false
-    });
+  lobby.machines = [];
+  for(let x=200;x<=1800;x+=400){
+    lobby.machines.push({x,y:200,broken:false});
+    lobby.machines.push({x,y:800,broken:false});
   }
 }
 resetMachines();
 
-app.use(express.static(__dirname));
-app.get("/",(_,res)=>res.sendFile(path.join(__dirname,"index.html")));
+/* ================= SERVER ================= */
+app.use(express.static(path.join(__dirname,"public")));
+app.get("/",(_,res)=>{
+  res.sendFile(path.join(__dirname,"public","index.html"));
+});
 
+/* ================= ROLES ================= */
 function assignRoles(){
   lobby.players.forEach(p=>p.role="Operatör");
   lobby.players[Math.floor(Math.random()*lobby.players.length)].role="Hain";
-  io.emit("rolesAssigned",lobby.players.map(p=>({id:p.id,role:p.role})));
+
+  io.emit("rolesAssigned",lobby.players.map(p=>({
+    id:p.id,
+    role:p.role
+  })));
 }
 
-function checkWin(){
-  const alive=lobby.players.filter(p=>p.alive);
-  const hain=alive.find(p=>p.role==="Hain");
-  const ops=alive.filter(p=>p.role==="Operatör");
-
-  if(!hain){
-    io.emit("gameEnd","Operatörler kazandı");
-    reset();
-  }else if(ops.length<=2){
-    io.emit("gameEnd","Hain kazandı");
-    reset();
-  }
-}
-
-function reset(){
-  lobby.started=false;
-  lobby.meeting=false;
-  lobby.votes={};
-  resetMachines();
-  lobby.players.forEach(p=>{
-    p.ready=false;
-    p.alive=true;
-    p.role=null;
-  });
-  io.emit("lobbyUpdate",{players:lobby.players,machines:lobby.machines});
-}
-
+/* ================= SOCKET ================= */
 io.on("connection",socket=>{
-  socket.on("joinLobby",({name})=>{
-    if(!name) return;
-    if(lobby.players.find(p=>p.id===socket.id)) return;
+  console.log("🔌 Connected:",socket.id);
+
+  socket.on("joinLobby",({name},cb)=>{
+    if(!name || !name.trim()){
+      return cb({error:"İsim boş olamaz"});
+    }
+
+    if(lobby.players.find(p=>p.id===socket.id)){
+      return cb({success:true});
+    }
 
     lobby.players.push({
       id:socket.id,
-      name,
-      x:400+Math.random()*400,
-      y:400+Math.random()*400,
+      name:name.trim(),
+      x:500+Math.random()*200,
+      y:500+Math.random()*200,
       color:`hsl(${Math.random()*360},70%,50%)`,
       ready:false,
       alive:true,
@@ -82,11 +70,13 @@ io.on("connection",socket=>{
     });
 
     io.emit("lobbyUpdate",{players:lobby.players,machines:lobby.machines});
+    cb({success:true});
   });
 
   socket.on("playerReady",()=>{
     const p=lobby.players.find(p=>p.id===socket.id);
-    if(p) p.ready=true;
+    if(!p) return;
+    p.ready=true;
 
     io.emit("lobbyUpdate",{players:lobby.players,machines:lobby.machines});
 
@@ -94,30 +84,14 @@ io.on("connection",socket=>{
       lobby.started=true;
       assignRoles();
       io.emit("gameStart",{players:lobby.players,machines:lobby.machines});
+      startLoop();
     }
   });
 
   socket.on("move",({x,y})=>{
     const p=lobby.players.find(p=>p.id===socket.id);
-    if(p&&p.alive&&!lobby.meeting){p.x=x;p.y=y;}
-  });
-
-  socket.on("vote",({voteFor})=>{
-    if(!lobby.meeting) return;
-    lobby.votes[socket.id]=voteFor;
-
-    if(Object.keys(lobby.votes).length===lobby.players.filter(p=>p.alive).length){
-      const count={};
-      Object.values(lobby.votes).forEach(v=>count[v]=(count[v]||0)+1);
-      const out=Object.entries(count).sort((a,b)=>b[1]-a[1])[0];
-      if(out){
-        const p=lobby.players.find(p=>p.id===out[0]);
-        if(p){p.alive=false;}
-      }
-      lobby.votes={};
-      lobby.meeting=false;
-      io.emit("meetingEnd");
-      checkWin();
+    if(p && p.alive && !lobby.meeting){
+      p.x=x; p.y=y;
     }
   });
 
@@ -127,4 +101,18 @@ io.on("connection",socket=>{
   });
 });
 
-server.listen(PORT,()=>console.log("Server:",PORT));
+/* ================= GAME LOOP ================= */
+function startLoop(){
+  const t=setInterval(()=>{
+    if(!lobby.started){ clearInterval(t); return; }
+    lobby.time--;
+    io.emit("state",{players:lobby.players,time:lobby.time});
+    if(lobby.time<=0){
+      io.emit("gameEnd","⏰ Süre doldu");
+      lobby.started=false;
+      clearInterval(t);
+    }
+  },1000);
+}
+
+server.listen(PORT,()=>console.log("🚀 http://localhost:"+PORT));
