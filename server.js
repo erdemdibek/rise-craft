@@ -9,113 +9,111 @@ const io = new Server(server);
 
 const PORT = process.env.PORT || 3000;
 
+app.use(express.static(path.join(__dirname, "public")));
+
 const lobby = {
   players: {},
-  started: false,
-  hainId: null,
+  gameStarted: false,
   machines: [
-    "Fette 1200",
-    "Fette 2200",
-    "Kilian KTP 720",
-    "Korsch XL 400",
-    "Bosch GKF 701",
-    "Fette 3200",
-    "Korsch XT600",
-    "Fette Fe55",
-    "Sejong",
-    "Fette 2100"
+    "Fette 1200","Fette 2200","Kilian KTP 720","Korsch XL 400",
+    "Bosch GKF 701","Fette 3200","Korsch XT600","Fette Fe55",
+    "Sejong","Fette 2100"
   ],
-  tasks: {},
-  sabotages: {},
+  sabotage: null,
   votes: {}
 };
 
-app.use(express.static(path.join(__dirname, "public")));
-app.get("/", (req, res) => res.sendFile(path.join(__dirname, "public", "index.html")));
-
+// SOCKET.IO
 io.on("connection", socket => {
-  console.log("Bağlanan:", socket.id);
+  console.log("🔌 Bağlandı:", socket.id);
 
-  // Lobbyye gir
   socket.on("joinLobby", ({ name }) => {
-    if (!name) return;
-    lobby.players[socket.id] = { id: socket.id, name, x: 100, y: 100, color: `hsl(${Math.random()*360},70%,50%)` };
-    io.emit("lobbyUpdate", lobby.players);
+    if(!name) return;
+    lobby.players[socket.id] = {
+      id: socket.id,
+      name,
+      x: Math.random()*800+100,
+      y: Math.random()*600+100,
+      color: `hsl(${Math.random()*360},70%,50%)`,
+      role: null,
+      taskDone: false
+    };
+    io.emit("lobbyUpdate", Object.values(lobby.players));
   });
 
-  // Hazır ve oyun başlat
   socket.on("startGame", () => {
-    if (lobby.started) return;
-    if (Object.keys(lobby.players).length < 2) return;
+    if(lobby.gameStarted) return;
+    lobby.gameStarted = true;
 
-    lobby.started = true;
+    // Rastgele hain seç
     const ids = Object.keys(lobby.players);
-    lobby.hainId = ids[Math.floor(Math.random() * ids.length)];
-
-    ids.forEach(id => {
-      if (id === lobby.hainId) io.to(id).emit("role", "HAIN");
-      else io.to(id).emit("role", "CALISAN");
-      lobby.tasks[id] = { completed: false };
+    const hainId = ids[Math.floor(Math.random()*ids.length)];
+    ids.forEach(id=>{
+      if(id===hainId) lobby.players[id].role="HAIN";
+      else lobby.players[id].role="CALISAN";
     });
 
     io.emit("gameStart", lobby.machines);
+    io.emit("lobbyUpdate", Object.values(lobby.players));
   });
 
-  // Hareket
-  socket.on("move", ({ x, y }) => {
-    if (!lobby.players[socket.id]) return;
-    lobby.players[socket.id].x = x;
-    lobby.players[socket.id].y = y;
-    io.emit("updatePlayers", lobby.players);
+  socket.on("move", ({ x, y })=>{
+    if(lobby.players[socket.id]){
+      lobby.players[socket.id].x = x;
+      lobby.players[socket.id].y = y;
+      io.emit("lobbyUpdate", Object.values(lobby.players));
+    }
   });
 
-  // Görev tamamlama
   socket.on("taskDone", () => {
-    if (socket.id === lobby.hainId) return;
-    lobby.tasks[socket.id].completed = true;
+    if(!lobby.players[socket.id] || lobby.players[socket.id].role==="HAIN") return;
+    lobby.players[socket.id].taskDone = true;
 
-    // Kazanan kontrol
-    const remaining = Object.values(lobby.tasks).some(t => !t.completed);
-    if (!remaining) io.emit("gameEnd", "🟢 ÇALIŞANLAR KAZANDI!");
+    const allDone = Object.values(lobby.players)
+      .filter(p=>p.role==="CALISAN")
+      .every(p=>p.taskDone);
+
+    if(allDone){
+      io.emit("gameEnd","🟢 TÜM GÖREVLER TAMAMLANDI – ÇALIŞANLAR KAZANDI");
+      lobby.gameStarted=false;
+    }
   });
 
-  // Sabotaj
-  socket.on("sabotage", () => {
-    if (socket.id !== lobby.hainId) return;
-    const machine = lobby.machines[Math.floor(Math.random()*lobby.machines.length)];
-    lobby.sabotages[machine] = true;
-    io.emit("sabotage", machine);
+  socket.on("sabotage", (machine) => {
+    if(!lobby.players[socket.id] || lobby.players[socket.id].role!=="HAIN") return;
+    lobby.sabotage = machine;
+    io.emit("sabotageStart", machine);
   });
 
-  // Sabotaj çöz
   socket.on("fix", () => {
-    lobby.sabotages = {};
-    io.emit("sabotageResolved");
+    lobby.sabotage = null;
+    io.emit("sabotageEnd");
   });
 
-  // Oylama başlat
   socket.on("voteStart", () => {
     lobby.votes = {};
     io.emit("voteStart");
   });
 
-  socket.on("vote", ({ targetId }) => {
+  socket.on("vote", (targetId) => {
     lobby.votes[socket.id] = targetId;
 
-    if (Object.keys(lobby.votes).length === Object.keys(lobby.players).length) {
+    if(Object.keys(lobby.votes).length === Object.keys(lobby.players).length){
       const counts = {};
       Object.values(lobby.votes).forEach(id => counts[id] = (counts[id]||0)+1);
-      const top = Object.entries(counts).sort((a,b)=>b[1]-a[1])[0][0];
-      if (top === lobby.hainId) io.emit("gameEnd","🟢 HAİN YAKALANDI! ÇALIŞANLAR KAZANDI!");
-      else io.emit("voteFail","⚠ Hain yakalanamadı. Oyun devam ediyor!");
+      const maxVoteId = Object.entries(counts).sort((a,b)=>b[1]-a[1])[0][0];
+      if(lobby.players[maxVoteId].role==="HAIN"){
+        io.emit("gameEnd","🟢 HAİN YAKALANDI – ÇALIŞANLAR KAZANDI");
+      } else {
+        io.emit("voteFail");
+      }
     }
   });
 
   socket.on("disconnect", () => {
     delete lobby.players[socket.id];
-    io.emit("lobbyUpdate", lobby.players);
-    console.log("Ayrıldı:", socket.id);
+    io.emit("lobbyUpdate", Object.values(lobby.players));
   });
 });
 
-server.listen(PORT, () => console.log(`Server çalışıyor: ${PORT}`));
+server.listen(PORT, ()=>console.log("🚀 Server çalışıyor:",PORT));
