@@ -5,111 +5,91 @@
 <title>HAİN</title>
 <style>
 html,body{margin:0;overflow:hidden;background:#000;color:#fff}
-#fs{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:#000;z-index:10}
-#ui{position:absolute;top:10px;left:10px;z-index:5}
 canvas{display:block}
-button,input{font-size:16px;margin:3px}
-#panel{position:absolute;bottom:0;width:100%;background:#000c;padding:10px}
+#ui{position:absolute;top:10px;left:10px;z-index:10}
+#joy{position:fixed;bottom:20px;left:20px;width:120px;height:120px;border-radius:50%;background:#333}
+#stick{width:50px;height:50px;background:#999;border-radius:50%;position:absolute;top:35px;left:35px}
+#panel{position:fixed;right:10px;bottom:10px;background:#000c;padding:10px}
+button,input{font-size:16px;margin:4px}
 </style>
 </head>
 <body>
 
-<div id="fs">
-  <button onclick="baslatFS()">▶ OYUNA BAŞLA</button>
-</div>
-
-<div id="ui" style="display:none">
-<input id="isim" placeholder="İsim">
-<input id="oda">
-<button onclick="odaOlustur()">Oda</button>
-<button onclick="katil()">Katıl</button>
-<button onclick="baslat()">Başlat</button>
+<div id="ui">
+<input id="name" placeholder="İsim">
+<input id="room">
+<button onclick="create()">Oda</button>
+<button onclick="join()">Katıl</button>
+<button onclick="startGame()">Başlat</button>
 </div>
 
 <canvas id="c"></canvas>
+<div id="joy"><div id="stick"></div></div>
 <div id="panel"></div>
 
 <script src="/socket.io/socket.io.js"></script>
 <script>
 const socket=io();
-const c=document.getElementById("c");
-const ctx=c.getContext("2d");
+const c=document.getElementById("c"),ctx=c.getContext("2d");
 c.width=innerWidth;c.height=innerHeight;
 
-let odaKodu,ben,rol,sure=0,sabotaj=null;
-let players={};
-const world={w:2200,h:1400};
-let cam={x:0,y:0};
+let room=null,me=null,players={},sabotage=null;
+const WORLD={w:2200,h:1400},cam={x:0,y:0};
 
-const makineler=[
-"Fette 1200","Fette 2200","Kilian KTP 720","Korsch XL 400","Bosch GKF 701",
-"Fette 3200","Korsch XT600","Fette Fe55","Sejong","Fette 2100"
-].map((n,i)=>({n,x:300+(i%5)*350,y:300+Math.floor(i/5)*400}));
-
-function baslatFS(){
- document.documentElement.requestFullscreen();
- screen.orientation.lock("landscape");
- fs.style.display="none";
- ui.style.display="block";
-}
-
-function odaOlustur(){
- fetch("/oda-olustur").then(r=>r.json()).then(d=>{
-  oda.value=d.odaKodu;
+function create(){
+ socket.emit("createRoom",{username:name.value},r=>{
+  room=r.roomCode;roomInput.value=room;
  });
 }
-
-function katil(){
- odaKodu=oda.value;
- socket.emit("oda-katil",{odaKodu,isim:isim.value});
+function join(){
+ room=roomInput.value;
+ socket.emit("joinRoom",{roomCode:room,username:name.value},()=>{});
 }
+function startGame(){socket.emit("startGame",room);}
 
-function baslat(){socket.emit("oyunu-baslat",odaKodu)}
-
-document.addEventListener("touchstart",e=>{
- if(!ben)return;
- ben.x+=e.touches[0].clientX>c.width/2?40:-40;
- ben.y+=e.touches[0].clientY>c.height/2?40:-40;
- socket.emit("hareket",{odaKodu,x:ben.x,y:ben.y});
+socket.on("state",r=>{
+ players=r.players;
+ me=players[socket.id];
 });
+socket.on("roles",p=>alert("ROL: "+p[socket.id].role));
+socket.on("sabotage",s=>sabotage=s);
+socket.on("taskFeedback",m=>panel.innerText=m);
+socket.on("kicked",n=>alert(n+" atıldı"));
 
-socket.on("state",oda=>{
- players=oda.oyuncular;
- ben=players[socket.id];
-});
-socket.on("rol",r=>{rol=r;alert("ROL: "+r)});
-socket.on("sure",s=>sure=s);
-socket.on("sabotaj",s=>sabotaj=s);
-socket.on("sabotaj-bitti",()=>sabotaj=null);
-socket.on("oyun-bitti",m=>alert(m));
+let joy=document.getElementById("joy"),stick=document.getElementById("stick");
+joy.ontouchmove=e=>{
+ let t=e.touches[0];
+ let dx=t.clientX-joy.offsetLeft-60;
+ let dy=t.clientY-joy.offsetTop-60;
+ let d=Math.min(40,Math.hypot(dx,dy));
+ let a=Math.atan2(dy,dx);
+ stick.style.left=60+d*Math.cos(a)-25+"px";
+ stick.style.top =60+d*Math.sin(a)-25+"px";
+ if(me){
+  me.x+=Math.cos(a)*5;
+  me.y+=Math.sin(a)*5;
+  socket.emit("move",{room,x:me.x,y:me.y});
+ }
+};
+joy.ontouchend=()=>{stick.style.left="35px";stick.style.top="35px";}
 
 function draw(){
- requestAnimationFrame(draw);
- if(!ben)return;
- cam.x=ben.x-c.width/2;
- cam.y=ben.y-c.height/2;
-
+ if(me){cam.x=me.x-c.width/2;cam.y=me.y-c.height/2;}
  ctx.clearRect(0,0,c.width,c.height);
  ctx.fillStyle="#111";
- ctx.fillRect(-cam.x,-cam.y,world.w,world.h);
-
- makineler.forEach(m=>{
-  ctx.fillStyle="#333";
-  ctx.fillRect(m.x-50-cam.x,m.y-30-cam.y,100,60);
-  ctx.fillStyle="#0f0";
-  ctx.fillText(m.n,m.x-50-cam.x,m.y-40-cam.y);
- });
+ ctx.fillRect(-cam.x,-cam.y,WORLD.w,WORLD.h);
 
  Object.values(players).forEach(p=>{
+  if(!p.alive)return;
+  ctx.fillStyle=p.id===socket.id?"#0f0":"#f00";
   ctx.beginPath();
   ctx.arc(p.x-cam.x,p.y-cam.y,15,0,7);
-  ctx.fillStyle=p.renk;
   ctx.fill();
-  ctx.fillText(p.isim,p.x-20-cam.x,p.y-20-cam.y);
+  ctx.fillText(p.name,p.x-20-cam.x,p.y-20-cam.y);
  });
 
- ctx.fillText("⏱ "+sure,20,20);
- if(sabotaj) ctx.fillText("⚠ "+sabotaj,200,20);
+ if(sabotage) ctx.fillText("⚠ "+sabotage,20,20);
+ requestAnimationFrame(draw);
 }
 draw();
 </script>
