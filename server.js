@@ -57,12 +57,10 @@ function checkWin(){
   const aliveHains = lobby.players.filter(p=>p.role==="Hain" && p.alive);
   const brokenMachines = lobby.machines.filter(m=>m.broken);
 
-  // Operatör kazanır: Tüm makineler çalışır ve Hain yok
   if(brokenMachines.length === 0 && aliveHains.length===0){
     io.emit("gameEnd","🎉 Operatörler kazandı!");
     lobby.started=false;
   }
-  // Hain kazanır: Hain hayatta ve tüm makineler bozuk veya Operatör yok
   if(aliveHains.length>0 && (aliveOperators.length===0 || brokenMachines.length === lobby.machines.length)){
     io.emit("gameEnd","💀 Hain kazandı!");
     lobby.started=false;
@@ -74,13 +72,9 @@ io.on("connection",socket=>{
   console.log("🔌 Connected:",socket.id);
 
   socket.on("joinLobby",({name},cb)=>{
-    if(!name || !name.trim()){
-      return cb({error:"İsim boş olamaz"});
-    }
+    if(!name || !name.trim()) return cb({error:"İsim boş olamaz"});
 
-    if(lobby.players.find(p=>p.id===socket.id)){
-      return cb({success:true});
-    }
+    if(lobby.players.find(p=>p.id===socket.id)) return cb({success:true});
 
     lobby.players.push({
       id:socket.id,
@@ -123,32 +117,28 @@ io.on("connection",socket=>{
     }
   });
 
-  /* ========== MACHINE ACTIONS ========== */
+  /* MACHINE ACTIONS */
   socket.on("action",({type,machineIndex})=>{
     const p=lobby.players.find(p=>p.id===socket.id);
     const m=lobby.machines[machineIndex];
     if(!p || !m || !p.alive) return;
+    if(distance(p,m) > 80) return;
 
-    if(distance(p,m) > 80) return; // makineye yakınlık şart
-
-    if(type==="breakMachine" && p.role==="Hain"){
-      if(!m.broken){
-        m.broken=true;
-        io.emit("machinesUpdate",lobby.machines);
-        checkWin();
-      }
+    if(type==="breakMachine" && p.role==="Hain" && !m.broken){
+      m.broken=true;
+      io.emit("machinesUpdate",lobby.machines);
+      checkWin();
     }
-    if(type==="fixMachine" && p.role==="Operatör"){
-      if(m.broken){
-        m.broken=false;
-        p.tasksCompleted++;
-        io.emit("machinesUpdate",lobby.machines);
-        checkWin();
-      }
+
+    if(type==="fixMachine" && p.role==="Operatör" && m.broken){
+      m.broken=false;
+      p.tasksCompleted++;
+      io.emit("machinesUpdate",lobby.machines);
+      checkWin();
     }
   });
 
-  /* ========== KILL & MEETING ========== */
+  /* KILL & MEETING */
   socket.on("killPlayer",(targetId)=>{
     const p = lobby.players.find(p=>p.id===socket.id);
     const target = lobby.players.find(p=>p.id===targetId);
@@ -169,12 +159,8 @@ io.on("connection",socket=>{
 
     const alivePlayers = lobby.players.filter(p=>p.alive);
     if(Object.keys(lobby.votes).length>=alivePlayers.length){
-      // En çok oyu alan atılır
       const counts = {};
-      Object.values(lobby.votes).forEach(v=>{
-        if(!counts[v]) counts[v]=0;
-        counts[v]++;
-      });
+      Object.values(lobby.votes).forEach(v=>{counts[v]=(counts[v]||0)+1;});
       const maxVote = Object.keys(counts).reduce((a,b)=>counts[a]>=counts[b]?a:b);
       const eliminated = lobby.players.find(p=>p.id===maxVote);
       if(eliminated){
@@ -194,17 +180,12 @@ io.on("connection",socket=>{
   });
 });
 
-/* ================= GAME LOOP ================= */
+/* GAME LOOP */
 function startLoop(){
   const t=setInterval(()=>{
-    if(!lobby.started){
-      clearInterval(t);
-      return;
-    }
-
+    if(!lobby.started){ clearInterval(t); return; }
     lobby.time--;
     io.emit("state",{players:lobby.players,time:lobby.time});
-
     if(lobby.time<=0){
       io.emit("gameEnd","⏰ Süre doldu");
       lobby.started=false;
