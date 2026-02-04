@@ -35,39 +35,99 @@ app.get("/", (req, res) => res.sendFile(path.join(__dirname, "public", "index.ht
 io.on("connection", socket => {
   console.log("🔌 Bağlanan:", socket.id);
 
+  // LOBBİYE KATIL
   socket.on("joinLobby", ({ name }, callback) => {
     if (!name) return callback({ error: "İsim girin!" });
-    let player = { id: socket.id, name, x: 400 + Math.random() * 400, y: 400 + Math.random() * 400, color: `hsl(${Math.random()*360},70%,50%)`, ready: false };
+
+    let player = { 
+      id: socket.id, 
+      name, 
+      x: 400 + Math.random() * 400, 
+      y: 400 + Math.random() * 400, 
+      color: `hsl(${Math.random()*360},70%,50%)`, 
+      ready: false 
+    };
+
     lobby.players.push(player);
-    socket.emit("lobbyUpdate", { players: lobby.players, machines: lobby.machines });
-    io.emit("lobbyUpdate", { players: lobby.players, machines: lobby.machines });
+
+    // Güncel lobby bilgisini tüm client’lara gönder
+    io.emit("lobbyUpdate", { 
+      players: lobby.players.map(p => ({
+        id: p.id,
+        name: p.name,
+        x: p.x,
+        y: p.y,
+        color: p.color,
+        ready: p.ready
+      })), 
+      machines: lobby.machines 
+    });
+
     callback({ success: true, machines: lobby.machines });
   });
 
+  // HAZIR DURUMU
   socket.on("playerReady", () => {
     let p = lobby.players.find(pl => pl.id === socket.id);
     if (p) p.ready = true;
 
+    // Lobby güncellemesini tüm client’lara gönder
+    io.emit("lobbyUpdate", { 
+      players: lobby.players.map(p => ({
+        id: p.id,
+        name: p.name,
+        x: p.x,
+        y: p.y,
+        color: p.color,
+        ready: p.ready
+      })), 
+      machines: lobby.machines 
+    });
+
+    // Oyun başlat
     if (lobby.players.every(pl => pl.ready) && !lobby.started) {
       lobby.started = true;
-      io.emit("gameStart", { players: lobby.players, machines: lobby.machines });
+      io.emit("gameStart", { 
+        players: lobby.players.map(p => ({
+          id: p.id,
+          name: p.name,
+          x: p.x,
+          y: p.y,
+          color: p.color,
+          ready: p.ready
+        })), 
+        machines: lobby.machines 
+      });
       startGameLoop();
     }
   });
 
+  // HAREKET
   socket.on("move", ({ x, y }) => {
     let p = lobby.players.find(pl => pl.id === socket.id);
     if (p) { p.x = x; p.y = y; }
   });
 
+  // SABOTAJ
   socket.on("sabotage", () => {
     lobby.sabotage = "Makine arızası!";
     setTimeout(()=>{ lobby.sabotage = null; }, 5000);
   });
 
+  // DISCONNECT
   socket.on("disconnect", () => {
     lobby.players = lobby.players.filter(pl => pl.id !== socket.id);
-    io.emit("lobbyUpdate", { players: lobby.players, machines: lobby.machines });
+    io.emit("lobbyUpdate", { 
+      players: lobby.players.map(p => ({
+        id: p.id,
+        name: p.name,
+        x: p.x,
+        y: p.y,
+        color: p.color,
+        ready: p.ready
+      })), 
+      machines: lobby.machines 
+    });
     console.log("❌ Ayrıldı:", socket.id);
   });
 });
