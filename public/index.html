@@ -66,7 +66,7 @@ socket.on("gameStart",()=>{joystick.style.display="block";});
 socket.on("state",d=>{d.players.forEach(p=>{players[p.id] ? Object.assign(players[p.id],p) : players[p.id]=p;}); me=players[socket.id]; tasksDiv.innerText="Görev: "+(me?.tasksCompleted||0);});
 socket.on("machinesUpdate",m=>machines=m);
 socket.on("playerKilled",id=>{if(players[id])players[id].alive=false;});
-socket.on("startMeeting",d=>{alert("Toplantı başladı!");});
+socket.on("startMeeting",()=>{alert("Toplantı başladı!");});
 socket.on("endMeeting",()=>{alert("Toplantı bitti!");});
 socket.on("gameEnd",msg=>{alert(msg);});
 
