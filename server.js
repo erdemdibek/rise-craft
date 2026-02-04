@@ -7,7 +7,7 @@ const app = express();
 const server = http.createServer(app);
 const io = new Server(server);
 
-const PORT = 3000;
+const PORT = process.env.PORT || 3000;
 
 const lobby = {
   players: [],
@@ -21,10 +21,11 @@ const lobby = {
 /* ================= MACHINES ================= */
 function resetMachines(){
   lobby.machines = [];
-  for(let x=200;x<=1800;x+=400){
-    lobby.machines.push({x,y:200,broken:false});
-    lobby.machines.push({x,y:800,broken:false});
-  }
+  const xs = [300,700,1100,1500,1900];
+  xs.forEach(x=>{
+    lobby.machines.push({x:x,y:300,broken:false});
+    lobby.machines.push({x:x,y:800,broken:false});
+  });
 }
 resetMachines();
 
@@ -61,8 +62,8 @@ io.on("connection",socket=>{
     lobby.players.push({
       id:socket.id,
       name:name.trim(),
-      x:500+Math.random()*200,
-      y:500+Math.random()*200,
+      x:500+Math.random()*300,
+      y:500+Math.random()*300,
       color:`hsl(${Math.random()*360},70%,50%)`,
       ready:false,
       alive:true,
@@ -82,6 +83,8 @@ io.on("connection",socket=>{
 
     if(lobby.players.length>=3 && lobby.players.every(p=>p.ready) && !lobby.started){
       lobby.started=true;
+      lobby.time=300;
+      resetMachines();
       assignRoles();
       io.emit("gameStart",{players:lobby.players,machines:lobby.machines});
       startLoop();
@@ -91,7 +94,8 @@ io.on("connection",socket=>{
   socket.on("move",({x,y})=>{
     const p=lobby.players.find(p=>p.id===socket.id);
     if(p && p.alive && !lobby.meeting){
-      p.x=x; p.y=y;
+      p.x=x; 
+      p.y=y;
     }
   });
 
@@ -115,4 +119,4 @@ function startLoop(){
   },1000);
 }
 
-server.listen(PORT,()=>console.log("🚀 http://localhost:"+PORT));
+server.listen(PORT,()=>console.log("🚀 Server:",PORT));
