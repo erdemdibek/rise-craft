@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
+<title>HAİN</title>
+<style>
+html,body{margin:0;background:#000;color:#fff;overflow:hidden;font-family:Arial}
+canvas{display:block}
+#fs{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:#000;z-index:99}
+#ui{position:absolute;top:10px;left:10px;z-index:10}
+#panel{position:absolute;bottom:0;width:100%;background:#000c;padding:10px}
+button,input{font-size:16px;margin:4px}
+</style>
+</head>
+<body>
+
+<div id="fs">
+  <button onclick="startFS()">▶ OYUNA GİR</button>
+</div>
+
+<div id="ui" style="display:none">
+<input id="name" placeholder="İsim">
+<input id="room" placeholder="Oda Kodu">
+<button onclick="createRoom()">Oda Oluştur</button>
+<button onclick="joinRoom()">Katıl</button>
+<button onclick="startGame()">Başlat</button>
+</div>
+
+<canvas id="game"></canvas>
+<div id="panel"></div>
+
+<script src="/socket.io/socket.io.js"></script>
+<script>
+const socket=io();
+const c=document.getElementById("game");
+const ctx=c.getContext("2d");
+c.width=innerWidth;c.height=innerHeight;
+
+const WORLD={w:2600,h:1600};
+let cam={x:0,y:0};
+let room=null,me=null,players={},role=null,time=0,sabotage=null;
+
+const machines=[
+"Fette 1200","Fette 3200","Korsch XT600","Kilian KTP 720",
+"Bosch GKF 701","Kilian RTS","IMA Comprima",
+"Manesty","Sejong","Romaco"
+].map((n,i)=>({n,x:300+(i%5)*450,y:300+Math.floor(i/5)*600}));
+
+function startFS(){
+ document.documentElement.requestFullscreen();
+ screen.orientation.lock("landscape");
+ document.getElementById("fs").style.display="none";
+ document.getElementById("ui").style.display="block";
+ resize();
+}
+addEventListener("resize",resize);
+function resize(){c.width=innerWidth;c.height=innerHeight}
+
+function createRoom(){
+ fetch("/oda-olustur").then(r=>r.json()).then(d=>{
+   document.getElementById("room").value=d.code;
+ });
+}
+function joinRoom(){
+ room=document.getElementById("room").value;
+ socket.emit("join",{room,name:document.getElementById("name").value});
+}
+function startGame(){socket.emit("start",room)}
+
+document.addEventListener("touchstart",e=>{
+ if(!me)return;
+ let t=e.touches[0];
+ me.x+=t.clientX>c.width/2?50:-50;
+ me.y+=t.clientY>c.height/2?50:-50;
+ clamp();
+ socket.emit("move",{room,x:me.x,y:me.y});
+});
+
+function clamp(){
+ me.x=Math.max(20,Math.min(me.x,WORLD.w-20));
+ me.y=Math.max(20,Math.min(me.y,WORLD.h-20));
+}
+
+socket.on("state",r=>{
+ players=r.players;
+ me=players[socket.id];
+});
+socket.on("role",r=>{role=r;alert("ROL: "+r)});
+socket.on("time",t=>time=t);
+socket.on("sabotage",s=>{sabotage=s});
+
+function draw(){
+ if(me){cam.x=me.x-c.width/2;cam.y=me.y-c.height/2;}
+ ctx.clearRect(0,0,c.width,c.height);
+
+ ctx.fillStyle="#111";
+ ctx.fillRect(-cam.x,-cam.y,WORLD.w,WORLD.h);
+
+ machines.forEach(m=>{
+  ctx.fillStyle="#333";
+  ctx.fillRect(m.x-60-cam.x,m.y-40-cam.y,120,80);
+  ctx.fillStyle="#0f0";
+  ctx.fillText(m.n,m.x-60-cam.x,m.y-50-cam.y);
+ });
+
+ Object.values(players).forEach(p=>{
+  ctx.beginPath();
+  ctx.arc(p.x-cam.x,p.y-cam.y,18,0,7);
+  ctx.fillStyle=p.color;
+  ctx.fill();
+  ctx.fillText(p.name,p.x-20-cam.x,p.y-25-cam.y);
+ });
+
+ ctx.fillText("⏱ "+time,20,20);
+ if(sabotage) ctx.fillText("⚠ "+sabotage,200,20);
+
+ requestAnimationFrame(draw);
+}
+draw();
+</script>
+</body>
+</html>
