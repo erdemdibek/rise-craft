@@ -62,7 +62,6 @@ canvas{display:block}
   <button id="joinBtn">Lobiye Katıl</button>
   <button id="readyBtn" style="display:none">Hazır</button>
   <div id="role"></div>
-  <div id="actions"></div>
 </div>
 
 <canvas id="game"></canvas>
@@ -73,24 +72,29 @@ canvas{display:block}
 
 <script src="/socket.io/socket.io.js"></script>
 <script>
-/* ================= SOCKET ================= */
 const socket = io();
 
-/* ================= FULLSCREEN ================= */
+const canvas = document.getElementById("game");
+const ctx = canvas.getContext("2d");
+
+let me = null;
+let players = {};
+let machines = [];
+let joined = false;
+let meeting = false;
+let myRole = null;
+
+/* ---------- FULLSCREEN ---------- */
 function goFullscreen(){
   const el=document.documentElement;
   if(el.requestFullscreen) el.requestFullscreen();
-  else if(el.webkitRequestFullscreen) el.webkitRequestFullscreen();
+  if(screen.orientation?.lock){
+    screen.orientation.lock("landscape").catch(()=>{});
+  }
 }
-function ensureLandscape(){
-  if(innerWidth>innerHeight) goFullscreen();
-}
-addEventListener("orientationchange",()=>setTimeout(ensureLandscape,300));
-addEventListener("click",ensureLandscape);
+document.addEventListener("click",goFullscreen,{once:true});
 
-/* ================= CANVAS ================= */
-const canvas=game;
-const ctx=canvas.getContext("2d");
+/* ---------- CANVAS ---------- */
 function resize(){
   canvas.width=innerWidth;
   canvas.height=innerHeight;
@@ -98,37 +102,33 @@ function resize(){
 addEventListener("resize",resize);
 resize();
 
-/* ================= STATE ================= */
-let me=null, players={}, machines=[];
-let cam={x:0,y:0};
-let meeting=false;
-let myRole=null;
-
-/* ================= UI ================= */
+/* ---------- JOIN ---------- */
 joinBtn.onclick=()=>{
   const n=name.value.trim();
   if(!n) return alert("İsim gir");
-
-  socket.emit("joinLobby",{name:n},res=>{
-    if(res?.error) return alert(res.error);
-    joinBtn.style.display="none";
-    name.style.display="none";
-    readyBtn.style.display="inline-block";
-    ensureLandscape();
-  });
+  socket.emit("joinLobby",{name:n});
 };
 
+/* ---------- READY ---------- */
 readyBtn.onclick=()=>{
   socket.emit("playerReady");
   readyBtn.disabled=true;
 };
 
-/* ================= SOCKET EVENTS ================= */
+/* ---------- SOCKET EVENTS ---------- */
 socket.on("lobbyUpdate",d=>{
   players={};
   d.players.forEach(p=>players[p.id]=p);
   machines=d.machines;
   me=players[socket.id];
+
+  if(me && !joined){
+    joined=true;
+    name.style.display="none";
+    joinBtn.style.display="none";
+    readyBtn.style.display="inline-block";
+    goFullscreen();
+  }
 });
 
 socket.on("rolesAssigned",list=>{
@@ -140,10 +140,6 @@ socket.on("rolesAssigned",list=>{
 });
 
 socket.on("gameStart",d=>{
-  players={};
-  d.players.forEach(p=>players[p.id]=p);
-  machines=d.machines;
-  me=players[socket.id];
   joystick.style.display="block";
 });
 
@@ -153,33 +149,8 @@ socket.on("state",d=>{
   me=players[socket.id];
 });
 
-socket.on("machinesUpdated",m=>machines=m);
-
-socket.on("playerKilled",id=>{
-  if(players[id]) players[id].alive=false;
-});
-
 socket.on("meeting",()=>{
   meeting=true;
-  openMeeting();
-});
-
-socket.on("meetingEnd",()=>{
-  meeting=false;
-  overlay.style.display="none";
-});
-
-socket.on("playerEjected",id=>{
-  if(players[id]) players[id].alive=false;
-});
-
-socket.on("gameEnd",msg=>{
-  alert(msg);
-  location.reload();
-});
-
-/* ================= MEETING ================= */
-function openMeeting(){
   overlay.innerHTML="<h2>ACİL TOPLANTI</h2>";
   Object.values(players).filter(p=>p.alive).forEach(p=>{
     if(p.id!==socket.id){
@@ -190,44 +161,43 @@ function openMeeting(){
     }
   });
   overlay.style.display="flex";
-}
+});
 
-/* ================= GAME LOOP ================= */
-function clamp(){
-  if(!me) return;
-  me.x=Math.max(20,Math.min(2000-20,me.x));
-  me.y=Math.max(20,Math.min(1200-20,me.y));
-}
+socket.on("meetingEnd",()=>{
+  meeting=false;
+  overlay.style.display="none";
+});
 
+socket.on("gameEnd",msg=>{
+  alert(msg);
+  location.reload();
+});
+
+/* ---------- DRAW ---------- */
 function draw(){
-  if(me){
-    cam.x=Math.max(0,Math.min(2000-canvas.width,me.x-canvas.width/2));
-    cam.y=Math.max(0,Math.min(1200-canvas.height,me.y-canvas.height/2));
-  }
-
   ctx.clearRect(0,0,canvas.width,canvas.height);
   ctx.fillStyle="#222";
-  ctx.fillRect(-cam.x,-cam.y,2000,1200);
+  ctx.fillRect(0,0,2000,1200);
 
   machines.forEach(m=>{
     ctx.fillStyle=m.broken?"#800":"#555";
-    ctx.fillRect(m.x-40-cam.x,m.y-25-cam.y,80,50);
+    ctx.fillRect(m.x-40,m.y-25,80,50);
   });
 
   Object.values(players).forEach(p=>{
     if(!p.alive) return;
     ctx.beginPath();
-    ctx.arc(p.x-cam.x,p.y-cam.y,20,0,Math.PI*2);
+    ctx.arc(p.x,p.y,20,0,Math.PI*2);
     ctx.fillStyle=p.color;
     ctx.fill();
-    ctx.fillText(p.name,p.x-15-cam.x,p.y-25-cam.y);
+    ctx.fillText(p.name,p.x-15,p.y-25);
   });
 
   requestAnimationFrame(draw);
 }
 draw();
 
-/* ================= JOYSTICK ================= */
+/* ---------- JOYSTICK ---------- */
 let joy=false,jx=0,jy=0,sx=0,sy=0;
 joystick.addEventListener("touchstart",e=>{
   joy=true;
@@ -249,9 +219,8 @@ joystick.addEventListener("touchend",()=>{
 
 setInterval(()=>{
   if(!me||meeting) return;
-  me.x+=jx*0.08;
-  me.y+=jy*0.08;
-  clamp();
+  me.x+=jx*0.1;
+  me.y+=jy*0.1;
   socket.emit("move",{x:me.x,y:me.y});
 },50);
 </script>
