@@ -73,7 +73,6 @@ io.on("connection",socket=>{
 
   socket.on("joinLobby",({name},cb)=>{
     if(!name || !name.trim()) return cb({error:"İsim boş olamaz"});
-
     if(lobby.players.find(p=>p.id===socket.id)) return cb({success:true});
 
     lobby.players.push({
@@ -111,10 +110,7 @@ io.on("connection",socket=>{
 
   socket.on("move",({x,y})=>{
     const p=lobby.players.find(p=>p.id===socket.id);
-    if(p && p.alive && !lobby.meeting){
-      p.x=x;
-      p.y=y;
-    }
+    if(p && p.alive && !lobby.meeting){ p.x=x; p.y=y; }
   });
 
   /* MACHINE ACTIONS */
