@@ -39,6 +39,7 @@ let machines = [];
 let role = null;
 let time = 300;
 let sabotage = null;
+let cam = {x:0,y:0};
 
 let moveX = 0, moveY = 0;
 
@@ -61,11 +62,13 @@ document.getElementById("readyBtn").onclick = ()=>{
 };
 
 socket.on("lobbyUpdate",data=>{
-  players=data.players.reduce((a,c)=>{a[c.id]=c; return a;},{});
+  players={};
+  data.players.forEach(p=>players[p.id]=p);
+  machines=data.machines;
 });
 
 socket.on("gameStart",data=>{
-  players=data.players;
+  data.players.forEach(p=>players[p.id]=p);
   machines=data.machines;
   me = players[socket.id];
   joystick.style.display="block";
@@ -73,19 +76,11 @@ socket.on("gameStart",data=>{
 });
 
 socket.on("state",data=>{
-  players=data.players;
+  data.players.forEach(p=>players[p.id]=p);
   sabotage=data.sabotage;
   time=data.time;
   me = players[socket.id];
 });
-
-socket.on("sabotage",s=>{
-  sabotage=s;
-  if(s) panel.innerHTML="⚠️ Sabotaj başladı!";
-  else panel.innerHTML="";
-});
-
-socket.on("time",t=>time=t);
 
 socket.on("gameEnd",msg=>{
   alert(msg);
@@ -94,30 +89,32 @@ socket.on("gameEnd",msg=>{
   me=null;
 });
 
+// DRAW
 function draw(){
+  if(me){ cam.x = me.x - canvas.width/2; cam.y = me.y - canvas.height/2; }
   ctx.clearRect(0,0,canvas.width,canvas.height);
+
   // Harita
   ctx.fillStyle="#222";
-  ctx.fillRect(0,0,canvas.width,canvas.height);
+  ctx.fillRect(-cam.x,-cam.y,2000,1200);
 
   // Makineler
   machines.forEach(m=>{
     ctx.fillStyle="#666";
-    ctx.fillRect(m.x-50,m.y-30,100,60);
+    ctx.fillRect(m.x-50-cam.x,m.y-30-cam.y,100,60);
     ctx.fillStyle="#0f0";
-    ctx.fillText(m.name||m.n,m.x-40,m.y-40);
+    ctx.fillText(m.name,m.x-40-cam.x,m.y-40-cam.y);
   });
 
   // Oyuncular
   Object.values(players).forEach(p=>{
     ctx.beginPath();
-    ctx.arc(p.x,p.y,20,0,2*Math.PI);
+    ctx.arc(p.x-cam.x,p.y-cam.y,20,0,2*Math.PI);
     ctx.fillStyle=p.color||"#f00";
     ctx.fill();
-    ctx.fillText(p.name,p.x-20,p.y-30);
+    ctx.fillText(p.name,p.x-20-cam.x,p.y-30-cam.y);
   });
 
-  // Zaman ve sabotaj
   ctx.fillStyle="#fff";
   ctx.fillText("⏱ "+time,20,30);
   if(sabotage) ctx.fillText("⚠️ "+sabotage,200,30);
