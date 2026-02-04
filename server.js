@@ -8,12 +8,7 @@ const io = new Server(server);
 
 app.use(express.static("public"));
 
-/* === OYUN VERİLERİ === */
-
-const rooms = {};
-
-/* MAKİNELER – SENİN LİSTEN */
-const MACHINES = [
+const MAKINELER = [
   "Fette 1200",
   "Fette 2200",
   "Kilian KTP 720",
@@ -26,110 +21,102 @@ const MACHINES = [
   "Fette 2100"
 ];
 
-const SABOTAGES = [
-  "Depakin yapıştı",
-  "Xatral leke var",
-  "Gramaj yüksek",
-  "Gramaj düşük",
-  "Fıçı taştı",
-  "Tablet kırık",
-  "Hat düştü",
-  "Tartım unutuldu"
-];
+const odalar = {};
 
-/* === ODA OLUŞTUR === */
 app.get("/oda-olustur", (req, res) => {
-  const code = Math.random().toString(36).substring(2, 7).toUpperCase();
-  rooms[code] = {
-    players: {},
-    started: false,
-    time: 300,
-    sabotage: null
+  const kod = Math.random().toString(36).substring(2,6).toUpperCase();
+  odalar[kod] = {
+    kod,
+    oyuncular: {},
+    basladi: false,
+    hain: null,
+    sure: 300,
+    sabotaj: null,
+    gorevler: {}
   };
-  res.json({ code });
+  res.json({ odaKodu: kod });
 });
-
-/* === SOCKET === */
 
 io.on("connection", socket => {
 
-  socket.on("join", ({ room, name }) => {
-    if (!rooms[room]) return;
+  socket.on("oda-katil", ({ odaKodu, isim }) => {
+    const oda = odalar[odaKodu];
+    if (!oda) return;
 
-    rooms[room].players[socket.id] = {
+    oda.oyuncular[socket.id] = {
       id: socket.id,
-      name: name || "İsimsiz",
-      x: 200 + Math.random() * 300,
-      y: 200 + Math.random() * 300,
-      color: "#" + Math.floor(Math.random()*16777215).toString(16),
-      role: "WORKER"
+      isim,
+      x: 400,
+      y: 400,
+      renk: `hsl(${Math.random()*360},70%,50%)`
     };
 
-    socket.join(room);
-    io.to(room).emit("state", rooms[room]);
+    socket.join(odaKodu);
+    io.to(odaKodu).emit("state", oda);
   });
 
-  socket.on("move", ({ room, x, y }) => {
-    if (!rooms[room]) return;
-    if (!rooms[room].players[socket.id]) return;
-    rooms[room].players[socket.id].x = x;
-    rooms[room].players[socket.id].y = y;
-    io.to(room).emit("state", rooms[room]);
-  });
+  socket.on("oyunu-baslat", odaKodu => {
+    const oda = odalar[odaKodu];
+    if (!oda || oda.basladi) return;
 
-  socket.on("start", room => {
-    if (!rooms[room] || rooms[room].started) return;
-    rooms[room].started = true;
+    oda.basladi = true;
+    const ids = Object.keys(oda.oyuncular);
+    oda.hain = ids[Math.floor(Math.random()*ids.length)];
 
-    const ids = Object.keys(rooms[room].players);
-    const hain = ids[Math.floor(Math.random() * ids.length)];
-    rooms[room].players[hain].role = "HAIN";
-
-    ids.forEach(id => {
-      io.to(id).emit("role", rooms[room].players[id].role);
+    ids.forEach(id=>{
+      if(id!==oda.hain){
+        oda.gorevler[id] = false;
+        io.to(id).emit("rol","CALISAN");
+      } else {
+        io.to(id).emit("rol","HAIN");
+      }
     });
 
-    /* ZAMAN */
-    const timer = setInterval(() => {
-      if (!rooms[room]) return clearInterval(timer);
-
-      rooms[room].time--;
-      io.to(room).emit("time", rooms[room].time);
-
-      if (rooms[room].time <= 0) {
-        io.to(room).emit("end", "⏱️ Süre bitti!");
+    const timer = setInterval(()=>{
+      oda.sure--;
+      io.to(odaKodu).emit("sure", oda.sure);
+      if(oda.sure<=0){
         clearInterval(timer);
+        io.to(odaKodu).emit("oyun-bitti","⏱️ SÜRE BİTTİ – HAİN KAZANDI");
       }
-    }, 1000);
+    },1000);
   });
 
-  socket.on("sabotage", room => {
-    if (!rooms[room]) return;
-    const p = rooms[room].players[socket.id];
-    if (!p || p.role !== "HAIN") return;
-
-    const s = SABOTAGES[Math.floor(Math.random() * SABOTAGES.length)];
-    rooms[room].sabotage = s;
-    io.to(room).emit("sabotage", s);
+  socket.on("hareket", ({ odaKodu, x, y }) => {
+    const oda = odalar[odaKodu];
+    if(!oda || !oda.oyuncular[socket.id]) return;
+    oda.oyuncular[socket.id].x=x;
+    oda.oyuncular[socket.id].y=y;
+    io.to(odaKodu).emit("state", oda);
   });
 
-  socket.on("fix", room => {
-    if (!rooms[room]) return;
-    rooms[room].sabotage = null;
-    io.to(room).emit("fix");
-  });
+  socket.on("gorev", odaKodu => {
+    const oda = odalar[odaKodu];
+    if(!oda || socket.id===oda.hain) return;
 
-  socket.on("disconnect", () => {
-    for (const r in rooms) {
-      delete rooms[r].players[socket.id];
-      io.to(r).emit("state", rooms[r]);
+    oda.gorevler[socket.id]=true;
+    const bitti = Object.values(oda.gorevler).every(v=>v);
+    if(bitti){
+      io.to(odaKodu).emit("oyun-bitti","🟢 TÜM GÖREVLER TAMAMLANDI");
     }
+  });
+
+  socket.on("sabotaj", odaKodu => {
+    const oda = odalar[odaKodu];
+    if(!oda || socket.id!==oda.hain) return;
+    oda.sabotaj="Makine arızası!";
+    io.to(odaKodu).emit("sabotaj", oda.sabotaj);
+  });
+
+  socket.on("sabotaj-coz", odaKodu => {
+    const oda = odalar[odaKodu];
+    if(!oda) return;
+    oda.sabotaj=null;
+    io.to(odaKodu).emit("sabotaj-bitti");
   });
 
 });
 
-/* === SERVER === */
-const PORT = process.env.PORT || 3000;
-server.listen(PORT, () =>
-  console.log("HAİN server çalışıyor →", PORT)
-);
+server.listen(process.env.PORT||3000,()=>{
+  console.log("HAİN OYUNU ÇALIŞIYOR");
+});
