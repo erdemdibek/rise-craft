@@ -2,53 +2,228 @@
 <html>
 <head>
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
-<title>HAİN 3D LOBBY</title>
+<title>HAİN</title>
+
 <style>
-html,body{margin:0;background:#111;color:white;overflow:hidden;font-family:Arial}
-#ui{position:absolute;top:10px;left:10px;z-index:9}
-#panel{position:absolute;bottom:0;width:100%;background:#000c;padding:10px}
-button,input{font-size:16px;margin:3px}
+html,body{
+  margin:0;
+  background:#111;
+  color:#fff;
+  overflow:hidden;
+  font-family:Arial;
+}
+#ui{
+  position:absolute;
+  top:10px;left:10px;
+  z-index:10;
+}
+button,input{
+  font-size:16px;
+  margin:3px;
+}
 canvas{display:block}
 
-#joystick{position:absolute;bottom:80px;left:30px;width:120px;height:120px;border-radius:50%;background:#2227;display:none;touch-action:none;z-index:5;}
-#joystickThumb{position:absolute;width:50px;height:50px;background:#0f07;border-radius:50%;top:35px;left:35px;}
-
-#rotateLock{position:fixed;inset:0;background:#000;display:none;align-items:center;justify-content:center;text-align:center;z-index:999;}
-
-#gameUI{position:absolute;top:10px;right:10px;z-index:9;}
-#gameUI button{display:block;margin:5px;}
-#meetingUI{position:absolute;inset:0;background:#000c;display:none;align-items:center;justify-content:center;flex-direction:column;z-index:999;text-align:center;}
+#overlay{
+  position:fixed;
+  inset:0;
+  background:#000d;
+  display:none;
+  align-items:center;
+  justify-content:center;
+  z-index:99;
+  text-align:center;
+}
 </style>
 </head>
+
 <body>
 
-<div id="rotateLock"><h2>📱 Telefonu YATAY çevir</h2></div>
+<div id="overlay"></div>
 
 <div id="ui">
   <input id="name" placeholder="İsmin">
   <button id="joinBtn">Lobiye Katıl</button>
   <button id="readyBtn">Hazır</button>
-</div>
-
-<div id="gameUI">
-  <button id="killBtn" style="display:none;">Kill</button>
-  <button id="repairBtn" style="display:none;">Repair</button>
-  <button id="emergencyBtn">Acil Toplantı</button>
+  <div id="role"></div>
+  <div id="actions"></div>
 </div>
 
 <canvas id="game"></canvas>
 
-<div id="panel"></div>
-
-<div id="joystick"><div id="joystickThumb"></div></div>
-
-<div id="meetingUI">
-  <h2>🗳 Oylama</h2>
-  <div id="votesContainer"></div>
-  <button id="voteSkip">Skip</button>
-</div>
-
 <script src="/socket.io/socket.io.js"></script>
-<script src="client.js"></script>
+<script>
+/* ===================== AYARLAR ===================== */
+const MAP_W = 2000, MAP_H = 1200;
+const SPEED = 3;
+const KILL_RANGE = 60;
+
+/* ===================== SOCKET ===================== */
+const socket = io();
+
+/* ===================== CANVAS ===================== */
+const canvas = document.getElementById("game");
+const ctx = canvas.getContext("2d");
+function resize(){
+  canvas.width=innerWidth;
+  canvas.height=innerHeight;
+}
+addEventListener("resize",resize);
+resize();
+
+/* ===================== STATE ===================== */
+let me=null;
+let players={};
+let machines=[];
+let cam={x:0,y:0};
+let time=300;
+let meeting=false;
+let myRole=null;
+
+/* ===================== UI ===================== */
+joinBtn.onclick=()=>{
+  const name=nameInput.value||name.value;
+  if(!name) return alert("İsim gir");
+  socket.emit("joinLobby",{name});
+};
+readyBtn.onclick=()=>socket.emit("playerReady");
+
+/* ===================== SOCKET EVENTS ===================== */
+socket.on("lobbyUpdate",d=>{
+  players={};
+  d.players.forEach(p=>players[p.id]=p);
+  machines=d.machines;
+  if(players[socket.id]) me=players[socket.id];
+});
+
+socket.on("rolesAssigned",list=>{
+  const r=list.find(x=>x.id===socket.id);
+  if(r){
+    myRole=r.role;
+    role.innerText="ROL: "+r.role;
+  }
+});
+
+socket.on("gameStart",d=>{
+  d.players.forEach(p=>players[p.id]=p);
+  machines=d.machines;
+  me=players[socket.id];
+});
+
+socket.on("state",d=>{
+  d.players.forEach(p=>players[p.id]=p);
+  time=d.time;
+  me=players[socket.id];
+});
+
+socket.on("machinesUpdated",m=>machines=m);
+
+socket.on("playerKilled",id=>{
+  if(players[id]) players[id].alive=false;
+});
+
+socket.on("meeting",()=>{
+  meeting=true;
+  openMeeting();
+});
+
+socket.on("meetingEnd",()=>{
+  meeting=false;
+  overlay.style.display="none";
+});
+
+socket.on("playerEjected",id=>{
+  if(players[id]) players[id].alive=false;
+});
+
+/* ===================== MEETING ===================== */
+function openMeeting(){
+  overlay.innerHTML="<h2>ACİL TOPLANTI</h2>";
+  Object.values(players).filter(p=>p.alive).forEach(p=>{
+    if(p.id!==socket.id){
+      const b=document.createElement("button");
+      b.innerText=p.name;
+      b.onclick=()=>socket.emit("vote",{voteFor:p.id});
+      overlay.appendChild(b);
+    }
+  });
+  overlay.style.display="flex";
+}
+
+/* ===================== GAME LOOP ===================== */
+function clamp(){
+  me.x=Math.max(20,Math.min(MAP_W-20,me.x));
+  me.y=Math.max(20,Math.min(MAP_H-20,me.y));
+}
+
+function draw(){
+  if(me){
+    cam.x=Math.max(0,Math.min(MAP_W-canvas.width,me.x-canvas.width/2));
+    cam.y=Math.max(0,Math.min(MAP_H-canvas.height,me.y-canvas.height/2));
+  }
+
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+
+  ctx.fillStyle="#222";
+  ctx.fillRect(-cam.x,-cam.y,MAP_W,MAP_H);
+
+  machines.forEach(m=>{
+    ctx.fillStyle=m.broken?"#800":"#555";
+    ctx.fillRect(m.x-40-cam.x,m.y-25-cam.y,80,50);
+  });
+
+  Object.values(players).forEach(p=>{
+    if(!p.alive) return;
+    ctx.beginPath();
+    ctx.arc(p.x-cam.x,p.y-cam.y,20,0,Math.PI*2);
+    ctx.fillStyle=p.color;
+    ctx.fill();
+    ctx.fillText(p.name,p.x-15-cam.x,p.y-25-cam.y);
+  });
+
+  ctx.fillStyle="#fff";
+  ctx.fillText("⏱ "+time,20,30);
+
+  requestAnimationFrame(draw);
+}
+draw();
+
+/* ===================== CONTROLS ===================== */
+addEventListener("keydown",e=>{
+  if(!me||!me.alive||meeting) return;
+  if(e.key==="w") me.y-=SPEED;
+  if(e.key==="s") me.y+=SPEED;
+  if(e.key==="a") me.x-=SPEED;
+  if(e.key==="d") me.x+=SPEED;
+  clamp();
+  socket.emit("move",{x:me.x,y:me.y});
+});
+
+/* ===================== ACTIONS (HAİN) ===================== */
+setInterval(()=>{
+  if(!me||myRole!=="Hain"||meeting) return;
+
+  let html="";
+  Object.values(players).forEach(p=>{
+    if(p.id!==me.id && p.alive){
+      const dx=p.x-me.x, dy=p.y-me.y;
+      if(Math.hypot(dx,dy)<KILL_RANGE){
+        html+=`<button onclick="kill('${p.id}')">🔪 ${p.name}</button>`;
+      }
+    }
+  });
+
+  machines.forEach((m,i)=>{
+    const dx=m.x-me.x, dy=m.y-me.y;
+    if(Math.hypot(dx,dy)<70 && !m.broken){
+      html+=`<button onclick="sabotage(${i})">⚠️ Sabotaj</button>`;
+    }
+  });
+
+  actions.innerHTML=html;
+},300);
+
+window.kill=id=>socket.emit("action",{type:"kill",targetId:id});
+window.sabotage=i=>socket.emit("action",{type:"breakMachine",machineIndex:i});
+</script>
 </body>
 </html>
