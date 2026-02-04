@@ -1,126 +1,180 @@
 <!DOCTYPE html>
-<html>
+<html lang="tr">
 <head>
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<title>HAİN</title>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<title>HAİN 3D FULL</title>
 <style>
-html,body{margin:0;background:#000;color:#fff;overflow:hidden;font-family:Arial}
-#ui{position:absolute;top:10px;left:10px;z-index:5}
-#panel{position:absolute;bottom:0;width:100%;background:#000c;padding:10px}
-#joy{position:absolute;bottom:80px;left:30px;width:100px;height:100px;border-radius:50%;background:#333}
-#stick{width:40px;height:40px;border-radius:50%;background:#999;position:absolute;left:30px;top:30px}
-canvas{display:block}
-button,input{font-size:16px;margin:4px}
+html, body {margin:0; padding:0; overflow:hidden; background:#000; color:#fff; font-family:Arial;}
+#fsOverlay {position:fixed; inset:0; display:flex; justify-content:center; align-items:center; background:#000; z-index:999;}
+#ui {position:absolute; top:10px; left:10px; z-index:10; display:none;}
+#panel {position:absolute; bottom:0; width:100%; background:#000c; padding:10px; z-index:9;}
+canvas {display:block;}
+button,input {font-size:16px; margin:3px;}
 </style>
 </head>
 <body>
 
+<div id="fsOverlay">
+  <button onclick="goFullscreen()">▶ TAM EKRAN BAŞLAT</button>
+</div>
+
 <div id="ui">
-<input id="name" placeholder="İsmin">
-<button onclick="join()">Lobiye Gir</button>
-<button onclick="start()">Oyunu Başlat</button>
+  <input id="name" placeholder="İsmin">
+  <button onclick="joinLobby()">Lobiye Katıl</button>
+  <button onclick="startGame()">Oyunu Başlat</button>
 </div>
 
 <canvas id="game"></canvas>
 <div id="panel"></div>
 
-<div id="joy"><div id="stick"></div></div>
-
 <script src="/socket.io/socket.io.js"></script>
 <script>
 const socket = io();
-const c = game;
-const ctx = c.getContext("2d");
-c.width = innerWidth;
-c.height = innerHeight;
+const canvas = document.getElementById("game");
+const ctx = canvas.getContext("2d");
+canvas.width = window.innerWidth;
+canvas.height = window.innerHeight;
 
-let players={}, me=null, role=null, cam={x:0,y:0};
-const WORLD={w:2400,h:1600};
+// Kamera ve harita
+let cam = {x:0, y:0};
+const WORLD = {w:2000, h:1400};
 
-const machines = Array.from({length:10}).map((_,i)=>({
-  x:400+(i%5)*350,
-  y:400+Math.floor(i/5)*400,
-  name:"Makine "+(i+1)
-}));
+// Oyun verileri
+let players = {}, me=null, role=null, sabotage=null, time=0;
+let inLobby = false;
 
-function join(){
-  socket.emit("joinLobby",{name:name.value});
+// Makine listesi (10 makine)
+const machines = [
+  {n:"Fette 1200", x:300, y:200},
+  {n:"Fette 2200", x:700, y:200},
+  {n:"Kilian KTP 720", x:1100, y:200},
+  {n:"Korsch XL 400", x:1500, y:200},
+  {n:"Bosch GKF 701", x:300, y:600},
+  {n:"Fette 3200", x:700, y:600},
+  {n:"Korsch XT600", x:1100, y:600},
+  {n:"Fette Fe55", x:1500, y:600},
+  {n:"Sejong", x:600, y:1000},
+  {n:"Fette 2100", x:1200, y:1000}
+];
+
+// TAM EKRAN & YATAY
+function goFullscreen() {
+  document.documentElement.requestFullscreen();
+  screen.orientation.lock("landscape").catch(()=>{});
+  fsOverlay.style.display = "none";
+  ui.style.display = "block";
 }
 
-function start(){
+// Lobiye katıl
+function joinLobby(){
+  const username = name.value.trim();
+  if(!username){alert("İsim girin"); return;}
+  socket.emit("joinLobby", {username});
+  inLobby = true;
+}
+
+// Oyun başlat
+function startGame(){
+  if(!inLobby){alert("Önce lobiye katılın"); return;}
   socket.emit("startGame");
 }
 
-socket.on("lobbyUpdate", p=>{
-  players=p;
-  me=players[socket.id];
+// Hareket joystick / WASD
+document.addEventListener("keydown", e=>{
+  if(!me) return;
+  const step = 10;
+  if(e.key==="w") me.y -= step;
+  if(e.key==="s") me.y += step;
+  if(e.key==="a") me.x -= step;
+  if(e.key==="d") me.x += step;
+  clampMe();
+  socket.emit("move", {x: me.x, y: me.y});
 });
 
-socket.on("players", p=>{
-  players=p;
-  me=players[socket.id];
+function clampMe(){
+  if(!me) return;
+  me.x = Math.max(20, Math.min(me.x, WORLD.w-20));
+  me.y = Math.max(20, Math.min(me.y, WORLD.h-20));
+}
+
+// Görev tuşları
+document.addEventListener("keydown", e=>{
+  if(e.key==="e"){
+    const m = machines.find(m=>Math.hypot(me.x-m.x, me.y-m.y)<80);
+    if(m) panel.innerHTML = `🔧 ${m.n}<br><button onclick="doTask()">Görev Yap</button>`;
+  }
+  if(e.key==="s" && role==="HAIN") socket.emit("startSabotage");
+  if(e.key==="f") socket.emit("fixSabotage");
 });
 
-socket.on("role", r=>{
-  role=r;
-  alert("ROL: "+r);
+function doTask(){
+  panel.innerHTML = "🛠️ Görev yapılıyor...";
+  setTimeout(()=>{
+    socket.emit("completeTask");
+    panel.innerHTML="";
+  },1500);
+}
+
+// Socket.io olayları
+socket.on("lobbyUpdate", data=>{
+  players = data.players;
+  me = players[socket.id];
 });
 
-socket.on("gameStart", ()=>{
-  panel.innerHTML="🎮 Oyun Başladı";
+socket.on("gameStart", data=>{
+  role = data.role;
+  alert("Oyun başladı! Rol: "+role);
 });
 
-socket.on("sabotage", s=>{
-  panel.innerHTML=s;
-  setTimeout(()=>panel.innerHTML="",2000);
+socket.on("moveUpdate", data=>{
+  players = data.players;
+  me = players[socket.id];
 });
 
+socket.on("sabotage", m=>{sabotage=m; alert("⚠️ Sabotaj başladı: "+m);});
+socket.on("fixSabotage", ()=>sabotage=null);
+socket.on("voteStart", ()=>panel.innerHTML="🗳️ Oylama başladı!");
+socket.on("gameEnd", m=>alert(m));
+
+// Çizim
 function draw(){
   if(me){
-    cam.x = me.x - c.width/2;
-    cam.y = me.y - c.height/2;
+    cam.x = me.x - canvas.width/2;
+    cam.y = me.y - canvas.height/2;
   }
+  ctx.clearRect(0,0,canvas.width, canvas.height);
 
-  ctx.clearRect(0,0,c.width,c.height);
+  // Arka plan
   ctx.fillStyle="#111";
   ctx.fillRect(-cam.x,-cam.y,WORLD.w,WORLD.h);
 
+  // Makineler
   machines.forEach(m=>{
-    ctx.fillStyle="#444";
-    ctx.fillRect(m.x-50-cam.x,m.y-30-cam.y,100,60);
+    ctx.fillStyle="#333";
+    ctx.fillRect(m.x-50-cam.x, m.y-30-cam.y, 100, 60);
     ctx.fillStyle="#0f0";
-    ctx.fillText(m.name,m.x-40-cam.x,m.y-40-cam.y);
+    ctx.fillText(m.n, m.x-50-cam.x, m.y-40-cam.y);
   });
 
+  // Oyuncular
   Object.values(players).forEach(p=>{
     ctx.beginPath();
-    ctx.arc(p.x-cam.x,p.y-cam.y,15,0,7);
-    ctx.fillStyle=p.color;
+    ctx.arc(p.x-cam.x, p.y-cam.y, 15, 0, Math.PI*2);
+    ctx.fillStyle = p.color || "#0af";
     ctx.fill();
-    ctx.fillText(p.name,p.x-20-cam.x,p.y-20-cam.y);
+    ctx.fillText(p.name||"Anonim", p.x-20-cam.x, p.y-20-cam.y);
   });
+
+  // Timer / sabotaj
+  ctx.fillStyle="#fff";
+  ctx.fillText("⏱ "+time, 20, 20);
+  if(sabotage) ctx.fillText("⚠️ "+sabotage, 200, 20);
 
   requestAnimationFrame(draw);
 }
 draw();
 
-// JOYSTICK
-let dragging=false;
-joy.addEventListener("touchstart",()=>dragging=true);
-joy.addEventListener("touchend",()=>{
-  dragging=false;
-  stick.style.left="30px";
-  stick.style.top="30px";
-});
-joy.addEventListener("touchmove",e=>{
-  if(!dragging||!me)return;
-  let t=e.touches[0];
-  let dx=t.clientX-joy.offsetLeft-50;
-  let dy=t.clientY-joy.offsetTop-50;
-  me.x+=dx*0.05;
-  me.y+=dy*0.05;
-  socket.emit("move",{x:me.x,y:me.y});
-});
 </script>
 </body>
 </html>
