@@ -9,132 +9,88 @@ const io = new Server(server);
 
 const PORT = process.env.PORT || 3000;
 
-// Sabit makineler
+app.use(express.static(path.join(__dirname, "public")));
+app.get("/", (_, res) =>
+  res.sendFile(path.join(__dirname, "public/index.html"))
+);
+
 const MACHINES = [
-  "Fette 1200", "Fette 2200", "Kilian KTP 720", "Korsch XL 400",
-  "Bosch GKF 701", "Fette 3200", "Korsch XT600", "Fette Fe55",
-  "Sejong", "Fette 2100"
+  "Fette 1200","Fette 2200","Kilian KTP 720","Korsch XL 400",
+  "Bosch GKF 701","Fette 3200","Korsch XT600","Fette Fe55",
+  "Sejong","Fette 2100"
 ];
 
-// GLOBAL STATE
 let players = {};
 let gameStarted = false;
-let activeSabotage = null;
-let timer = 300;
+let time = 300;
 
-// STATİK DOSYALAR
-app.use(express.static(path.join(__dirname, "public")));
-app.get("/", (req, res) => {
-  res.sendFile(path.join(__dirname, "public", "index.html"));
-});
-
-// OYUN FONKSİYONLARI
 function startGame() {
   gameStarted = true;
-  const activePlayers = Object.values(players);
 
-  // Hain seç
-  const h = activePlayers[Math.floor(Math.random() * activePlayers.length)];
-  activePlayers.forEach(p => {
-    p.role = p.id === h.id ? "HAIN" : "CALISAN";
+  const ids = Object.keys(players);
+  const hainId = ids[Math.floor(Math.random() * ids.length)];
+
+  ids.forEach(id => {
+    players[id].role = id === hainId ? "HAIN" : "CALISAN";
   });
 
-  io.emit("gameStart", {
-    players: activePlayers,
-    machines: MACHINES
-  });
+  io.emit("gameStart", { players, machines: MACHINES });
 
-  // Timer loop
   const interval = setInterval(() => {
-    timer--;
-    io.emit("timer", timer);
+    time--;
+    io.emit("timer", time);
 
-    if (timer <= 0 || activePlayers.every(p => p.role === "HAIN" || p.taskDone)) {
-      io.emit("gameOver", "⏱️ OYUN BİTTİ");
+    if (time <= 0) {
       clearInterval(interval);
       gameStarted = false;
-      timer = 300;
-      activeSabotage = null;
-      // Reset oyuncular
+      time = 300;
       Object.values(players).forEach(p => {
         p.ready = false;
-        p.taskDone = false;
         p.role = null;
       });
+      io.emit("gameOver");
     }
   }, 1000);
 }
 
-// SOCKET.IO
 io.on("connection", socket => {
-  console.log("Bağlanan:", socket.id);
-
-  // Lobiye giriş
   socket.on("joinLobby", name => {
+    if (!name) return;
+
     players[socket.id] = {
       id: socket.id,
       name,
-      ready: false,
-      role: null,
-      x: 300 + Math.random() * 400,
-      y: 300 + Math.random() * 300,
+      x: 600 + Math.random() * 200,
+      y: 400 + Math.random() * 200,
       color: `hsl(${Math.random()*360},70%,50%)`,
-      taskDone: false
+      ready: false,
+      role: null
     };
     io.emit("players", players);
   });
 
-  // Hazırım butonu
   socket.on("ready", () => {
     if (!players[socket.id] || gameStarted) return;
     players[socket.id].ready = true;
     io.emit("players", players);
 
-    const readyPlayers = Object.values(players).filter(p => p.ready);
-    if (readyPlayers.length >= 2) startGame();
+    const readyCount = Object.values(players).filter(p => p.ready).length;
+    if (readyCount >= 2) startGame();
   });
 
-  // Hareket
-  socket.on("move", ({x,y}) => {
+  socket.on("move", pos => {
     if (!players[socket.id] || !gameStarted) return;
-    players[socket.id].x = x;
-    players[socket.id].y = y;
+    players[socket.id].x = pos.x;
+    players[socket.id].y = pos.y;
     io.emit("players", players);
   });
 
-  // Mini görev tamamlandı
-  socket.on("taskDone", () => {
-    if (!players[socket.id] || !gameStarted) return;
-    players[socket.id].taskDone = true;
-    io.emit("players", players);
-  });
-
-  // Sabotaj başlat
-  socket.on("sabotage", () => {
-    if (!players[socket.id] || players[socket.id].role !== "HAIN") return;
-    activeSabotage = MACHINES[Math.floor(Math.random() * MACHINES.length)];
-    io.emit("sabotage", activeSabotage);
-  });
-
-  // Sabotaj çöz
-  socket.on("fix", () => {
-    activeSabotage = null;
-    io.emit("sabotageFix");
-  });
-
-  // Oylama başlat
-  socket.on("voteStart", () => {
-    io.emit("voteStart");
-  });
-
-  // Disconnect
   socket.on("disconnect", () => {
     delete players[socket.id];
     io.emit("players", players);
   });
 });
 
-// SERVER START
-server.listen(PORT, () => {
-  console.log(`Server çalışıyor: ${PORT}`);
-});
+server.listen(PORT, () =>
+  console.log("Server running on", PORT)
+);
