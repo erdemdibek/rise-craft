@@ -1,118 +1,116 @@
 <!DOCTYPE html>
 <html>
 <head>
-<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
 <title>HAİN</title>
 <style>
-html,body{margin:0;overflow:hidden;background:#000;color:#fff;font-family:Arial}
+html,body{margin:0;background:#000;color:#fff;overflow:hidden;font-family:sans-serif}
+#lobby,#panel{position:absolute;z-index:9;padding:10px}
+#lobby{top:10px;left:10px}
+#panel{bottom:0;width:100%;background:#000c}
 canvas{display:block}
-#ui{position:absolute;top:10px;left:10px;z-index:10}
-#lobby{background:#000c;padding:10px}
-#joystick{
- position:absolute;bottom:40px;left:40px;
- width:120px;height:120px;border-radius:50%;
- background:#222;border:2px solid #555;
-}
-#stick{
- width:50px;height:50px;border-radius:50%;
- background:#999;position:absolute;left:35px;top:35px;
-}
+#fs{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:#000}
+button,input{font-size:16px;margin:3px}
 </style>
 </head>
 <body>
 
-<div id="ui">
-  <div id="lobby">
-    <input id="name" placeholder="İsmin">
-    <button onclick="join()">Lobiye Gir</button>
-    <button onclick="ready()">Hazırım</button>
-    <div id="list"></div>
-  </div>
+<div id="fs">
+  <button onclick="goFS()">▶ TAM EKRAN BAŞLAT</button>
 </div>
 
-<div id="joystick"><div id="stick"></div></div>
+<div id="lobby" style="display:none">
+  <input id="name" placeholder="İsim">
+  <button onclick="joinLobby()">Lobiye Katıl</button>
+  <button onclick="startGame()">Hazırım / Başlat</button>
+  <button onclick="voteStart()">Oylama</button>
+</div>
+
 <canvas id="game"></canvas>
+<div id="panel"></div>
 
 <script src="/socket.io/socket.io.js"></script>
 <script>
 const socket = io();
-const c = game, ctx = c.getContext("2d");
-c.width = innerWidth; c.height = innerHeight;
+const canvas = game;
+const ctx = canvas.getContext("2d");
+canvas.width = innerWidth; canvas.height = innerHeight;
 
-let players={}, me=null, cam={x:0,y:0}, time=300;
+let players = {}, me=null, role=null, machines=[], sabotages={}, votes={}, time=0;
+let cam={x:0,y:0};
 
-const WORLD={w:2000,h:1400};
-
-const machines = [
-  "Fette 1200","Fette 2200","Kilian KTP 720","Korsch XL 400",
-  "Bosch GKF 701","Fette 3200","Korsch XT600","Fette Fe55",
-  "Sejong","Fette 2100"
-].map((n,i)=>({n,x:300+(i%5)*350,y:300+Math.floor(i/5)*400}));
-
-function join(){
-  socket.emit("joinLobby", name.value);
-}
-function ready(){
-  socket.emit("ready");
+function goFS(){
+  document.documentElement.requestFullscreen();
+  screen.orientation.lock("landscape");
+  fs.style.display="none";
+  lobby.style.display="block";
 }
 
-socket.on("players", p=>{
-  players=p;
-  me=players[socket.id];
-  list.innerHTML = Object.values(p).map(x=>x.name+" "+(x.ready?"✅":"")).join("<br>");
-});
-socket.on("gameStart",()=> lobby.style.display="none");
-socket.on("timer",t=>time=t);
+function joinLobby(){
+  const n=name.value;
+  if(!n) return alert("İsim girin");
+  socket.emit("joinLobby",{name:n});
+}
 
-// JOYSTICK
-let joy={x:0,y:0,active:false};
-joystick.addEventListener("touchstart",()=>joy.active=true);
-joystick.addEventListener("touchend",()=>{
-  joy.active=false; joy.x=joy.y=0;
-  stick.style.left="35px";stick.style.top="35px";
-});
-joystick.addEventListener("touchmove",e=>{
-  if(!joy.active||!me)return;
-  let t=e.touches[0];
-  let r=joystick.getBoundingClientRect();
-  let dx=t.clientX-(r.left+60);
-  let dy=t.clientY-(r.top+60);
-  let d=Math.min(40,Math.hypot(dx,dy));
-  let a=Math.atan2(dy,dx);
-  joy.x=Math.cos(a)*d;
-  joy.y=Math.sin(a)*d;
-  stick.style.left=35+joy.x+"px";
-  stick.style.top=35+joy.y+"px";
+function startGame(){ socket.emit("startGame"); }
+function voteStart(){ socket.emit("voteStart"); }
 
-  me.x+=joy.x*0.1;
-  me.y+=joy.y*0.1;
-  me.x=Math.max(20,Math.min(me.x,WORLD.w-20));
-  me.y=Math.max(20,Math.min(me.y,WORLD.h-20));
+document.addEventListener("keydown",e=>{
+  if(!me) return;
+  const step=5;
+  if(e.key==="w") me.y-=step;
+  if(e.key==="s") me.y+=step;
+  if(e.key==="a") me.x-=step;
+  if(e.key==="d") me.x+=step;
+  if(e.key==="e") checkTask();
+  if(e.key==="s" && role==="HAIN") socket.emit("sabotage");
+  if(e.key==="f") socket.emit("fix");
   socket.emit("move",{x:me.x,y:me.y});
 });
 
-function draw(){
-  if(me){ cam.x=me.x-c.width/2; cam.y=me.y-c.height/2; }
-  ctx.clearRect(0,0,c.width,c.height);
-  ctx.fillStyle="#111";
-  ctx.fillRect(-cam.x,-cam.y,WORLD.w,WORLD.h);
+function checkTask(){
+  const m = machines.find(m=>Math.hypot(me.x-m.x,me.y-m.y)<50);
+  if(m){ panel.innerHTML=`🔧 ${m}<br><button onclick="taskDone()">Görev Yap</button>`; }
+}
 
+function taskDone(){ panel.innerHTML="🛠️ Yapılıyor..."; setTimeout(()=>{socket.emit("taskDone"); panel.innerHTML="";},1500); }
+
+socket.on("lobbyUpdate", p => { players = p; me = players[socket.id]; });
+socket.on("gameStart", m => machines = m);
+socket.on("updatePlayers", p => players = p);
+socket.on("role", r => { role=r; alert("ROL: "+r); });
+socket.on("sabotage", m => { sabotages[m]=true; panel.innerHTML=`⚠ Sabotaj: ${m}`; });
+socket.on("sabotageResolved", ()=>{ sabotages={}; panel.innerHTML=""; });
+socket.on("voteStart", ()=>panel.innerHTML="🗳️ OYLAMA BAŞLADI");
+socket.on("voteFail", msg=>alert(msg));
+socket.on("gameEnd", msg=>alert(msg));
+
+function draw(){
+  if(!me) requestAnimationFrame(draw);
+
+  // Kamera takip
+  cam.x = me.x - canvas.width/2;
+  cam.y = me.y - canvas.height/2;
+
+  ctx.fillStyle="#111"; ctx.fillRect(-cam.x,-cam.y,2200,1400);
+
+  // Makineler
   machines.forEach(m=>{
-    ctx.fillStyle="#444";
+    ctx.fillStyle="#333";
     ctx.fillRect(m.x-50-cam.x,m.y-30-cam.y,100,60);
     ctx.fillStyle="#0f0";
-    ctx.fillText(m.n,m.x-50-cam.x,m.y-40-cam.y);
+    ctx.fillText(m,m.x-50-cam.x,m.y-40-cam.y);
   });
 
+  // Oyuncular
   Object.values(players).forEach(p=>{
     ctx.beginPath();
-    ctx.arc(p.x-cam.x,p.y-cam.y,14,0,7);
-    ctx.fillStyle=p.color;ctx.fill();
-    ctx.fillStyle="#fff";
-    ctx.fillText(p.name,p.x-18-cam.x,p.y-18-cam.y);
+    ctx.arc(p.x-cam.x,p.y-cam.y,15,0,7);
+    ctx.fillStyle=p.color;
+    ctx.fill();
+    ctx.fillText(p.name,p.x-20-cam.x,p.y-20-cam.y);
   });
 
-  ctx.fillText("⏱ "+time,20,20);
   requestAnimationFrame(draw);
 }
 draw();
