@@ -15,40 +15,59 @@ canvas{display:block}
 </style>
 </head>
 <body>
+
 <div id="ui">
   <input id="nameInput" placeholder="İsmin">
   <button id="joinBtn">Lobiye Katıl</button>
   <button id="readyBtn" style="display:none">Hazır</button>
   <div id="role"></div>
 </div>
+
 <div id="tasks">Görev: 0</div>
 <canvas id="game"></canvas>
 <div id="joystick"><div id="stick"></div></div>
 <canvas id="minimap"></canvas>
 
+<div id="actionButtons" style="position:absolute;bottom:30px;right:30px;display:none;z-index:10">
+  <button id="fixBtn">E: Görev</button>
+  <button id="killBtn">Q: Öldür</button>
+</div>
+
 <script src="/socket.io/socket.io.js"></script>
 <script>
+/* === GLOBALS === */
 const socket = io();
-const canvas=document.getElementById("game");
-const ctx=canvas.getContext("2d");
-const minimap=document.getElementById("minimap");
-const minimapCtx=minimap.getContext("2d");
-const nameInput=document.getElementById("nameInput");
-const tasksDiv=document.getElementById("tasks");
+const canvas = document.getElementById("game");
+const ctx = canvas.getContext("2d");
+const minimap = document.getElementById("minimap");
+const minimapCtx = minimap.getContext("2d");
+const nameInput = document.getElementById("nameInput");
+const tasksDiv = document.getElementById("tasks");
 
-function resize(){canvas.width=innerWidth;canvas.height=innerHeight; minimap.width=150; minimap.height=150;}
-resize(); addEventListener("resize",resize);
+let me = null;
+let players = {};
+let machines = [];
+let lobby = null;
+let camX = 0, camY = 0;
 
-let me=null, players={}, machines=[], camX=0, camY=0;
+/* === RESIZE === */
+function resize(){
+  canvas.width = innerWidth;
+  canvas.height = innerHeight;
+  minimap.width = 150;
+  minimap.height = 150;
+}
+resize();
+addEventListener("resize", resize);
 
-/* FULLSCREEN */
+/* === FULLSCREEN === */
 function goFullscreen(){
-  if(document.documentElement.requestFullscreen){document.documentElement.requestFullscreen();}
-  if(screen.orientation?.lock) screen.orientation.lock("landscape").catch(()=>{});
+  document.documentElement.requestFullscreen?.();
+  screen.orientation?.lock("landscape").catch(()=>{});
 }
 
-/* JOIN */
-joinBtn.onclick=()=>{
+/* === JOIN === */
+joinBtn.onclick = ()=>{
   socket.emit("joinLobby",{name:nameInput.value},res=>{
     if(res.error) return alert(res.error);
     goFullscreen();
@@ -57,90 +76,138 @@ joinBtn.onclick=()=>{
     readyBtn.style.display="inline";
   });
 };
-readyBtn.onclick=()=>{socket.emit("playerReady");readyBtn.disabled=true;};
+readyBtn.onclick=()=>{
+  socket.emit("playerReady");
+  readyBtn.disabled=true;
+};
 
-/* SOCKETS */
-socket.on("lobbyUpdate",d=>{d.players.forEach(p=>players[p.id]=p);machines=d.machines;me=players[socket.id];});
-socket.on("rolesAssigned",r=>{const m=r.find(x=>x.id===socket.id);if(m) role.innerText="ROL: "+m.role;});
-socket.on("gameStart",()=>{joystick.style.display="block";});
-socket.on("state",d=>{d.players.forEach(p=>{players[p.id] ? Object.assign(players[p.id],p) : players[p.id]=p;}); me=players[socket.id]; tasksDiv.innerText="Görev: "+(me?.tasksCompleted||0);});
-socket.on("machinesUpdate",m=>machines=m);
-socket.on("playerKilled",id=>{if(players[id])players[id].alive=false;});
-socket.on("startMeeting",()=>{alert("Toplantı başladı!");});
-socket.on("endMeeting",()=>{alert("Toplantı bitti!");});
-socket.on("gameEnd",msg=>{alert(msg);});
+/* === SOCKET EVENTS === */
+socket.on("lobbyUpdate", d=>{
+  lobby = d;
+  d.players.forEach(p=>players[p.id]=p);
+  machines = d.machines;
+  me = players[socket.id];
+});
 
-/* DRAW */
+socket.on("rolesAssigned", r=>{
+  const m = r.find(x=>x.id===socket.id);
+  if(m) role.innerText = "ROL: " + m.role;
+});
+
+socket.on("gameStart", ()=>{
+  joystick.style.display="block";
+  actionButtons.style.display="block";
+});
+
+socket.on("state", d=>{
+  d.players.forEach(p=>{
+    players[p.id] ? Object.assign(players[p.id],p) : players[p.id]=p;
+  });
+  me = players[socket.id];
+  tasksDiv.innerText = "Görev: " + (me?.tasksCompleted||0);
+});
+
+socket.on("machinesUpdate", m=>machines=m);
+socket.on("playerKilled", id=>{ if(players[id]) players[id].alive=false; });
+socket.on("startMeeting", ()=>alert("Toplantı başladı!"));
+socket.on("endMeeting", ()=>alert("Toplantı bitti!"));
+socket.on("gameEnd", msg=>alert(msg));
+
+/* === DRAW LOOP === */
 ctx.font="16px Arial";
 function draw(){
   ctx.clearRect(0,0,canvas.width,canvas.height);
-  if(me){camX=me.x-canvas.width/2; camY=me.y-canvas.height/2;}
+  if(me){
+    camX = me.x - canvas.width/2;
+    camY = me.y - canvas.height/2;
+  }
 
-  // MACHINES
-  machines.forEach(m=>{ctx.fillStyle=m.broken?"red":"lime"; ctx.fillRect(m.x-camX-20,m.y-camY-20,40,40);});
-
-  // PLAYERS
-  Object.values(players).forEach(p=>{
-    if(!p.alive) return;
-    ctx.beginPath(); ctx.arc(p.x-camX,p.y-camY,20,0,Math.PI*2);
-    ctx.fillStyle=p.color; ctx.fill();
-    ctx.fillStyle="#fff"; ctx.fillText(p.name,p.x-camX-15,p.y-camY-25);
+  machines.forEach(m=>{
+    ctx.fillStyle = m.broken ? "red":"lime";
+    ctx.fillRect(m.x-camX-20,m.y-camY-20,40,40);
   });
 
-  // MINIMAP
-  minimapCtx.clearRect(0,0,minimap.width,minimap.height);
+  Object.values(players).forEach(p=>{
+    if(!p.alive) return;
+    ctx.beginPath();
+    ctx.arc(p.x-camX,p.y-camY,20,0,Math.PI*2);
+    ctx.fillStyle=p.color;
+    ctx.fill();
+    ctx.fillStyle="#fff";
+    ctx.fillText(p.name,p.x-camX-15,p.y-camY-25);
+  });
+
+  minimapCtx.clearRect(0,0,150,150);
   Object.values(players).forEach(p=>{
     minimapCtx.fillStyle=p.alive?p.color:"#555";
-    minimapCtx.fillRect((p.x/2000)*minimap.width,(p.y/1200)*minimap.height,5,5);
+    minimapCtx.fillRect((p.x/2000)*150,(p.y/1200)*150,5,5);
   });
   machines.forEach(m=>{
     minimapCtx.fillStyle=m.broken?"red":"lime";
-    minimapCtx.fillRect((m.x/2000)*minimap.width,(m.y/1200)*minimap.height,5,5);
+    minimapCtx.fillRect((m.x/2000)*150,(m.y/1200)*150,5,5);
   });
 
   requestAnimationFrame(draw);
 }
 draw();
 
-/* JOYSTICK */
+/* === JOYSTICK === */
 let jx=0,jy=0,joy=false,sx=0,sy=0;
-joystick.addEventListener("touchstart",e=>{joy=true;sx=e.touches[0].clientX; sy=e.touches[0].clientY;});
-joystick.addEventListener("touchmove",e=>{if(!joy||!me)return;jx=Math.max(-40,Math.min(40,e.touches[0].clientX-sx));jy=Math.max(-40,Math.min(40,e.touches[0].clientY-sy));stick.style.transform=`translate(${jx}px,${jy}px)`;});
-joystick.addEventListener("touchend",()=>{joy=false;jx=jy=0; stick.style.transform="translate(0,0)";});
+joystick.addEventListener("touchstart",e=>{
+  joy=true;
+  sx=e.touches[0].clientX;
+  sy=e.touches[0].clientY;
+});
+joystick.addEventListener("touchmove",e=>{
+  if(!joy||!me) return;
+  jx=Math.max(-40,Math.min(40,e.touches[0].clientX-sx));
+  jy=Math.max(-40,Math.min(40,e.touches[0].clientY-sy));
+  stick.style.transform=`translate(${jx}px,${jy}px)`;
+});
+joystick.addEventListener("touchend",()=>{
+  joy=false;
+  jx=jy=0;
+  stick.style.transform="translate(0,0)";
+});
 
-setInterval(()=>{if(!me)return; me.x+=jx*0.12; me.y+=jy*0.12; socket.emit("move",{x:me.x,y:me.y});},50);
-
-/* TASK INTERACTION */
-canvas.addEventListener("click",e=>{
+setInterval(()=>{
   if(!me) return;
-  const mouseX=e.clientX+camX;
-  const mouseY=e.clientY+camY;
+  me.x+=jx*0.12;
+  me.y+=jy*0.12;
+  socket.emit("move",{x:me.x,y:me.y});
+},50);
+
+/* === ACTIONS === */
+function tryTask(){
+  if(!me) return;
   machines.forEach((m,i)=>{
-    if(Math.hypot(m.x-mouseX,m.y-mouseY)<50){
-      if(me.role==="Hain") socket.emit("action",{type:"breakMachine",machineIndex:i});
-      if(me.role==="Operatör") socket.emit("action",{type:"fixMachine",machineIndex:i});
+    if(Math.hypot(m.x-me.x,m.y-me.y)<50){
+      if(me.role==="Operatör" && m.broken)
+        socket.emit("action",{type:"fixMachine",machineIndex:i});
+      if(me.role==="Hain" && !m.broken)
+        socket.emit("action",{type:"breakMachine",machineIndex:i});
     }
   });
-});
+}
 
-/* KILL ACTION */
-canvas.addEventListener("dblclick",e=>{
-  if(!me || me.role!=="Hain") return;
-  const mouseX=e.clientX+camX;
-  const mouseY=e.clientY+camY;
+function tryKill(){
+  if(!me||me.role!=="Hain") return;
   Object.values(players).forEach(p=>{
-    if(p.id!==me.id && p.alive && Math.hypot(p.x-mouseX,p.y-mouseY)<30){
+    if(p.id!==me.id && p.alive && Math.hypot(p.x-me.x,p.y-me.y)<50)
       socket.emit("killPlayer",p.id);
-    }
   });
-});
+}
 
-/* VOTE (Toplantı) */
+fixBtn.onclick = tryTask;
+killBtn.onclick = tryKill;
+
 document.addEventListener("keydown",e=>{
+  if(e.key.toLowerCase()==="e") tryTask();
+  if(e.key.toLowerCase()==="q") tryKill();
   if(lobby?.meeting && e.key>='0' && e.key<='9'){
-    const idx=parseInt(e.key);
-    const aliveIds=Object.values(players).filter(p=>p.alive).map(p=>p.id);
-    if(idx<aliveIds.length) socket.emit("vote",aliveIds[idx]);
+    const aliveIds = Object.values(players).filter(p=>p.alive).map(p=>p.id);
+    const idx = parseInt(e.key);
+    if(idx < aliveIds.length) socket.emit("vote", aliveIds[idx]);
   }
 });
 </script>
