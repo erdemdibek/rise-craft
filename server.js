@@ -8,132 +8,133 @@ const server = http.createServer(app);
 const io = new Server(server);
 
 const PORT = process.env.PORT || 3000;
-const rooms = {};
 
+// Sabit makineler
+const MACHINES = [
+  "Fette 1200", "Fette 2200", "Kilian KTP 720", "Korsch XL 400",
+  "Bosch GKF 701", "Fette 3200", "Korsch XT600", "Fette Fe55",
+  "Sejong", "Fette 2100"
+];
+
+// GLOBAL STATE
+let players = {};
+let gameStarted = false;
+let activeSabotage = null;
+let timer = 300;
+
+// STATİK DOSYALAR
 app.use(express.static(path.join(__dirname, "public")));
-app.get("/", (_, res) =>
-  res.sendFile(path.join(__dirname, "public/index.html"))
-);
+app.get("/", (req, res) => {
+  res.sendFile(path.join(__dirname, "public", "index.html"));
+});
 
-function rand(min, max) {
-  return Math.random() * (max - min) + min;
+// OYUN FONKSİYONLARI
+function startGame() {
+  gameStarted = true;
+  const activePlayers = Object.values(players);
+
+  // Hain seç
+  const h = activePlayers[Math.floor(Math.random() * activePlayers.length)];
+  activePlayers.forEach(p => {
+    p.role = p.id === h.id ? "HAIN" : "CALISAN";
+  });
+
+  io.emit("gameStart", {
+    players: activePlayers,
+    machines: MACHINES
+  });
+
+  // Timer loop
+  const interval = setInterval(() => {
+    timer--;
+    io.emit("timer", timer);
+
+    if (timer <= 0 || activePlayers.every(p => p.role === "HAIN" || p.taskDone)) {
+      io.emit("gameOver", "⏱️ OYUN BİTTİ");
+      clearInterval(interval);
+      gameStarted = false;
+      timer = 300;
+      activeSabotage = null;
+      // Reset oyuncular
+      Object.values(players).forEach(p => {
+        p.ready = false;
+        p.taskDone = false;
+        p.role = null;
+      });
+    }
+  }, 1000);
 }
 
-io.on("connection", (socket) => {
-  socket.on("createRoom", ({ username }, cb) => {
-    if (!username) return;
+// SOCKET.IO
+io.on("connection", socket => {
+  console.log("Bağlanan:", socket.id);
 
-    const code = Math.random().toString(36).substr(2, 5).toUpperCase();
-
-    rooms[code] = {
-      players: {},
-      started: false,
-      sabotage: null,
-      votes: {},
-      machines: [
-        "Fette 1200","Fette 2200","Kilian KTP 720","Korsch XL 400",
-        "Bosch GKF 701","Fette 3200","Korsch XT600",
-        "Fette Fe55","Sejong","Fette 2100"
-      ]
-    };
-
-    rooms[code].players[socket.id] = {
+  // Lobiye giriş
+  socket.on("joinLobby", name => {
+    players[socket.id] = {
       id: socket.id,
-      name: username,
-      x: rand(400, 1800),
-      y: rand(400, 1200),
-      role: "İŞÇİ",
-      alive: true
+      name,
+      ready: false,
+      role: null,
+      x: 300 + Math.random() * 400,
+      y: 300 + Math.random() * 300,
+      color: `hsl(${Math.random()*360},70%,50%)`,
+      taskDone: false
     };
-
-    socket.join(code);
-    cb({ roomCode: code });
-    io.to(code).emit("state", rooms[code]);
+    io.emit("players", players);
   });
 
-  socket.on("joinRoom", ({ roomCode, username }, cb) => {
-    const room = rooms[roomCode];
-    if (!room) return cb({ error: true });
+  // Hazırım butonu
+  socket.on("ready", () => {
+    if (!players[socket.id] || gameStarted) return;
+    players[socket.id].ready = true;
+    io.emit("players", players);
 
-    room.players[socket.id] = {
-      id: socket.id,
-      name: username,
-      x: rand(400, 1800),
-      y: rand(400, 1200),
-      role: "İŞÇİ",
-      alive: true
-    };
-
-    socket.join(roomCode);
-    cb({ ok: true });
-    io.to(roomCode).emit("state", room);
+    const readyPlayers = Object.values(players).filter(p => p.ready);
+    if (readyPlayers.length >= 2) startGame();
   });
 
-  socket.on("startGame", (roomCode) => {
-    const room = rooms[roomCode];
-    if (!room || room.started) return;
-
-    room.started = true;
-    const ids = Object.keys(room.players);
-    const h = ids[Math.floor(Math.random() * ids.length)];
-    room.players[h].role = "HAIN";
-
-    io.to(roomCode).emit("roles", room.players);
+  // Hareket
+  socket.on("move", ({x,y}) => {
+    if (!players[socket.id] || !gameStarted) return;
+    players[socket.id].x = x;
+    players[socket.id].y = y;
+    io.emit("players", players);
   });
 
-  socket.on("move", ({ room, x, y }) => {
-    if (!rooms[room]?.players[socket.id]) return;
-    rooms[room].players[socket.id].x = x;
-    rooms[room].players[socket.id].y = y;
-    io.to(room).emit("state", rooms[room]);
+  // Mini görev tamamlandı
+  socket.on("taskDone", () => {
+    if (!players[socket.id] || !gameStarted) return;
+    players[socket.id].taskDone = true;
+    io.emit("players", players);
   });
 
-  socket.on("taskDone", (room) => {
-    io.to(room).emit("taskFeedback", "✔ Görev tamamlandı");
+  // Sabotaj başlat
+  socket.on("sabotage", () => {
+    if (!players[socket.id] || players[socket.id].role !== "HAIN") return;
+    activeSabotage = MACHINES[Math.floor(Math.random() * MACHINES.length)];
+    io.emit("sabotage", activeSabotage);
   });
 
-  socket.on("sabotage", (room) => {
-    if (!rooms[room]) return;
-    rooms[room].sabotage = "Makine sıkıştı!";
-    io.to(room).emit("sabotage", rooms[room].sabotage);
+  // Sabotaj çöz
+  socket.on("fix", () => {
+    activeSabotage = null;
+    io.emit("sabotageFix");
   });
 
-  socket.on("fixSabotage", (room) => {
-    if (!rooms[room]) return;
-    rooms[room].sabotage = null;
-    io.to(room).emit("sabotage", null);
+  // Oylama başlat
+  socket.on("voteStart", () => {
+    io.emit("voteStart");
   });
 
-  socket.on("vote", ({ room, target }) => {
-    const r = rooms[room];
-    if (!r) return;
-    r.votes[target] = (r.votes[target] || 0) + 1;
-
-    if (Object.keys(r.votes).length >= Object.keys(r.players).length - 1) {
-      let max = 0, kicked = null;
-      for (let k in r.votes) {
-        if (r.votes[k] > max) {
-          max = r.votes[k];
-          kicked = k;
-        }
-      }
-      if (kicked && r.players[kicked]) {
-        r.players[kicked].alive = false;
-        io.to(room).emit("kicked", r.players[kicked].name);
-      }
-      r.votes = {};
-    }
-  });
-
+  // Disconnect
   socket.on("disconnect", () => {
-    for (const r in rooms) {
-      if (rooms[r].players[socket.id]) {
-        delete rooms[r].players[socket.id];
-        if (!Object.keys(rooms[r].players).length) delete rooms[r];
-        else io.to(r).emit("state", rooms[r]);
-      }
-    }
+    delete players[socket.id];
+    io.emit("players", players);
   });
 });
 
-server.listen(PORT, () => console.log("🚀 RUNNING", PORT));
+// SERVER START
+server.listen(PORT, () => {
+  console.log(`Server çalışıyor: ${PORT}`);
+});
