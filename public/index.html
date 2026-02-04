@@ -1,21 +1,52 @@
 <!DOCTYPE html>
 <html>
 <head>
-<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no">
 <title>HAİN</title>
+
 <style>
-html,body{margin:0;background:#111;color:#fff;overflow:hidden}
-#ui{position:absolute;top:10px;left:10px;z-index:10}
+html,body{
+  margin:0;
+  background:#111;
+  color:#fff;
+  overflow:hidden;
+  touch-action:none;
+}
+#ui{
+  position:absolute;
+  top:10px;
+  left:10px;
+  z-index:10;
+}
 button,input{font-size:16px}
 canvas{display:block}
-#joystick{position:fixed;left:30px;bottom:30px;width:120px;height:120px;border-radius:50%;background:#3338;display:none}
-#stick{position:absolute;left:35px;top:35px;width:50px;height:50px;border-radius:50%;background:#0f08}
+
+#joystick{
+  position:fixed;
+  left:30px;
+  bottom:30px;
+  width:120px;
+  height:120px;
+  border-radius:50%;
+  background:#3338;
+  display:none;
+}
+#stick{
+  position:absolute;
+  left:35px;
+  top:35px;
+  width:50px;
+  height:50px;
+  border-radius:50%;
+  background:#0f08;
+}
 </style>
 </head>
+
 <body>
 
 <div id="ui">
-  <input id="name" placeholder="İsmin">
+  <input id="nameInput" placeholder="İsmin">
   <button id="joinBtn">Lobiye Katıl</button>
   <button id="readyBtn" style="display:none">Hazır</button>
   <div id="role"></div>
@@ -28,17 +59,40 @@ canvas{display:block}
 <script src="/socket.io/socket.io.js"></script>
 <script>
 const socket = io();
-const canvas=game,ctx=canvas.getContext("2d");
+
+const canvas=document.getElementById("game");
+const ctx=canvas.getContext("2d");
+const nameInput=document.getElementById("nameInput");
+
+function resize(){
+  canvas.width=innerWidth;
+  canvas.height=innerHeight;
+}
 resize(); addEventListener("resize",resize);
-function resize(){canvas.width=innerWidth;canvas.height=innerHeight;}
 
-let me=null, players={}, machines=[];
-let jx=0,jy=0,joy=false,sx=0,sy=0;
+let me=null;
+let players={};
+let machines=[];
+let camX=0,camY=0;
 
+/* FULLSCREEN + LANDSCAPE */
+function goFullscreen(){
+  if(document.documentElement.requestFullscreen){
+    document.documentElement.requestFullscreen();
+  }
+  if(screen.orientation?.lock){
+    screen.orientation.lock("landscape").catch(()=>{});
+  }
+}
+
+/* JOIN */
 joinBtn.onclick=()=>{
-  socket.emit("joinLobby",{name:name.value},res=>{
+  socket.emit("joinLobby",{name:nameInput.value},res=>{
     if(res.error) return alert(res.error);
-    joinBtn.style.display=name.style.display="none";
+
+    goFullscreen();
+    joinBtn.style.display="none";
+    nameInput.style.display="none";
     readyBtn.style.display="inline";
   });
 };
@@ -48,6 +102,7 @@ readyBtn.onclick=()=>{
   readyBtn.disabled=true;
 };
 
+/* SOCKETS */
 socket.on("lobbyUpdate",d=>{
   players={};
   d.players.forEach(p=>players[p.id]=p);
@@ -70,35 +125,59 @@ socket.on("state",d=>{
   me=players[socket.id];
 });
 
+/* DRAW */
 function draw(){
   ctx.clearRect(0,0,canvas.width,canvas.height);
+  if(me){
+    camX=me.x-canvas.width/2;
+    camY=me.y-canvas.height/2;
+  }
+
+  /* MACHINES */
+  machines.forEach(m=>{
+    ctx.fillStyle=m.broken?"red":"lime";
+    ctx.fillRect(m.x-camX-20,m.y-camY-20,40,40);
+  });
+
+  /* PLAYERS */
   Object.values(players).forEach(p=>{
     if(!p.alive) return;
     ctx.beginPath();
-    ctx.arc(p.x,p.y,20,0,Math.PI*2);
+    ctx.arc(p.x-camX,p.y-camY,20,0,Math.PI*2);
     ctx.fillStyle=p.color;
     ctx.fill();
-    ctx.fillText(p.name,p.x-15,p.y-25);
+    ctx.fillStyle="#fff";
+    ctx.fillText(p.name,p.x-camX-15,p.y-camY-25);
   });
+
   requestAnimationFrame(draw);
 }
 draw();
 
 /* JOYSTICK */
+let jx=0,jy=0,joy=false,sx=0,sy=0;
+
 joystick.addEventListener("touchstart",e=>{
-  joy=true; sx=e.touches[0].clientX; sy=e.touches[0].clientY;
+  joy=true;
+  sx=e.touches[0].clientX;
+  sy=e.touches[0].clientY;
 });
 joystick.addEventListener("touchmove",e=>{
   if(!joy||!me) return;
   jx=Math.max(-40,Math.min(40,e.touches[0].clientX-sx));
   jy=Math.max(-40,Math.min(40,e.touches[0].clientY-sy));
+  stick.style.transform=`translate(${jx}px,${jy}px)`;
 });
-joystick.addEventListener("touchend",()=>{joy=false;jx=jy=0});
+joystick.addEventListener("touchend",()=>{
+  joy=false;
+  jx=jy=0;
+  stick.style.transform="translate(0,0)";
+});
 
 setInterval(()=>{
   if(!me) return;
-  me.x+=jx*0.1;
-  me.y+=jy*0.1;
+  me.x+=jx*0.12;
+  me.y+=jy*0.12;
   socket.emit("move",{x:me.x,y:me.y});
 },50);
 </script>
