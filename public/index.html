@@ -1,140 +1,119 @@
 <!DOCTYPE html>
 <html>
 <head>
-<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
-<title>HAİN 3D</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>HAİN</title>
 <style>
-html,body{margin:0;background:#000;color:#fff;overflow:hidden}
-#lobby,#panel{position:absolute;z-index:9}
-#lobby{top:10px;left:10px}
-#panel{bottom:0;width:100%;background:#000c;padding:10px}
+html,body{margin:0;overflow:hidden;background:#000;color:#fff;font-family:Arial}
 canvas{display:block}
-button,input{font-size:16px;margin:3px}
-#fs{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:#000}
+#ui{position:absolute;top:10px;left:10px;z-index:10}
+#lobby{background:#000c;padding:10px}
+#joystick{
+ position:absolute;bottom:40px;left:40px;
+ width:120px;height:120px;border-radius:50%;
+ background:#222;border:2px solid #555;
+}
+#stick{
+ width:50px;height:50px;border-radius:50%;
+ background:#999;position:absolute;left:35px;top:35px;
+}
 </style>
 </head>
 <body>
 
-<div id="fs">
-  <button onclick="goFS()">▶ TAM EKRAN BAŞLAT</button>
+<div id="ui">
+  <div id="lobby">
+    <input id="name" placeholder="İsmin">
+    <button onclick="join()">Lobiye Gir</button>
+    <button onclick="ready()">Hazırım</button>
+    <div id="list"></div>
+  </div>
 </div>
 
-<div id="lobby" style="display:none">
-  <input id="name" placeholder="İsim">
-  <button onclick="joinLobby()">Lobiye Gir</button>
-  <button onclick="ready()">Hazırım</button>
-  <div id="playersList"></div>
-</div>
-
-<canvas id="game" width="800" height="400"></canvas>
-<div id="panel"></div>
+<div id="joystick"><div id="stick"></div></div>
+<canvas id="game"></canvas>
 
 <script src="/socket.io/socket.io.js"></script>
 <script>
-const socket=io();
-const c=game,ctx=c.getContext("2d");
-c.width=innerWidth;c.height=innerHeight;
+const socket = io();
+const c = game, ctx = c.getContext("2d");
+c.width = innerWidth; c.height = innerHeight;
 
-let players={},me=null,role=null,activeSabotage=null,time=300;
-let cam={x:0,y:0};
-const machines=[
-"Fette 1200","Fette 2200","Kilian KTP 720","Korsch XL 400",
-"Bosch GKF 701","Fette 3200","Korsch XT600","Fette Fe55",
-"Sejong","Fette 2100"
+let players={}, me=null, cam={x:0,y:0}, time=300;
+
+const WORLD={w:2000,h:1400};
+
+const machines = [
+  "Fette 1200","Fette 2200","Kilian KTP 720","Korsch XL 400",
+  "Bosch GKF 701","Fette 3200","Korsch XT600","Fette Fe55",
+  "Sejong","Fette 2100"
 ].map((n,i)=>({n,x:300+(i%5)*350,y:300+Math.floor(i/5)*400}));
 
-// TAM EKRAN
-function goFS(){
-  document.documentElement.requestFullscreen();
-  screen.orientation.lock("landscape");
-  fs.style.display="none";
-  lobby.style.display="block";
-}
-
-// LOBİ
-function joinLobby(){
+function join(){
   socket.emit("joinLobby", name.value);
 }
 function ready(){
   socket.emit("ready");
 }
 
-// SOCKET EVENTS
 socket.on("players", p=>{
   players=p;
-  playersList.innerHTML=Object.values(p).map(x=>x.name+" "+(x.ready?"✅":"")).join("<br>");
   me=players[socket.id];
+  list.innerHTML = Object.values(p).map(x=>x.name+" "+(x.ready?"✅":"")).join("<br>");
 });
-socket.on("role", r=>{role=r;alert("ROL: "+r)});
-socket.on("gameStart", data=>{
-  lobby.style.display="none";
-  me=players[socket.id];
-});
-socket.on("timer", t=>time=t);
-socket.on("sabotage", s=>{
-  activeSabotage=s;
-  panel.innerHTML="⚠️ Sabotaj: "+s;
-});
-socket.on("sabotageFix", ()=>activeSabotage=null);
-socket.on("voteStart", ()=>panel.innerHTML="🗳️ Oylama başladı");
-socket.on("gameOver", m=>alert(m));
+socket.on("gameStart",()=> lobby.style.display="none");
+socket.on("timer",t=>time=t);
 
-// MOBİL HAREKET
-document.addEventListener("touchstart",e=>{
- if(!me)return;
- let t=e.touches[0];
- me.x+=t.clientX>c.width/2?40:-40;
- me.y+=t.clientY>c.height/2?40:-40;
- me.x=Math.max(0,Math.min(me.x,c.width));
- me.y=Math.max(0,Math.min(me.y,c.height));
- socket.emit("move",{x:me.x,y:me.y});
+// JOYSTICK
+let joy={x:0,y:0,active:false};
+joystick.addEventListener("touchstart",()=>joy.active=true);
+joystick.addEventListener("touchend",()=>{
+  joy.active=false; joy.x=joy.y=0;
+  stick.style.left="35px";stick.style.top="35px";
 });
-document.onkeydown=e=>{
- if(!me)return;
- if(e.key==="e"){
-   const m=machines.find(m=>Math.hypot(me.x-m.x,me.y-m.y)<80);
-   if(m) panel.innerHTML=`🔧 ${m.n}<br><button onclick="task()">Görev Yap</button>`;
- }
- if(e.key==="s" && role==="HAIN") socket.emit("sabotage");
- if(e.key==="f") socket.emit("fix");
-};
-function task(){
-  panel.innerHTML="🛠️ Yapılıyor...";
-  setTimeout(()=>{
-    socket.emit("taskDone");
-    panel.innerHTML="";
-  },1500);
-}
+joystick.addEventListener("touchmove",e=>{
+  if(!joy.active||!me)return;
+  let t=e.touches[0];
+  let r=joystick.getBoundingClientRect();
+  let dx=t.clientX-(r.left+60);
+  let dy=t.clientY-(r.top+60);
+  let d=Math.min(40,Math.hypot(dx,dy));
+  let a=Math.atan2(dy,dx);
+  joy.x=Math.cos(a)*d;
+  joy.y=Math.sin(a)*d;
+  stick.style.left=35+joy.x+"px";
+  stick.style.top=35+joy.y+"px";
 
-// ÇİZİM
+  me.x+=joy.x*0.1;
+  me.y+=joy.y*0.1;
+  me.x=Math.max(20,Math.min(me.x,WORLD.w-20));
+  me.y=Math.max(20,Math.min(me.y,WORLD.h-20));
+  socket.emit("move",{x:me.x,y:me.y});
+});
+
 function draw(){
- ctx.clearRect(0,0,c.width,c.height);
- ctx.fillStyle="#111";
- ctx.fillRect(-cam.x,-cam.y,c.width,c.height);
+  if(me){ cam.x=me.x-c.width/2; cam.y=me.y-c.height/2; }
+  ctx.clearRect(0,0,c.width,c.height);
+  ctx.fillStyle="#111";
+  ctx.fillRect(-cam.x,-cam.y,WORLD.w,WORLD.h);
 
- // makineler
- machines.forEach(m=>{
-   ctx.fillStyle="#333";
-   ctx.fillRect(m.x-50-cam.x,m.y-30-cam.y,100,60);
-   ctx.fillStyle="#0f0";
-   ctx.fillText(m.n,m.x-50-cam.x,m.y-40-cam.y);
- });
+  machines.forEach(m=>{
+    ctx.fillStyle="#444";
+    ctx.fillRect(m.x-50-cam.x,m.y-30-cam.y,100,60);
+    ctx.fillStyle="#0f0";
+    ctx.fillText(m.n,m.x-50-cam.x,m.y-40-cam.y);
+  });
 
- // oyuncular
- Object.values(players).forEach(p=>{
-   ctx.beginPath();
-   ctx.arc(p.x-cam.x,p.y-cam.y,15,0,7);
-   ctx.fillStyle=p.color;
-   ctx.fill();
-   ctx.fillText(p.name,p.x-20-cam.x,p.y-20-cam.y);
- });
+  Object.values(players).forEach(p=>{
+    ctx.beginPath();
+    ctx.arc(p.x-cam.x,p.y-cam.y,14,0,7);
+    ctx.fillStyle=p.color;ctx.fill();
+    ctx.fillStyle="#fff";
+    ctx.fillText(p.name,p.x-18-cam.x,p.y-18-cam.y);
+  });
 
- // timer ve sabotaj
- ctx.fillStyle="#fff";
- ctx.fillText("⏱ "+time,20,20);
- if(activeSabotage) ctx.fillText("⚠ "+activeSabotage,300,20);
-
- requestAnimationFrame(draw);
+  ctx.fillText("⏱ "+time,20,20);
+  requestAnimationFrame(draw);
 }
 draw();
 </script>
