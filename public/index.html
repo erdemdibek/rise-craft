@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
 <title>HAİN</title>
 
 <style>
@@ -17,10 +17,7 @@ html,body{
   top:10px;left:10px;
   z-index:10;
 }
-button,input{
-  font-size:16px;
-  margin:3px;
-}
+button,input{font-size:16px;margin:3px}
 canvas{display:block}
 
 #overlay{
@@ -44,13 +41,12 @@ canvas{display:block}
   background:#3338;
   touch-action:none;
   z-index:20;
+  display:none;
 }
 #stick{
   position:absolute;
-  left:45px;
-  top:45px;
-  width:50px;
-  height:50px;
+  left:45px;top:45px;
+  width:50px;height:50px;
   border-radius:50%;
   background:#0f08;
 }
@@ -64,7 +60,7 @@ canvas{display:block}
 <div id="ui">
   <input id="name" placeholder="İsmin">
   <button id="joinBtn">Lobiye Katıl</button>
-  <button id="readyBtn">Hazır</button>
+  <button id="readyBtn" style="display:none">Hazır</button>
   <div id="role"></div>
   <div id="actions"></div>
 </div>
@@ -77,28 +73,23 @@ canvas{display:block}
 
 <script src="/socket.io/socket.io.js"></script>
 <script>
-/* ===================== AYARLAR ===================== */
-const MAP_W=2000, MAP_H=1200;
-const SPEED=3;
-const KILL_RANGE=60;
-
-/* ===================== SOCKET ===================== */
+/* ================= SOCKET ================= */
 const socket = io();
 
-/* ===================== FULLSCREEN ===================== */
-function requestFullScreen(){
+/* ================= FULLSCREEN ================= */
+function goFullscreen(){
   const el=document.documentElement;
   if(el.requestFullscreen) el.requestFullscreen();
   else if(el.webkitRequestFullscreen) el.webkitRequestFullscreen();
 }
-function checkFS(){
-  if(innerWidth>innerHeight) requestFullScreen();
+function ensureLandscape(){
+  if(innerWidth>innerHeight) goFullscreen();
 }
-window.addEventListener("orientationchange",()=>setTimeout(checkFS,300));
-window.addEventListener("click",checkFS);
+addEventListener("orientationchange",()=>setTimeout(ensureLandscape,300));
+addEventListener("click",ensureLandscape);
 
-/* ===================== CANVAS ===================== */
-const canvas=document.getElementById("game");
+/* ================= CANVAS ================= */
+const canvas=game;
 const ctx=canvas.getContext("2d");
 function resize(){
   canvas.width=innerWidth;
@@ -107,27 +98,37 @@ function resize(){
 addEventListener("resize",resize);
 resize();
 
-/* ===================== STATE ===================== */
+/* ================= STATE ================= */
 let me=null, players={}, machines=[];
 let cam={x:0,y:0};
-let time=300;
 let meeting=false;
 let myRole=null;
 
-/* ===================== UI ===================== */
+/* ================= UI ================= */
 joinBtn.onclick=()=>{
-  const n=name.value;
+  const n=name.value.trim();
   if(!n) return alert("İsim gir");
-  socket.emit("joinLobby",{name:n});
-};
-readyBtn.onclick=()=>socket.emit("playerReady");
 
-/* ===================== SOCKET EVENTS ===================== */
+  socket.emit("joinLobby",{name:n},res=>{
+    if(res?.error) return alert(res.error);
+    joinBtn.style.display="none";
+    name.style.display="none";
+    readyBtn.style.display="inline-block";
+    ensureLandscape();
+  });
+};
+
+readyBtn.onclick=()=>{
+  socket.emit("playerReady");
+  readyBtn.disabled=true;
+};
+
+/* ================= SOCKET EVENTS ================= */
 socket.on("lobbyUpdate",d=>{
   players={};
   d.players.forEach(p=>players[p.id]=p);
   machines=d.machines;
-  if(players[socket.id]) me=players[socket.id];
+  me=players[socket.id];
 });
 
 socket.on("rolesAssigned",list=>{
@@ -139,24 +140,45 @@ socket.on("rolesAssigned",list=>{
 });
 
 socket.on("gameStart",d=>{
+  players={};
   d.players.forEach(p=>players[p.id]=p);
   machines=d.machines;
   me=players[socket.id];
+  joystick.style.display="block";
 });
 
 socket.on("state",d=>{
+  players={};
   d.players.forEach(p=>players[p.id]=p);
-  time=d.time;
   me=players[socket.id];
 });
 
 socket.on("machinesUpdated",m=>machines=m);
-socket.on("playerKilled",id=>players[id]&&(players[id].alive=false));
-socket.on("meeting",()=>{meeting=true;openMeeting();});
-socket.on("meetingEnd",()=>{meeting=false;overlay.style.display="none";});
-socket.on("playerEjected",id=>players[id]&&(players[id].alive=false));
 
-/* ===================== MEETING ===================== */
+socket.on("playerKilled",id=>{
+  if(players[id]) players[id].alive=false;
+});
+
+socket.on("meeting",()=>{
+  meeting=true;
+  openMeeting();
+});
+
+socket.on("meetingEnd",()=>{
+  meeting=false;
+  overlay.style.display="none";
+});
+
+socket.on("playerEjected",id=>{
+  if(players[id]) players[id].alive=false;
+});
+
+socket.on("gameEnd",msg=>{
+  alert(msg);
+  location.reload();
+});
+
+/* ================= MEETING ================= */
 function openMeeting(){
   overlay.innerHTML="<h2>ACİL TOPLANTI</h2>";
   Object.values(players).filter(p=>p.alive).forEach(p=>{
@@ -170,21 +192,22 @@ function openMeeting(){
   overlay.style.display="flex";
 }
 
-/* ===================== GAME LOOP ===================== */
+/* ================= GAME LOOP ================= */
 function clamp(){
-  me.x=Math.max(20,Math.min(MAP_W-20,me.x));
-  me.y=Math.max(20,Math.min(MAP_H-20,me.y));
+  if(!me) return;
+  me.x=Math.max(20,Math.min(2000-20,me.x));
+  me.y=Math.max(20,Math.min(1200-20,me.y));
 }
 
 function draw(){
   if(me){
-    cam.x=Math.max(0,Math.min(MAP_W-canvas.width,me.x-canvas.width/2));
-    cam.y=Math.max(0,Math.min(MAP_H-canvas.height,me.y-canvas.height/2));
+    cam.x=Math.max(0,Math.min(2000-canvas.width,me.x-canvas.width/2));
+    cam.y=Math.max(0,Math.min(1200-canvas.height,me.y-canvas.height/2));
   }
 
   ctx.clearRect(0,0,canvas.width,canvas.height);
   ctx.fillStyle="#222";
-  ctx.fillRect(-cam.x,-cam.y,MAP_W,MAP_H);
+  ctx.fillRect(-cam.x,-cam.y,2000,1200);
 
   machines.forEach(m=>{
     ctx.fillStyle=m.broken?"#800":"#555";
@@ -200,28 +223,12 @@ function draw(){
     ctx.fillText(p.name,p.x-15-cam.x,p.y-25-cam.y);
   });
 
-  ctx.fillStyle="#fff";
-  ctx.fillText("⏱ "+time,20,30);
   requestAnimationFrame(draw);
 }
 draw();
 
-/* ===================== KLAVYE ===================== */
-addEventListener("keydown",e=>{
-  if(!me||!me.alive||meeting) return;
-  if(e.key==="w") me.y-=SPEED;
-  if(e.key==="s") me.y+=SPEED;
-  if(e.key==="a") me.x-=SPEED;
-  if(e.key==="d") me.x+=SPEED;
-  clamp();
-  socket.emit("move",{x:me.x,y:me.y});
-});
-
-/* ===================== JOYSTICK ===================== */
+/* ================= JOYSTICK ================= */
 let joy=false,jx=0,jy=0,sx=0,sy=0;
-const joystick=document.getElementById("joystick");
-const stick=document.getElementById("stick");
-
 joystick.addEventListener("touchstart",e=>{
   joy=true;
   sx=e.touches[0].clientX;
@@ -241,30 +248,12 @@ joystick.addEventListener("touchend",()=>{
 });
 
 setInterval(()=>{
-  if(!me||!me.alive||meeting) return;
+  if(!me||meeting) return;
   me.x+=jx*0.08;
   me.y+=jy*0.08;
   clamp();
   socket.emit("move",{x:me.x,y:me.y});
 },50);
-
-/* ===================== ACTIONS ===================== */
-setInterval(()=>{
-  if(!me||myRole!=="Hain"||meeting) return;
-  let html="";
-  Object.values(players).forEach(p=>{
-    if(p.id!==me.id&&p.alive&&Math.hypot(p.x-me.x,p.y-me.y)<KILL_RANGE)
-      html+=`<button onclick="kill('${p.id}')">🔪 ${p.name}</button>`;
-  });
-  machines.forEach((m,i)=>{
-    if(!m.broken&&Math.hypot(m.x-me.x,m.y-me.y)<70)
-      html+=`<button onclick="sabotage(${i})">⚠️ Sabotaj</button>`;
-  });
-  actions.innerHTML=html;
-},300);
-
-window.kill=id=>socket.emit("action",{type:"kill",targetId:id});
-window.sabotage=i=>socket.emit("action",{type:"breakMachine",machineIndex:i});
 </script>
 </body>
 </html>
