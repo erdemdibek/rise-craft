@@ -46,6 +46,11 @@ function assignRoles(){
   })));
 }
 
+/* ================= HELPERS ================= */
+function distance(a,b){
+  return Math.hypot(a.x-b.x,a.y-b.y);
+}
+
 /* ================= SOCKET ================= */
 io.on("connection",socket=>{
   console.log("🔌 Connected:",socket.id);
@@ -94,8 +99,33 @@ io.on("connection",socket=>{
   socket.on("move",({x,y})=>{
     const p=lobby.players.find(p=>p.id===socket.id);
     if(p && p.alive && !lobby.meeting){
-      p.x=x; 
+      p.x=x;
       p.y=y;
+    }
+  });
+
+  /* ========== MACHINE ACTIONS (YENİ) ========== */
+  socket.on("action",({type,machineIndex})=>{
+    const p=lobby.players.find(p=>p.id===socket.id);
+    const m=lobby.machines[machineIndex];
+    if(!p || !m || !p.alive) return;
+
+    if(distance(p,m) > 80) return; // makineye yakınlık şart
+
+    // HAIN BOZAR
+    if(type==="breakMachine" && p.role==="Hain"){
+      if(!m.broken){
+        m.broken=true;
+        io.emit("machinesUpdate",lobby.machines);
+      }
+    }
+
+    // OPERATÖR TAMİR EDER
+    if(type==="fixMachine" && p.role==="Operatör"){
+      if(m.broken){
+        m.broken=false;
+        io.emit("machinesUpdate",lobby.machines);
+      }
     }
   });
 
@@ -108,9 +138,14 @@ io.on("connection",socket=>{
 /* ================= GAME LOOP ================= */
 function startLoop(){
   const t=setInterval(()=>{
-    if(!lobby.started){ clearInterval(t); return; }
+    if(!lobby.started){
+      clearInterval(t);
+      return;
+    }
+
     lobby.time--;
     io.emit("state",{players:lobby.players,time:lobby.time});
+
     if(lobby.time<=0){
       io.emit("gameEnd","⏰ Süre doldu");
       lobby.started=false;
