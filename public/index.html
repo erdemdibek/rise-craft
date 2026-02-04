@@ -24,27 +24,26 @@ canvas{display:block}
 <div id="tasks">Görev: 0</div>
 <canvas id="game"></canvas>
 <div id="joystick"><div id="stick"></div></div>
-<div id="minimap"></div>
+<canvas id="minimap"></canvas>
 
 <script src="/socket.io/socket.io.js"></script>
 <script>
 const socket = io();
 const canvas=document.getElementById("game");
 const ctx=canvas.getContext("2d");
+const minimap=document.getElementById("minimap");
+const minimapCtx=minimap.getContext("2d");
 const nameInput=document.getElementById("nameInput");
 const tasksDiv=document.getElementById("tasks");
-const minimap=document.getElementById("minimap");
 
-function resize(){canvas.width=innerWidth;canvas.height=innerHeight;}
+function resize(){canvas.width=innerWidth;canvas.height=innerHeight; minimap.width=150; minimap.height=150;}
 resize(); addEventListener("resize",resize);
 
-let me=null, players={}, machines=[], camX=0,camY=0;
+let me=null, players={}, machines=[], camX=0, camY=0;
 
 /* FULLSCREEN */
 function goFullscreen(){
-  if(document.documentElement.requestFullscreen){
-    document.documentElement.requestFullscreen();
-  }
+  if(document.documentElement.requestFullscreen){document.documentElement.requestFullscreen();}
   if(screen.orientation?.lock) screen.orientation.lock("landscape").catch(()=>{});
 }
 
@@ -61,10 +60,10 @@ joinBtn.onclick=()=>{
 readyBtn.onclick=()=>{socket.emit("playerReady");readyBtn.disabled=true;};
 
 /* SOCKETS */
-socket.on("lobbyUpdate",d=>{players={};d.players.forEach(p=>players[p.id]=p);machines=d.machines;me=players[socket.id];});
+socket.on("lobbyUpdate",d=>{d.players.forEach(p=>players[p.id]=p);machines=d.machines;me=players[socket.id];});
 socket.on("rolesAssigned",r=>{const m=r.find(x=>x.id===socket.id);if(m) role.innerText="ROL: "+m.role;});
 socket.on("gameStart",()=>{joystick.style.display="block";});
-socket.on("state",d=>{players={};d.players.forEach(p=>players[p.id]=p);me=players[socket.id];tasksDiv.innerText="Görev: "+(me?.tasksCompleted||0);});
+socket.on("state",d=>{d.players.forEach(p=>{players[p.id] ? Object.assign(players[p.id],p) : players[p.id]=p;}); me=players[socket.id]; tasksDiv.innerText="Görev: "+(me?.tasksCompleted||0);});
 socket.on("machinesUpdate",m=>machines=m);
 socket.on("playerKilled",id=>{if(players[id])players[id].alive=false;});
 socket.on("startMeeting",d=>{alert("Toplantı başladı!");});
@@ -72,6 +71,7 @@ socket.on("endMeeting",()=>{alert("Toplantı bitti!");});
 socket.on("gameEnd",msg=>{alert(msg);});
 
 /* DRAW */
+ctx.font="16px Arial";
 function draw(){
   ctx.clearRect(0,0,canvas.width,canvas.height);
   if(me){camX=me.x-canvas.width/2; camY=me.y-canvas.height/2;}
@@ -88,19 +88,14 @@ function draw(){
   });
 
   // MINIMAP
-  minimapCtx = minimap.getContext("2d");
   minimapCtx.clearRect(0,0,minimap.width,minimap.height);
   Object.values(players).forEach(p=>{
     minimapCtx.fillStyle=p.alive?p.color:"#555";
-    const mx = (p.x/2000)*minimap.width;
-    const my = (p.y/1200)*minimap.height;
-    minimapCtx.fillRect(mx,my,5,5);
+    minimapCtx.fillRect((p.x/2000)*minimap.width,(p.y/1200)*minimap.height,5,5);
   });
   machines.forEach(m=>{
     minimapCtx.fillStyle=m.broken?"red":"lime";
-    const mx = (m.x/2000)*minimap.width;
-    const my = (m.y/1200)*minimap.height;
-    minimapCtx.fillRect(mx,my,5,5);
+    minimapCtx.fillRect((m.x/2000)*minimap.width,(m.y/1200)*minimap.height,5,5);
   });
 
   requestAnimationFrame(draw);
@@ -128,7 +123,7 @@ canvas.addEventListener("click",e=>{
   });
 });
 
-/* KILL ACTION (hain) */
+/* KILL ACTION */
 canvas.addEventListener("dblclick",e=>{
   if(!me || me.role!=="Hain") return;
   const mouseX=e.clientX+camX;
@@ -140,7 +135,7 @@ canvas.addEventListener("dblclick",e=>{
   });
 });
 
-/* VOTE (toplantı) */
+/* VOTE (Toplantı) */
 document.addEventListener("keydown",e=>{
   if(lobby?.meeting && e.key>='0' && e.key<='9'){
     const idx=parseInt(e.key);
