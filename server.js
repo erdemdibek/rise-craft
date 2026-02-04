@@ -9,6 +9,8 @@ const io = new Server(server);
 
 const PORT = process.env.PORT || 3000;
 
+let gameInterval = null;
+
 const lobby = {
   players: [],
   machines: [],
@@ -51,19 +53,39 @@ function distance(a,b){
   return Math.hypot(a.x-b.x,a.y-b.y);
 }
 
+function resetGame(){
+  lobby.started = false;
+  lobby.meeting = false;
+  lobby.votes = {};
+  resetMachines();
+
+  lobby.players.forEach(p=>{
+    p.alive = true;
+    p.ready = false;
+    p.role = null;
+    p.tasksCompleted = 0;
+    p.killCooldown = 0;
+  });
+}
+
 function checkWin(){
   if(!lobby.started) return;
+
   const aliveOperators = lobby.players.filter(p=>p.role==="Operatör" && p.alive);
   const aliveHains = lobby.players.filter(p=>p.role==="Hain" && p.alive);
   const brokenMachines = lobby.machines.filter(m=>m.broken);
 
-  if(brokenMachines.length === 0 && aliveHains.length===0){
+  if(brokenMachines.length === 0 && aliveHains.length === 0){
     io.emit("gameEnd","🎉 Operatörler kazandı!");
-    lobby.started=false;
+    resetGame();
   }
-  if(aliveHains.length>0 && (aliveOperators.length===0 || brokenMachines.length === lobby.machines.length)){
+
+  if(
+    aliveHains.length > 0 &&
+    (aliveOperators.length === 0 || brokenMachines.length === lobby.machines.length)
+  ){
     io.emit("gameEnd","💀 Hain kazandı!");
-    lobby.started=false;
+    resetGame();
   }
 }
 
@@ -84,7 +106,8 @@ io.on("connection",socket=>{
       ready:false,
       alive:true,
       role:null,
-      tasksCompleted:0
+      tasksCompleted:0,
+      killCooldown:0
     });
 
     io.emit("lobbyUpdate",{players:lobby.players,machines:lobby.machines});
@@ -110,11 +133,16 @@ io.on("connection",socket=>{
 
   socket.on("move",({x,y})=>{
     const p=lobby.players.find(p=>p.id===socket.id);
-    if(p && p.alive && !lobby.meeting){ p.x=x; p.y=y; }
+    if(p && p.alive && !lobby.meeting){
+      p.x=x;
+      p.y=y;
+    }
   });
 
   /* MACHINE ACTIONS */
   socket.on("action",({type,machineIndex})=>{
+    if(lobby.meeting) return;
+
     const p=lobby.players.find(p=>p.id===socket.id);
     const m=lobby.machines[machineIndex];
     if(!p || !m || !p.alive) return;
@@ -134,58 +162,56 @@ io.on("connection",socket=>{
     }
   });
 
-  /* KILL & MEETING */
+  /* KILL */
   socket.on("killPlayer",(targetId)=>{
+    if(lobby.meeting) return;
+
     const p = lobby.players.find(p=>p.id===socket.id);
     const target = lobby.players.find(p=>p.id===targetId);
-    if(!p || !target || !p.alive || !target.alive) return;
+
+    if(!p || !target) return;
+    if(!p.alive || !target.alive) return;
     if(p.role!=="Hain") return;
+    if(p.killCooldown > 0) return;
     if(distance(p,target) > 80) return;
 
     target.alive=false;
+    p.killCooldown = 10;
+
     io.emit("playerKilled",target.id);
-    lobby.meeting=true;
-    io.emit("startMeeting",{alivePlayers: lobby.players.filter(p=>p.alive)});
-  });
-
-  socket.on("vote",(targetId)=>{
-    if(!lobby.meeting) return;
-    if(!lobby.votes) lobby.votes={};
-    lobby.votes[socket.id]=targetId;
-
-    const alivePlayers = lobby.players.filter(p=>p.alive);
-    if(Object.keys(lobby.votes).length>=alivePlayers.length){
-      const counts = {};
-      Object.values(lobby.votes).forEach(v=>{counts[v]=(counts[v]||0)+1;});
-      const maxVote = Object.keys(counts).reduce((a,b)=>counts[a]>=counts[b]?a:b);
-      const eliminated = lobby.players.find(p=>p.id===maxVote);
-      if(eliminated){
-        eliminated.alive=false;
-        io.emit("playerKilled",eliminated.id);
-      }
-      lobby.meeting=false;
-      lobby.votes={};
-      io.emit("endMeeting");
-      checkWin();
-    }
+    checkWin();
   });
 
   socket.on("disconnect",()=>{
-    lobby.players=lobby.players.filter(p=>p.id!==socket.id);
+    lobby.players = lobby.players.filter(p=>p.id!==socket.id);
     io.emit("lobbyUpdate",{players:lobby.players,machines:lobby.machines});
   });
 });
 
-/* GAME LOOP */
+/* ================= GAME LOOP ================= */
 function startLoop(){
-  const t=setInterval(()=>{
-    if(!lobby.started){ clearInterval(t); return; }
+  if(gameInterval) clearInterval(gameInterval);
+
+  gameInterval = setInterval(()=>{
+    if(!lobby.started){
+      clearInterval(gameInterval);
+      gameInterval = null;
+      return;
+    }
+
     lobby.time--;
+
+    lobby.players.forEach(p=>{
+      if(p.killCooldown > 0) p.killCooldown--;
+    });
+
     io.emit("state",{players:lobby.players,time:lobby.time});
+
     if(lobby.time<=0){
       io.emit("gameEnd","⏰ Süre doldu");
-      lobby.started=false;
-      clearInterval(t);
+      resetGame();
+      clearInterval(gameInterval);
+      gameInterval = null;
     }
   },1000);
 }
