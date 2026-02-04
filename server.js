@@ -9,12 +9,8 @@ const io = new Server(server);
 
 const PORT = process.env.PORT || 3000;
 
-// GLOBAL LOBİ
-let lobby = {
-  players: {},
-  started: false,
-  votes: {}
-};
+// LOBİ
+let lobby = { players: {}, ready: {} };
 
 const MACHINES = [
   "Fette 1200","Fette 2200","Kilian KTP 720","Korsch XL 400",
@@ -25,11 +21,10 @@ const MACHINES = [
 app.use(express.static(path.join(__dirname, "public")));
 
 io.on("connection", socket => {
-  console.log("Bağlandı:", socket.id);
+  console.log("Bağlanan:", socket.id);
 
   socket.on("joinLobby", ({ name }) => {
-    if (!name || name.trim() === "") return;
-
+    if(!name) return;
     lobby.players[socket.id] = {
       id: socket.id,
       name,
@@ -38,52 +33,42 @@ io.on("connection", socket => {
       color: `hsl(${Math.random()*360},70%,50%)`,
       alive: true
     };
-
+    lobby.ready[socket.id] = false;
     io.emit("lobbyUpdate", lobby.players);
   });
 
-  socket.on("startGame", () => {
-    if (Object.keys(lobby.players).length < 2) return;
+  socket.on("setReady", () => {
+    if(lobby.ready[socket.id]!==undefined)
+      lobby.ready[socket.id]=true;
 
-    lobby.started = true;
-
-    const ids = Object.keys(lobby.players);
-    const impostor = ids[Math.floor(Math.random()*ids.length)];
-
-    ids.forEach(id=>{
-      io.to(id).emit("role", id === impostor ? "HAIN" : "CALISAN");
-    });
-
-    io.emit("gameStart", { machines: MACHINES });
-  });
-
-  socket.on("move", ({ x, y }) => {
-    if (!lobby.players[socket.id]) return;
-    lobby.players[socket.id].x = x;
-    lobby.players[socket.id].y = y;
-    io.emit("players", lobby.players);
-  });
-
-  socket.on("taskDone", () => {
-    socket.emit("taskOk");
-  });
-
-  socket.on("sabotage", () => {
-    io.emit("sabotage", "⚠️ MAKİNE ARIZASI!");
-  });
-
-  socket.on("vote", ({ target }) => {
-    lobby.votes[socket.id] = target;
-    if (Object.keys(lobby.votes).length === Object.keys(lobby.players).length) {
-      io.emit("voteEnd");
-      lobby.votes = {};
+    // Tüm oyuncular hazırsa oyun başlar
+    if(Object.values(lobby.ready).every(r=>r)) {
+      const ids = Object.keys(lobby.players);
+      const impostor = ids[Math.floor(Math.random()*ids.length)];
+      ids.forEach(id=>{
+        io.to(id).emit("role", id===impostor ? "HAIN":"CALISAN");
+      });
+      io.emit("gameStart", { machines: MACHINES });
     }
   });
 
-  socket.on("disconnect", () => {
+  socket.on("move", ({ x, y })=>{
+    if(lobby.players[socket.id]){
+      lobby.players[socket.id].x = x;
+      lobby.players[socket.id].y = y;
+      io.emit("players", lobby.players);
+    }
+  });
+
+  socket.on("taskDone", ()=>{ socket.emit("taskOk"); });
+  socket.on("sabotage", ()=>{ io.emit("sabotage","⚠️ MAKİNE ARIZASI!"); });
+  socket.on("vote", ()=>{ io.emit("voteStart"); });
+
+  socket.on("disconnect", ()=>{
     delete lobby.players[socket.id];
+    delete lobby.ready[socket.id];
     io.emit("lobbyUpdate", lobby.players);
   });
 });
 
-server.listen(PORT, ()=>console.log("SERVER ÇALIŞIYOR", PORT));
+server.listen(PORT, ()=>console.log("Server çalışıyor:", PORT));
