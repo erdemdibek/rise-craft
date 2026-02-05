@@ -105,7 +105,12 @@ joinBtn.onclick=()=>socket.emit("joinLobby",{name:nameInput.value},r=>{
   }
 });
 
-readyBtn.onclick=()=>socket.emit("playerReady");
+readyBtn.onclick=()=>{
+  const p = Object.values(players).find(x=>x.id===socket.id);
+  if(!p) return;
+  p.ready = true;
+  socket.emit("playerReady");
+};
 
 /* LOG */
 function log(t){
@@ -125,7 +130,11 @@ socket.on("lobbyUpdate",d=>{
 
 socket.on("rolesAssigned",r=>{
   const m=r.find(x=>x.id===socket.id);
-  role.innerText="ROL: "+m.role;
+  document.getElementById("role")?.remove();
+  const roleDiv = document.createElement("div");
+  roleDiv.id="role";
+  roleDiv.innerText="ROL: "+m.role;
+  uiDiv.appendChild(roleDiv);
   killBtn.style.display=m.role==="Hain"?"inline":"none";
 });
 
@@ -225,7 +234,7 @@ function drawMiniMap(){
 let jx=0,jy=0,joy=false,sx=0,sy=0;
 joystick.ontouchstart=e=>{joy=true;sx=e.touches[0].clientX;sy=e.touches[0].clientY;};
 joystick.ontouchmove=e=>{
-  if(!joy||!me)return;
+  if(!joy||!me||!me.alive) return;
   jx=e.touches[0].clientX-sx;
   jy=e.touches[0].clientY-sy;
 };
@@ -240,12 +249,14 @@ setInterval(()=>{
 
 /* ACTIONS */
 killBtn.onclick=()=>{
+  if(!me.alive) return;
   Object.values(players).forEach(p=>{
     if(p.id!==me.id&&p.alive&&Math.hypot(p.x-me.x,p.y-me.y)<60)
       socket.emit("killPlayer",p.id);
   });
 };
 fixBtn.onclick=()=>{
+  if(!me.alive) return;
   const m=machines.find(x=>Math.hypot(x.x-me.x,x.y-me.y)<60);
   if(m) socket.emit("action",{type:"fixMachine",machineIndex:machines.indexOf(m)});
 };
