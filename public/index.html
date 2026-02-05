@@ -4,16 +4,28 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no">
 <title>HAİN</title>
 <style>
-html,body{margin:0;background:#111;color:#fff;overflow:hidden;touch-action:none}
-#ui{position:absolute;top:10px;left:10px;z-index:10}
+html,body{margin:0;background:#111;color:#fff;overflow:hidden;touch-action:none;font-family:sans-serif}
+#ui{position:absolute;top:10px;left:10px;z-index:20}
 button,input{font-size:16px}
 canvas{display:block}
-#joystick{position:fixed;left:30px;bottom:30px;width:120px;height:120px;border-radius:50%;background:#3338;display:none}
+#joystick{position:fixed;left:30px;bottom:30px;width:120px;height:120px;border-radius:50%;background:#3338;display:none;z-index:10}
 #stick{position:absolute;left:35px;top:35px;width:50px;height:50px;border-radius:50%;background:#0f08}
-#tasks{position:absolute;top:10px;right:10px;color:#0f0;font-size:16px}
-#hint{position:absolute;bottom:120px;left:50%;transform:translateX(-50%);color:#ff0;font-size:16px}
-#cooldown{position:absolute;top:40px;right:10px;color:#f55;font-size:14px}
-#minimap{position:absolute;bottom:10px;right:10px;width:150px;height:150px;background:#0008;border:1px solid #fff}
+#tasks{position:absolute;top:10px;right:10px;color:#0f0;font-size:16px;z-index:20}
+#hint{position:absolute;bottom:120px;left:50%;transform:translateX(-50%);color:#ff0;font-size:16px;z-index:20}
+#cooldown{position:absolute;top:40px;right:10px;color:#f55;font-size:14px;z-index:20}
+#minimap{position:absolute;bottom:10px;right:10px;width:150px;height:150px;background:#0008;border:1px solid #fff;z-index:20}
+#actionButtons{position:absolute;bottom:30px;right:30px;display:none;z-index:20}
+#voteMenu{
+  position:absolute;top:0;left:0;width:100%;height:100%;
+  background:rgba(0,0,0,0.85);display:none;flex-direction:column;
+  align-items:center;justify-content:center;z-index:30;color:#fff;
+}
+#voteMenu h2{margin-bottom:20px}
+.voteOption{
+  padding:10px 20px;margin:5px;background:#222;border:1px solid #fff;
+  cursor:pointer;font-size:18px;border-radius:5px;
+}
+.voteOption:hover{background:#444}
 </style>
 </head>
 <body>
@@ -33,9 +45,14 @@ canvas{display:block}
 <div id="joystick"><div id="stick"></div></div>
 <canvas id="minimap"></canvas>
 
-<div id="actionButtons" style="position:absolute;bottom:30px;right:30px;display:none;z-index:10">
+<div id="actionButtons">
   <button id="fixBtn">E: Görev</button>
   <button id="killBtn">Q: Öldür</button>
+</div>
+
+<div id="voteMenu">
+  <h2>Oylama Başladı!</h2>
+  <div id="voteOptions"></div>
 </div>
 
 <script src="/socket.io/socket.io.js"></script>
@@ -45,6 +62,8 @@ const canvas = document.getElementById("game");
 const ctx = canvas.getContext("2d");
 const minimap = document.getElementById("minimap");
 const minimapCtx = minimap.getContext("2d");
+const voteMenu = document.getElementById("voteMenu");
+const voteOptions = document.getElementById("voteOptions");
 
 const tasksDiv = document.getElementById("tasks");
 const hintDiv = document.getElementById("hint");
@@ -117,11 +136,27 @@ socket.on("state",d=>{
 
 socket.on("machinesUpdate",m=>machines=m);
 socket.on("playerKilled",id=>players[id]&&(players[id].alive=false));
-socket.on("startMeeting",()=>alert("🗳 Toplantı başladı! Oy kullanın (0-9)"));
+
+/* === OYLAMA === */
+socket.on("startMeeting",()=>{
+  voteOptions.innerHTML="";
+  const alivePlayers = Object.values(players).filter(p=>p.alive);
+  alivePlayers.forEach(p=>{
+    const btn = document.createElement("div");
+    btn.className="voteOption";
+    btn.innerText=p.name;
+    btn.onclick=()=>{socket.emit("vote",p.id); voteMenu.style.display="none";}
+    voteOptions.appendChild(btn);
+  });
+  voteMenu.style.display="flex";
+});
+
 socket.on("endMeeting",(out)=>{
+  voteMenu.style.display="none";
   if(out) alert("💀 "+(players[out]?.name||"Biri")+" atıldı!");
   else alert("🟢 Kimse atılmadı!");
 });
+
 socket.on("gameEnd",msg=>alert(msg));
 
 /* === DRAW LOOP === */
@@ -159,19 +194,10 @@ function draw(){
     if(distP<vision || !me.alive){
       ctx.beginPath();
       ctx.arc(p.x-camX,p.y-camY,20,0,Math.PI*2);
-      if(!p.alive){
-        ctx.fillStyle="#888";
-        ctx.globalAlpha=0.3;
-        ctx.fill();
-        ctx.globalAlpha=1;
-        ctx.fillStyle="#fff";
-        ctx.fillText(p.name+" (ÖLÜ)",p.x-camX-25,p.y-camY-25);
-      } else {
-        ctx.fillStyle=p.color;
-        ctx.fill();
-        ctx.fillStyle="#fff";
-        ctx.fillText(p.name,p.x-camX-15,p.y-camY-25);
-      }
+      ctx.fillStyle = p.alive?p.color:"#888";
+      ctx.fill();
+      ctx.fillStyle="#fff";
+      ctx.fillText(p.name+(p.alive?"":" (ÖLÜ)"),p.x-camX-25,p.y-camY-25);
     }
   });
 
@@ -244,18 +270,6 @@ function tryKill(){
 fixBtn.onclick=tryTask;
 killBtn.onclick=tryKill;
 
-document.addEventListener("keydown",e=>{
-  if(!me?.alive) return;
-  if(e.key==="e"||e.key==="E") tryTask();
-  if(e.key==="q"||e.key==="Q") tryKill();
-
-  /* === VOTE === */
-  if(lobby?.meeting && e.key>='0' && e.key<='9'){
-    const aliveIds = Object.values(players).filter(p=>p.alive).map(p=>p.id);
-    const idx = parseInt(e.key);
-    if(idx<aliveIds.length) socket.emit("vote", aliveIds[idx]);
-  }
-});
 </script>
 </body>
 </html>
