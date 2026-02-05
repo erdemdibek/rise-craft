@@ -15,6 +15,10 @@ let players = [];
 let machines = [];
 let started = false;
 
+/* MEETING */
+let meeting = false;
+let votes = {};
+
 function resetMachines(){
   machines=[];
   let i=0;
@@ -31,11 +35,41 @@ function assignRoles(){
   traitor.role = "Hain";
 }
 
+function lobbyUpdate(){
+  io.emit("lobby",{
+    players,
+    canStart: players.length>=4 &&
+              players.every(p=>p.ready) &&
+              players.find(p=>p.admin)
+  });
+}
+
+function endMeeting(){
+  meeting=false;
+  let tally={};
+
+  Object.values(votes).forEach(v=>{
+    tally[v]=(tally[v]||0)+1;
+  });
+
+  let max=0, out=null;
+  for(const id in tally){
+    if(tally[id]>max){ max=tally[id]; out=id; }
+  }
+
+  if(out){
+    const p=players.find(x=>x.id===out);
+    if(p){ p.alive=false; io.emit("log",`🗳️ ${p.name} oylandı ve öldü`); }
+  }
+
+  votes={};
+  io.emit("meetingEnd");
+}
+
 io.on("connection", socket => {
 
   socket.on("join", name => {
     if(started) return;
-
     players.push({
       id: socket.id,
       name,
@@ -59,18 +93,14 @@ io.on("connection", socket => {
   socket.on("start",()=>{
     if(players.length<4) return;
     if(players.some(p=>!p.ready)) return;
-
     started=true;
     assignRoles();
-
-    players.forEach(p=>{
-      io.to(p.id).emit("role",p.role);
-    });
-
+    players.forEach(p=>io.to(p.id).emit("role",p.role));
     io.emit("gameStarted");
   });
 
   socket.on("move",({dx,dy})=>{
+    if(meeting) return;
     const p=players.find(p=>p.id===socket.id);
     if(!p||!p.alive||!started) return;
     p.x=Math.max(20,Math.min(MAP_W-20,p.x+dx*6));
@@ -88,7 +118,18 @@ io.on("connection", socket => {
     if(dist<60){
       target.alive=false;
       io.emit("log",`💀 ${target.name} öldürüldü`);
+      meeting=true;
+      votes={};
+      io.emit("meetingStart",players.filter(p=>p.alive));
+      setTimeout(endMeeting,15000);
     }
+  });
+
+  socket.on("vote",id=>{
+    if(!meeting) return;
+    const p=players.find(p=>p.id===socket.id);
+    if(!p||!p.alive) return;
+    votes[socket.id]=id;
   });
 
   socket.on("disconnect",()=>{
@@ -98,18 +139,9 @@ io.on("connection", socket => {
 
 });
 
-function lobbyUpdate(){
-  io.emit("lobby",{
-    players,
-    canStart: players.length>=4 &&
-              players.every(p=>p.ready) &&
-              players.find(p=>p.admin)
-  });
-}
-
 setInterval(()=>{
   if(!started) return;
-  io.emit("state",{players,machines});
+  io.emit("state",{players,machines,meeting});
 },50);
 
 server.listen(process.env.PORT||3000,
