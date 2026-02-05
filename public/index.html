@@ -58,6 +58,28 @@ canvas{position:absolute;top:0;left:0}
   overflow:auto;
   z-index:50
 }
+
+/* JOYSTICK */
+#joystick{
+  position:fixed;
+  bottom:20px;
+  left:20px;
+  width:90px;
+  height:90px;
+  border-radius:50%;
+  background:#3338;
+  display:none;
+  z-index:80
+}
+#stick{
+  position:absolute;
+  left:30px;
+  top:30px;
+  width:30px;
+  height:30px;
+  border-radius:50%;
+  background:#0f8
+}
 </style>
 </head>
 
@@ -75,6 +97,11 @@ canvas{position:absolute;top:0;left:0}
 <canvas id="game"></canvas>
 <canvas id="miniMap"></canvas>
 <div id="log"></div>
+
+<!-- 🔥 JOYSTICK HTML -->
+<div id="joystick">
+  <div id="stick"></div>
+</div>
 
 <script src="/socket.io/socket.io.js"></script>
 <script>
@@ -126,7 +153,6 @@ socket.on("lobby",data=>{
   document.getElementById("readyBtn").style.display="inline";
 });
 
-/* GAME START */
 socket.on("gameStarted",()=>{
   started=true;
   document.getElementById("lobby").style.display="none";
@@ -137,7 +163,7 @@ socket.on("gameStarted",()=>{
 socket.on("state",s=>{
   state=s;
   me=s.players.find(p=>p.id===socket.id);
-  document.getElementById("alive").innerText=s.players.length;
+  document.getElementById("alive").innerText=s.players.filter(p=>p.alive).length;
 });
 
 /* DRAW */
@@ -181,13 +207,13 @@ function drawMini(){
   });
 }
 
-/* INPUT */
+/* KEYBOARD */
 let keys={};
 addEventListener("keydown",e=>keys[e.key]=true);
 addEventListener("keyup",e=>keys[e.key]=false);
 
 setInterval(()=>{
-  if(!started||!me) return;
+  if(!started||!me||!me.alive) return;
   let dx=0,dy=0;
   if(keys.w||keys.ArrowUp) dy=-1;
   if(keys.s||keys.ArrowDown) dy=1;
@@ -196,51 +222,39 @@ setInterval(()=>{
   if(dx||dy) socket.emit("move",{dx,dy});
 },50);
 
-/* MOBILE JOYSTICK */
+/* 📱 MOBILE JOYSTICK */
 const joystick = document.getElementById("joystick");
 const stick = document.getElementById("stick");
 
-let joyActive = false;
-let joyX = 0;
-let joyY = 0;
-let centerX = 45;
-let centerY = 45;
+let joyX=0, joyY=0, joyActive=false;
+const center=45, max=30;
 
-if ("ontouchstart" in window) {
-  joystick.style.display = "block";
-}
+if ("ontouchstart" in window) joystick.style.display="block";
 
-joystick.addEventListener("touchstart", e => {
-  joyActive = true;
+joystick.addEventListener("touchstart",()=>joyActive=true);
+joystick.addEventListener("touchmove",e=>{
+  if(!joyActive) return;
+  const t=e.touches[0];
+  const r=joystick.getBoundingClientRect();
+  let x=t.clientX-r.left-center;
+  let y=t.clientY-r.top-center;
+  const d=Math.hypot(x,y);
+  if(d>max){x=x/d*max;y=y/d*max;}
+  stick.style.left=center+x-15+"px";
+  stick.style.top =center+y-15+"px";
+  joyX=x/max; joyY=y/max;
+});
+joystick.addEventListener("touchend",()=>{
+  joyActive=false; joyX=joyY=0;
+  stick.style.left="30px"; stick.style.top="30px";
 });
 
-joystick.addEventListener("touchmove", e => {
-  if (!joyActive) return;
-  const t = e.touches[0];
-  const rect = joystick.getBoundingClientRect();
-  let x = t.clientX - rect.left - centerX;
-  let y = t.clientY - rect.top - centerY;
-
-  const max = 30;
-  const dist = Math.hypot(x, y);
-  if (dist > max) {
-    x = x / dist * max;
-    y = y / dist * max;
-  }
-
-  stick.style.left = centerX + x - 15 + "px";
-  stick.style.top  = centerY + y - 15 + "px";
-
-  joyX = x / max;
-  joyY = y / max;
-});
-
-joystick.addEventListener("touchend", () => {
-  joyActive = false;
-  joyX = joyY = 0;
-  stick.style.left = "30px";
-  stick.style.top  = "30px";
-});
+/* 🔥 JOYSTICK MOVE */
+setInterval(()=>{
+  if(!started||!me||!me.alive) return;
+  if(Math.abs(joyX)>0.1||Math.abs(joyY)>0.1)
+    socket.emit("move",{dx:joyX,dy:joyY});
+},50);
 </script>
 </body>
 </html>
