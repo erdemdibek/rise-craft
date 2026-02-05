@@ -144,11 +144,11 @@ io.on("connection",socket=>{
   });
 
   socket.on("killPlayer",id=>{
-    const k=lobby.players.find(p=>p.id===socket.id);
-    const t=lobby.players.find(p=>p.id===id);
-    if(k&&t&&k.role==="Hain"&&t.alive&&dist(k,t)<80&&!lobby.meeting){
-      t.alive=false;
-      io.emit("playerKilled",t.id);
+    const killer = lobby.players.find(p=>p.id===socket.id);
+    const target = lobby.players.find(p=>p.id===id);
+    if(killer && target && killer.role==="Hain" && target.alive && dist(killer,target)<80 && !lobby.meeting){
+      target.alive=false;
+      io.emit("playerKilled", target.id);
       startMeeting();
     }
   });
