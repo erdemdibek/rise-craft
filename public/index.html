@@ -4,133 +4,16 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no">
 <title>HAİN</title>
-
 <style>
-html,body{
-  margin:0;padding:0;width:100%;height:100%;
-  background:#111;color:#fff;overflow:hidden;
-  font-family:sans-serif
-}
+html,body{margin:0;padding:0;width:100%;height:100%;background:#111;color:#fff;overflow:hidden;font-family:sans-serif}
 canvas{position:absolute;top:0;left:0}
-
-/* LOBBY */
-#lobby{
-  position:fixed;inset:0;
-  background:#000e;
-  display:flex;
-  flex-direction:column;
-  align-items:center;
-  justify-content:center;
-  z-index:100
-}
-
-/* STATUS */
-#status{
-  position:fixed;
-  top:10px;
-  left:10px;
-  background:#000c;
-  padding:6px 10px;
-  border:1px solid #666;
-  z-index:50
-}
-
-/* MINI MAP */
-#miniMap{
-  position:fixed;
-  top:10px;
-  right:10px;
-  width:200px;
-  height:120px;
-  background:#0009;
-  border:1px solid #555;
-  z-index:50
-}
-
-/* LOG */
-#log{
-  position:fixed;
-  bottom:10px;
-  right:10px;
-  width:260px;
-  max-height:160px;
-  background:rgba(0,0,0,0.45);
-  padding:8px;
-  border-radius:8px;
-  font-size:12px;
-  z-index:60;
-  pointer-events:none;
-}
-.logItem{
-  opacity:1;
-  transition:opacity 1s;
-  margin-bottom:4px;
-}
-
-/* ROLE */
-#roleBox{
-  position:fixed;
-  top:50px;
-  left:10px;
-  background:#000c;
-  padding:6px 10px;
-  border:1px solid #666;
-  z-index:60;
-  display:none
-}
-
-/* KILL */
-#killBtn{
-  position:fixed;
-  bottom:20px;
-  right:20px;
-  width:80px;
-  height:80px;
-  border-radius:50%;
-  background:#a00;
-  color:#fff;
-  border:none;
-  font-size:14px;
-  display:none;
-  z-index:80
-}
-
-/* JOYSTICK */
-#joystick{
-  position:fixed;
-  bottom:20px;
-  left:20px;
-  width:90px;
-  height:90px;
-  border-radius:50%;
-  background:#3338;
-  display:none;
-  z-index:80
-}
-#stick{
-  position:absolute;
-  left:30px;
-  top:30px;
-  width:30px;
-  height:30px;
-  border-radius:50%;
-  background:#0f8
-}
-
-/* MEETING */
-#meeting{
-  position:fixed;inset:0;
-  background:#000e;
-  display:none;
-  z-index:200;
-  text-align:center;
-  padding-top:40px
-}
-#meeting button{
-  margin:6px;
-  padding:10px 20px;
-  font-size:16px;
-}
+#lobby{position:fixed;inset:0;background:#000e;display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:100}
+#status{position:fixed;top:10px;left:10px;background:#000c;padding:6px 10px;border:1px solid #666;z-index:50}
+#miniMap{position:fixed;top:10px;right:10px;width:200px;height:120px;background:#0009;border:1px solid #555;z-index:50}
+#log{position:fixed;bottom:10px;right:10px;width:260px;background:rgba(0,0,0,.45);padding:8px;border-radius:8px;font-size:12px;z-index:60;pointer-events:none}
+.logItem{opacity:1;transition:opacity 1s;margin-bottom:4px}
+#roleBox{position:fixed;top:50px;left:10px;background:#000c;padding:6px 10px;border:1px solid #666;z-index:60;display:none}
+#killBtn{position:fixed;bottom:20px;right:20px;width:80px;height:80px;border-radius:50%;background:#a00;color:#fff;border:none;display:none;z-index:80}
 </style>
 </head>
 
@@ -138,7 +21,7 @@ canvas{position:absolute;top:0;left:0}
 
 <div id="lobby">
   <input id="name" placeholder="İsmin">
-  <button onclick="join()">Katıl</button>
+  <button id="joinBtn" onclick="join()">Katıl</button>
   <button id="readyBtn" onclick="ready()" style="display:none">Hazır</button>
   <button id="startBtn" onclick="start()" style="display:none">Başlat</button>
   <div id="players"></div>
@@ -152,27 +35,21 @@ canvas{position:absolute;top:0;left:0}
 <canvas id="miniMap"></canvas>
 <div id="log"></div>
 
-<div id="joystick"><div id="stick"></div></div>
-
-<div id="meeting">
-  <h2>🗳️ OYLAMA</h2>
-  <div id="voteList"></div>
-</div>
-
 <script src="/socket.io/socket.io.js"></script>
 <script>
-const socket=io();
-const canvas=document.getElementById("game");
-const ctx=canvas.getContext("2d");
-const map=document.getElementById("miniMap");
-const mctx=map.getContext("2d");
+/* DOM */
+const lobby = document.getElementById("lobby");
+const joinBtn = document.getElementById("joinBtn");
+const readyBtn = document.getElementById("readyBtn");
+const startBtn = document.getElementById("startBtn");
+const playersDiv = document.getElementById("players");
+const nameInput = document.getElementById("name");
+const aliveSpan = document.getElementById("alive");
+const roleBox = document.getElementById("roleBox");
+const roleText = document.getElementById("roleText");
 
-canvas.width=innerWidth;
-canvas.height=innerHeight;
-addEventListener("resize",()=>{canvas.width=innerWidth;canvas.height=innerHeight});
-
-const MAP_W=2000,MAP_H=1200;
-let state=null,me=null,started=false;
+/* SOCKET */
+const socket = io();
 
 /* LOG */
 function log(msg){
@@ -188,104 +65,40 @@ socket.on("log",log);
 
 /* LOBBY */
 function join(){
-  const n=name.value;
+  const n = nameInput.value.trim();
   if(!n) return;
-  socket.emit("join",n);
+  socket.emit("join", n);
+  joinBtn.style.display="none";
   readyBtn.style.display="inline";
 }
-function ready(){ socket.emit("ready") }
-function start(){ socket.emit("start") }
+
+function ready(){ socket.emit("ready"); }
+function start(){ socket.emit("start"); }
 
 socket.on("lobby",data=>{
-  players.innerHTML="";
+  playersDiv.innerHTML="";
   data.players.forEach(p=>{
-    players.innerHTML+=`${p.name} ${p.ready?"✔️":"❌"} ${p.admin?"(Admin)":""}<br>`;
+    playersDiv.innerHTML += `${p.name} ${p.ready?"✔️":"❌"} ${p.admin?"(Admin)":""}<br>`;
     if(p.id===socket.id && p.admin)
-      startBtn.style.display=data.canStart?"inline":"none";
+      startBtn.style.display = data.canStart ? "inline" : "none";
   });
-});
-
-/* ROLE */
-socket.on("role",r=>{
-  roleBox.style.display="block";
-  roleText.textContent=r;
-  killBtn.style.display=(r==="Hain")?"block":"none";
 });
 
 /* GAME */
 socket.on("gameStarted",()=>{
-  started=true;
   lobby.style.display="none";
   log("🎮 Oyun başladı");
 });
 
+socket.on("role",r=>{
+  roleBox.style.display="block";
+  roleText.textContent=r;
+  document.getElementById("killBtn").style.display = r==="Hain"?"block":"none";
+});
+
 socket.on("state",s=>{
-  state=s;
-  me=s.players.find(p=>p.id===socket.id);
-  alive.textContent=s.players.filter(p=>p.alive).length;
+  aliveSpan.textContent = s.players.filter(p=>p.alive).length;
 });
-
-/* DRAW */
-function draw(){
-  requestAnimationFrame(draw);
-  if(!started||!state||!me) return;
-  ctx.clearRect(0,0,canvas.width,canvas.height);
-  const cx=me.x-canvas.width/2;
-  const cy=me.y-canvas.height/2;
-
-  state.players.forEach(p=>{
-    if(!p.alive&&p.id!==me.id) return;
-    ctx.beginPath();
-    ctx.arc(p.x-cx,p.y-cy,15,0,Math.PI*2);
-    ctx.fillStyle=p.alive?p.color:"#666";
-    ctx.fill();
-    ctx.fillText(p.name,p.x-cx-15,p.y-cy-20);
-  });
-
-  mctx.clearRect(0,0,200,120);
-  state.players.forEach(p=>{
-    if(p.alive){
-      mctx.fillStyle=p.color;
-      mctx.fillRect(p.x/MAP_W*200,p.y/MAP_H*120,4,4);
-    }
-  });
-}
-draw();
-
-/* MOVE */
-let keys={};
-addEventListener("keydown",e=>keys[e.key]=true);
-addEventListener("keyup",e=>keys[e.key]=false);
-setInterval(()=>{
-  if(!started||!me) return;
-  let dx=(keys.a||keys.ArrowLeft?-1:0)+(keys.d||keys.ArrowRight?1:0);
-  let dy=(keys.w||keys.ArrowUp?-1:0)+(keys.s||keys.ArrowDown?1:0);
-  if(dx||dy) socket.emit("move",{dx,dy});
-},50);
-
-/* KILL */
-function killPlayer(){
-  if(!me||!state) return;
-  let t=state.players.filter(p=>p.alive&&p.id!==me.id)
-    .sort((a,b)=>Math.hypot(me.x-a.x,me.y-a.y)-Math.hypot(me.x-b.x,me.y-b.y))[0];
-  if(t&&Math.hypot(me.x-t.x,me.y-t.y)<60)
-    socket.emit("kill",t.id);
-}
-
-/* MEETING */
-socket.on("meetingStart",list=>{
-  if(!me.alive) return;
-  meeting.style.display="block";
-  voteList.innerHTML="";
-  list.forEach(p=>{
-    if(p.id===socket.id) return;
-    const b=document.createElement("button");
-    b.textContent=p.name;
-    b.onclick=()=>{socket.emit("vote",p.id);meeting.style.display="none"};
-    voteList.appendChild(b);
-  });
-});
-socket.on("meetingEnd",()=>meeting.style.display="none");
 </script>
 </body>
 </html>
