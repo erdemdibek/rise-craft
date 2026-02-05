@@ -11,6 +11,8 @@ canvas{display:block}
 #joystick{position:fixed;left:30px;bottom:30px;width:120px;height:120px;border-radius:50%;background:#3338;display:none}
 #stick{position:absolute;left:35px;top:35px;width:50px;height:50px;border-radius:50%;background:#0f08}
 #tasks{position:absolute;top:10px;right:10px;color:#0f0;font-size:16px}
+#hint{position:absolute;bottom:120px;left:50%;transform:translateX(-50%);color:#ff0;font-size:16px}
+#cooldown{position:absolute;top:40px;right:10px;color:#f55;font-size:14px}
 #minimap{position:absolute;bottom:10px;right:10px;width:150px;height:150px;background:#0008;border:1px solid #fff}
 </style>
 </head>
@@ -24,6 +26,9 @@ canvas{display:block}
 </div>
 
 <div id="tasks">Görev: 0</div>
+<div id="cooldown"></div>
+<div id="hint"></div>
+
 <canvas id="game"></canvas>
 <div id="joystick"><div id="stick"></div></div>
 <canvas id="minimap"></canvas>
@@ -35,30 +40,29 @@ canvas{display:block}
 
 <script src="/socket.io/socket.io.js"></script>
 <script>
-/* === GLOBALS === */
 const socket = io();
 const canvas = document.getElementById("game");
 const ctx = canvas.getContext("2d");
 const minimap = document.getElementById("minimap");
 const minimapCtx = minimap.getContext("2d");
-const nameInput = document.getElementById("nameInput");
-const tasksDiv = document.getElementById("tasks");
 
-let me = null;
-let players = {};
-let machines = [];
-let lobby = null;
-let camX = 0, camY = 0;
+const tasksDiv = document.getElementById("tasks");
+const hintDiv = document.getElementById("hint");
+const cooldownDiv = document.getElementById("cooldown");
+
+let me=null, players={}, machines=[], lobby=null;
+let camX=0, camY=0;
+
+const MAP_W = 2000;
+const MAP_H = 1200;
 
 /* === RESIZE === */
 function resize(){
-  canvas.width = innerWidth;
-  canvas.height = innerHeight;
-  minimap.width = 150;
-  minimap.height = 150;
+  canvas.width=innerWidth;
+  canvas.height=innerHeight;
 }
 resize();
-addEventListener("resize", resize);
+addEventListener("resize",resize);
 
 /* === FULLSCREEN === */
 function goFullscreen(){
@@ -67,7 +71,7 @@ function goFullscreen(){
 }
 
 /* === JOIN === */
-joinBtn.onclick = ()=>{
+joinBtn.onclick=()=>{
   socket.emit("joinLobby",{name:nameInput.value},res=>{
     if(res.error) return alert(res.error);
     goFullscreen();
@@ -81,59 +85,53 @@ readyBtn.onclick=()=>{
   readyBtn.disabled=true;
 };
 
-/* === SOCKET EVENTS === */
-socket.on("lobbyUpdate", d=>{
-  lobby = d;
+/* === SOCKET === */
+socket.on("lobbyUpdate",d=>{
+  lobby=d;
   d.players.forEach(p=>players[p.id]=p);
-  machines = d.machines;
-  me = players[socket.id];
+  machines=d.machines;
+  me=players[socket.id];
 });
 
-socket.on("rolesAssigned", r=>{
-  const m = r.find(x=>x.id===socket.id);
-  if(m) role.innerText = "ROL: " + m.role;
+socket.on("rolesAssigned",r=>{
+  const m=r.find(x=>x.id===socket.id);
+  if(!m) return;
+  role.innerText="ROL: "+m.role;
+  killBtn.style.display=m.role==="Hain"?"inline":"none";
 });
 
-socket.on("gameStart", ()=>{
+socket.on("gameStart",()=>{
   joystick.style.display="block";
   actionButtons.style.display="block";
 });
 
-socket.on("state", d=>{
+socket.on("state",d=>{
   d.players.forEach(p=>{
-    players[p.id] ? Object.assign(players[p.id],p) : players[p.id]=p;
+    players[p.id]?Object.assign(players[p.id],p):players[p.id]=p;
   });
-  me = players[socket.id];
-  tasksDiv.innerText = "Görev: " + (me?.tasksCompleted||0);
+  me=players[socket.id];
+  tasksDiv.innerText="Görev: "+(me?.tasksCompleted||0);
+
+  if(me?.role==="Hain" && me.killCooldown>0){
+    cooldownDiv.innerText="Kill CD: "+me.killCooldown;
+  }else cooldownDiv.innerText="";
 });
 
-socket.on("machinesUpdate", m=>machines=m);
-socket.on("playerKilled", id=>{ if(players[id]) players[id].alive=false; });
-socket.on("startMeeting", ()=>alert("Toplantı başladı!"));
-socket.on("endMeeting", ()=>alert("Toplantı bitti!"));
-socket.on("gameEnd", msg=>alert(msg));
+socket.on("machinesUpdate",m=>machines=m);
+socket.on("playerKilled",id=>players[id]&&(players[id].alive=false));
+socket.on("gameEnd",msg=>alert(msg));
 
-/* === DRAW LOOP === */
-ctx.font="16px Arial";
+/* === DRAW === */
 function draw(){
   ctx.clearRect(0,0,canvas.width,canvas.height);
-  if(me){
-    camX = me.x - canvas.width/2;
-    camY = me.y - canvas.height/2;
-  }
+  if(me){camX=me.x-canvas.width/2; camY=me.y-canvas.height/2;}
 
   machines.forEach(m=>{
-  ctx.fillStyle = m.broken ? "red" : "lime";
-  ctx.fillRect(m.x-camX-20,m.y-camY-20,40,40);
-
-  ctx.fillStyle = "#fff";
-  ctx.font = "12px Arial";
-  ctx.fillText(
-    m.name,
-    m.x-camX-35,
-    m.y-camY-30
-  );
-});
+    ctx.fillStyle=m.broken?"red":"lime";
+    ctx.fillRect(m.x-camX-20,m.y-camY-20,40,40);
+    ctx.fillStyle="#fff";
+    ctx.fillText(m.name,m.x-camX-35,m.y-camY-30);
+  });
 
   Object.values(players).forEach(p=>{
     if(!p.alive) return;
@@ -147,12 +145,12 @@ function draw(){
 
   minimapCtx.clearRect(0,0,150,150);
   Object.values(players).forEach(p=>{
-    minimapCtx.fillStyle=p.alive?p.color:"#555";
-    minimapCtx.fillRect((p.x/2000)*150,(p.y/1200)*150,5,5);
+    minimapCtx.fillStyle=p.alive?p.color:"#444";
+    minimapCtx.fillRect(p.x/MAP_W*150,p.y/MAP_H*150,5,5);
   });
   machines.forEach(m=>{
     minimapCtx.fillStyle=m.broken?"red":"lime";
-    minimapCtx.fillRect((m.x/2000)*150,(m.y/1200)*150,5,5);
+    minimapCtx.fillRect(m.x/MAP_W*150,m.y/MAP_H*150,5,5);
   });
 
   requestAnimationFrame(draw);
@@ -162,9 +160,7 @@ draw();
 /* === JOYSTICK === */
 let jx=0,jy=0,joy=false,sx=0,sy=0;
 joystick.addEventListener("touchstart",e=>{
-  joy=true;
-  sx=e.touches[0].clientX;
-  sy=e.touches[0].clientY;
+  joy=true; sx=e.touches[0].clientX; sy=e.touches[0].clientY;
 });
 joystick.addEventListener("touchmove",e=>{
   if(!joy||!me) return;
@@ -173,50 +169,56 @@ joystick.addEventListener("touchmove",e=>{
   stick.style.transform=`translate(${jx}px,${jy}px)`;
 });
 joystick.addEventListener("touchend",()=>{
-  joy=false;
-  jx=jy=0;
+  joy=false; jx=jy=0;
   stick.style.transform="translate(0,0)";
 });
 
 setInterval(()=>{
   if(!me) return;
-  me.x+=jx*0.12;
-  me.y+=jy*0.12;
+  me.x=Math.max(20,Math.min(MAP_W-20,me.x+jx*0.12));
+  me.y=Math.max(20,Math.min(MAP_H-20,me.y+jy*0.12));
   socket.emit("move",{x:me.x,y:me.y});
 },50);
 
 /* === ACTIONS === */
+function nearMachine(){
+  return machines.find(m=>Math.hypot(m.x-me.x,m.y-me.y)<50);
+}
+
+function updateHint(){
+  if(!me) return hintDiv.innerText="";
+  const m=nearMachine();
+  if(!m) return hintDiv.innerText="";
+  hintDiv.innerText =
+    me.role==="Operatör" && m.broken ? "E → Görevi Yap" :
+    me.role==="Hain" && !m.broken ? "E → Sabotaj" : "";
+}
+setInterval(updateHint,200);
+
 function tryTask(){
-  if(!me) return;
-  machines.forEach((m,i)=>{
-    if(Math.hypot(m.x-me.x,m.y-me.y)<50){
-      if(me.role==="Operatör" && m.broken)
-        socket.emit("action",{type:"fixMachine",machineIndex:i});
-      if(me.role==="Hain" && !m.broken)
-        socket.emit("action",{type:"breakMachine",machineIndex:i});
-    }
-  });
+  const m=nearMachine();
+  if(!m) return;
+  const i=machines.indexOf(m);
+  if(me.role==="Operatör"&&m.broken)
+    socket.emit("action",{type:"fixMachine",machineIndex:i});
+  if(me.role==="Hain"&&!m.broken)
+    socket.emit("action",{type:"breakMachine",machineIndex:i});
 }
 
 function tryKill(){
-  if(!me||me.role!=="Hain") return;
+  if(me.role!=="Hain") return;
   Object.values(players).forEach(p=>{
-    if(p.id!==me.id && p.alive && Math.hypot(p.x-me.x,p.y-me.y)<50)
+    if(p.id!==me.id&&p.alive&&Math.hypot(p.x-me.x,p.y-me.y)<50)
       socket.emit("killPlayer",p.id);
   });
 }
 
-fixBtn.onclick = tryTask;
-killBtn.onclick = tryKill;
+fixBtn.onclick=tryTask;
+killBtn.onclick=tryKill;
 
 document.addEventListener("keydown",e=>{
-  if(e.key.toLowerCase()==="e") tryTask();
-  if(e.key.toLowerCase()==="q") tryKill();
-  if(lobby?.meeting && e.key>='0' && e.key<='9'){
-    const aliveIds = Object.values(players).filter(p=>p.alive).map(p=>p.id);
-    const idx = parseInt(e.key);
-    if(idx < aliveIds.length) socket.emit("vote", aliveIds[idx]);
-  }
+  if(e.key==="e"||e.key==="E") tryTask();
+  if(e.key==="q"||e.key==="Q") tryKill();
 });
 </script>
 </body>
