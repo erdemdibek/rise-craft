@@ -14,8 +14,6 @@ const MAP_H = 1200;
 let players = [];
 let machines = [];
 let started = false;
-
-/* MEETING */
 let meeting = false;
 let votes = {};
 
@@ -35,34 +33,34 @@ function assignRoles(){
   traitor.role = "Hain";
 }
 
-function lobbyUpdate(){
-  io.emit("lobby",{
-    players,
-    canStart: players.length>=4 &&
-              players.every(p=>p.ready) &&
-              players.find(p=>p.admin)
-  });
+function startMeeting(){
+  meeting = true;
+  votes = {};
+  io.emit("meetingStart",
+    players.filter(p=>p.alive).map(p=>({id:p.id,name:p.name}))
+  );
+  setTimeout(endMeeting,15000);
 }
 
 function endMeeting(){
-  meeting=false;
-  let tally={};
-
+  meeting = false;
+  const count = {};
   Object.values(votes).forEach(v=>{
-    tally[v]=(tally[v]||0)+1;
+    count[v]=(count[v]||0)+1;
   });
 
   let max=0, out=null;
-  for(const id in tally){
-    if(tally[id]>max){ max=tally[id]; out=id; }
+  for(const id in count){
+    if(count[id]>max){max=count[id]; out=id;}
   }
 
   if(out){
-    const p=players.find(x=>x.id===out);
-    if(p){ p.alive=false; io.emit("log",`🗳️ ${p.name} oylandı ve öldü`); }
+    const p = players.find(x=>x.id===out);
+    if(p){
+      p.alive=false;
+      io.emit("log",`🗳️ ${p.name} oylama ile elendi`);
+    }
   }
-
-  votes={};
   io.emit("meetingEnd");
 }
 
@@ -95,14 +93,21 @@ io.on("connection", socket => {
     if(players.some(p=>!p.ready)) return;
     started=true;
     assignRoles();
-    players.forEach(p=>io.to(p.id).emit("role",p.role));
+    players.forEach(p=>{
+      io.to(p.id).emit("role",p.role);
+    });
     io.emit("gameStarted");
   });
 
   socket.on("move",({dx,dy})=>{
-    if(meeting) return;
     const p=players.find(p=>p.id===socket.id);
-    if(!p||!p.alive||!started) return;
+    if(!p||!started) return;
+    if(!p.alive) {
+      // hayalet serbest dolaşır
+      p.x+=dx*6; p.y+=dy*6;
+      return;
+    }
+    if(meeting) return;
     p.x=Math.max(20,Math.min(MAP_W-20,p.x+dx*6));
     p.y=Math.max(20,Math.min(MAP_H-20,p.y+dy*6));
   });
@@ -113,22 +118,19 @@ io.on("connection", socket => {
     if(!killer||!target) return;
     if(!killer.alive||!target.alive) return;
     if(killer.role!=="Hain") return;
+    if(meeting) return;
 
-    const dist=Math.hypot(killer.x-target.x,killer.y-target.y);
-    if(dist<60){
+    const d=Math.hypot(killer.x-target.x,killer.y-target.y);
+    if(d<60){
       target.alive=false;
       io.emit("log",`💀 ${target.name} öldürüldü`);
-      meeting=true;
-      votes={};
-      io.emit("meetingStart",players.filter(p=>p.alive));
-      setTimeout(endMeeting,15000);
+      startMeeting();
     }
   });
 
-  socket.on("vote",id=>{
-    if(!meeting) return;
+  socket.on("vote", id=>{
     const p=players.find(p=>p.id===socket.id);
-    if(!p||!p.alive) return;
+    if(!meeting||!p||!p.alive) return;
     votes[socket.id]=id;
   });
 
@@ -139,9 +141,18 @@ io.on("connection", socket => {
 
 });
 
+function lobbyUpdate(){
+  io.emit("lobby",{
+    players,
+    canStart: players.length>=4 &&
+              players.every(p=>p.ready) &&
+              players.find(p=>p.admin)
+  });
+}
+
 setInterval(()=>{
   if(!started) return;
-  io.emit("state",{players,machines,meeting});
+  io.emit("state",{players,machines});
 },50);
 
 server.listen(process.env.PORT||3000,
