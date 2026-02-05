@@ -10,22 +10,22 @@ button,input{font-size:16px}
 canvas{display:block}
 #joystick{position:fixed;left:30px;bottom:30px;width:120px;height:120px;border-radius:50%;background:#3338;display:none;z-index:10}
 #stick{position:absolute;left:35px;top:35px;width:50px;height:50px;border-radius:50%;background:#0f08}
-#tasks{position:absolute;top:10px;right:10px;color:#0f0;font-size:16px;z-index:20}
-#hint{position:absolute;bottom:120px;left:50%;transform:translateX(-50%);color:#ff0;font-size:16px;z-index:20}
+#tasks{position:absolute;top:10px;right:10px;color:#0f0;font-size:18px;font-weight:bold;z-index:20;text-shadow:0 0 5px #000;}
+#hint{position:absolute;bottom:120px;left:50%;transform:translateX(-50%);color:#ff0;font-size:18px;font-weight:bold;z-index:20;text-shadow:0 0 5px #000;}
 #cooldown{position:absolute;top:40px;right:10px;color:#f55;font-size:14px;z-index:20}
-#minimap{position:absolute;bottom:10px;right:10px;width:150px;height:150px;background:#0008;border:1px solid #fff;z-index:20}
+#minimap{position:absolute;bottom:10px;right:10px;width:150px;height:150px;background:#0008;border:2px solid #fff;z-index:20}
 #actionButtons{position:absolute;bottom:30px;right:30px;display:none;z-index:20}
 #voteMenu{
   position:absolute;top:0;left:0;width:100%;height:100%;
   background:rgba(0,0,0,0.85);display:none;flex-direction:column;
   align-items:center;justify-content:center;z-index:30;color:#fff;
 }
-#voteMenu h2{margin-bottom:20px}
+#voteMenu h2{margin-bottom:20px;font-size:24px;}
 .voteOption{
-  padding:10px 20px;margin:5px;background:#222;border:1px solid #fff;
-  cursor:pointer;font-size:18px;border-radius:5px;
+  padding:12px 24px;margin:5px;background:#222;border:1px solid #fff;
+  cursor:pointer;font-size:20px;border-radius:8px;transition:0.2s;
 }
-.voteOption:hover{background:#444}
+.voteOption:hover{background:#444;transform:scale(1.05);}
 </style>
 </head>
 <body>
@@ -46,7 +46,7 @@ canvas{display:block}
 <canvas id="minimap"></canvas>
 
 <div id="actionButtons">
-  <button id="fixBtn">E: Görev</button>
+  <button id="fixBtn">E: Tamir Et</button>
   <button id="killBtn">Q: Öldür</button>
 </div>
 
@@ -67,6 +67,7 @@ const voteOptions = document.getElementById("voteOptions");
 
 const tasksDiv = document.getElementById("tasks");
 const hintDiv = document.getElementById("hint");
+const cooldownDiv = document.getElementById("cooldown");
 
 let me=null, players={}, machines=[], lobby=null;
 let camX=0, camY=0;
@@ -77,7 +78,10 @@ const VISION_OPERATOR = 180;
 const VISION_HAIN = 260;
 
 /* === RESIZE === */
-function resize(){ canvas.width=innerWidth; canvas.height=innerHeight; }
+function resize(){
+  canvas.width=innerWidth;
+  canvas.height=innerHeight;
+}
 resize();
 addEventListener("resize",resize);
 
@@ -159,57 +163,69 @@ socket.on("gameEnd",msg=>alert(msg));
 function draw(){
   ctx.clearRect(0,0,canvas.width,canvas.height);
   if(!me) return;
-  camX=me.x-canvas.width/2;
-  camY=me.y-canvas.height/2;
 
+  camX = me.x - canvas.width / 2;
+  camY = me.y - canvas.height / 2;
+
+  /* --- FOG OF WAR --- */
   ctx.save();
-  ctx.fillStyle="rgba(0,0,0,0.7)";
+  ctx.fillStyle = "rgba(0,0,0,0.7)";
   ctx.fillRect(0,0,canvas.width,canvas.height);
-  ctx.globalCompositeOperation="destination-out";
-  const vision = me.role==="Hain"?VISION_HAIN:VISION_OPERATOR;
+  ctx.globalCompositeOperation = "destination-out";
+  const vision = me.role === "Hain" ? VISION_HAIN : VISION_OPERATOR;
   ctx.beginPath();
-  ctx.arc(me.x-camX, me.y-camY, vision,0,Math.PI*2);
+  ctx.arc(me.x-camX, me.y-camY, vision, 0, Math.PI*2);
   ctx.fill();
-  ctx.globalCompositeOperation="source-over";
+  ctx.globalCompositeOperation = "source-over";
 
-  machines.forEach(m=>{
-    const distM=Math.hypot(m.x-me.x,m.y-me.y);
-    if(distM<vision||!me.alive){
-      ctx.fillStyle=m.broken?"red":"lime";
-      ctx.fillRect(m.x-camX-25,m.y-camY-25,50,50);
-      ctx.fillStyle="#fff";
-      ctx.font="16px sans-serif";
-      ctx.textAlign="center";
-      ctx.textBaseline="bottom";
-      ctx.fillText(m.name,m.x-camX,m.y-camY-30);
+  /* --- MACHINES --- */
+  machines.forEach(m => {
+    const distM = Math.hypot(m.x-me.x, m.y-me.y);
+    if(distM < vision || !me.alive){
+      ctx.fillStyle = m.broken ? "#f33" : "#0f0";
+      ctx.shadowColor = "#000";
+      ctx.shadowBlur = 8;
+      ctx.fillRect(m.x-camX-25, m.y-camY-25, 50, 50);
+      ctx.fillStyle = "#fff";
+      ctx.font = "16px sans-serif";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "bottom";
+      ctx.fillText(m.name, m.x-camX, m.y-camY-30);
+      ctx.shadowBlur = 0;
     }
   });
 
-  Object.values(players).forEach(p=>{
-    if(!p.alive&&!me.alive) return;
-    const distP=Math.hypot(p.x-me.x,p.y-me.y);
-    if(distP<vision||!me.alive){
+  /* --- PLAYERS --- */
+  Object.values(players).forEach(p => {
+    if(!p.alive && !me.alive) return;
+    const distP = Math.hypot(p.x-me.x, p.y-me.y);
+    if(distP < vision || !me.alive){
       ctx.beginPath();
-      ctx.arc(p.x-camX,p.y-camY,25,0,Math.PI*2);
-      ctx.fillStyle=p.alive?p.color:"#888";
+      ctx.arc(p.x-camX, p.y-camY, 25, 0, Math.PI*2);
+      ctx.fillStyle = p.alive ? p.color : "#888";
+      ctx.shadowColor = "#000";
+      ctx.shadowBlur = 10;
       ctx.fill();
-      ctx.fillStyle="#fff";
-      ctx.font="16px sans-serif";
-      ctx.textAlign="center";
-      ctx.textBaseline="top";
-      ctx.fillText(p.name+(p.alive?"":" (ÖLÜ)"),p.x-camX,p.y-camY+30);
+      ctx.shadowBlur = 0;
+      ctx.fillStyle = "#fff";
+      ctx.font = "16px sans-serif";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "top";
+      ctx.fillText(p.name+(p.alive?"":" (ÖLÜ)"), p.x-camX, p.y-camY+30);
     }
   });
+
   ctx.restore();
 
+  /* --- MINIMAP --- */
   minimapCtx.clearRect(0,0,150,150);
-  Object.values(players).forEach(p=>{
-    minimapCtx.fillStyle=p.alive?p.color:"#444";
-    minimapCtx.fillRect(p.x/MAP_W*150,p.y/MAP_H*150,5,5);
+  Object.values(players).forEach(p => {
+    minimapCtx.fillStyle = p.alive ? p.color : "#444";
+    minimapCtx.fillRect(p.x / MAP_W * 150, p.y / MAP_H * 150, 5, 5);
   });
-  machines.forEach(m=>{
-    minimapCtx.fillStyle=m.broken?"red":"lime";
-    minimapCtx.fillRect(m.x/MAP_W*150,m.y/MAP_H*150,5,5);
+  machines.forEach(m => {
+    minimapCtx.fillStyle = m.broken ? "#f33" : "#0f0";
+    minimapCtx.fillRect(m.x / MAP_W * 150, m.y / MAP_H * 150, 5, 5);
   });
 
   requestAnimationFrame(draw);
@@ -236,21 +252,29 @@ setInterval(()=>{
 
 /* === ACTIONS === */
 function nearMachine(){ return machines.find(m=>Math.hypot(m.x-me.x,m.y-me.y)<50); }
+
 function updateHint(){
-  if(!me||!me.alive) return hintDiv.innerText="";
-  const m=nearMachine();
-  if(!m) return hintDiv.innerText="";
-  hintDiv.innerText =
-    me.role==="Operatör" && m.broken ? "E → Görevi Yap" :
-    me.role==="Hain" ? "Q → Öldür" : "";
+  if(!me || !me.alive) return hintDiv.innerText="";
+  const m = nearMachine();
+  if(m && me.role==="Operatör" && m.broken){
+    hintDiv.innerText="E → Görevi Yap";
+    return;
+  }
+  const target = Object.values(players).find(p=>p.id!==me.id && p.alive && Math.hypot(p.x-me.x,p.y-me.y)<80);
+  if(me.role==="Hain" && target){
+    hintDiv.innerText="Q → Öldür";
+    return;
+  }
+  hintDiv.innerText="";
 }
-setInterval(updateHint,200);
+setInterval(updateHint,100);
 
 function tryTask(){
-  const m=nearMachine();
+  const m = nearMachine();
   if(!m || !me.alive) return;
-  const i=machines.indexOf(m);
-  if(me.role==="Operatör"&&m.broken) socket.emit("action",{type:"fixMachine",machineIndex:i});
+  const i = machines.indexOf(m);
+  if(me.role==="Operatör" && m.broken)
+    socket.emit("action",{type:"fixMachine",machineIndex:i});
 }
 
 function tryKill(){
