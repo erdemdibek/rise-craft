@@ -113,14 +113,15 @@ socket.on("state",d=>{
   });
   me=players[socket.id];
   tasksDiv.innerText="Görev: "+(me?.tasksCompleted||0);
-
-  if(me?.role==="Hain" && me.killCooldown>0){
-    cooldownDiv.innerText="Kill CD: "+me.killCooldown;
-  }else cooldownDiv.innerText="";
 });
 
 socket.on("machinesUpdate",m=>machines=m);
 socket.on("playerKilled",id=>players[id]&&(players[id].alive=false));
+socket.on("startMeeting",()=>alert("🗳 Toplantı başladı! Oy kullanın (0-9)"));
+socket.on("endMeeting",(out)=>{
+  if(out) alert("💀 "+(players[out]?.name||"Biri")+" atıldı!");
+  else alert("🟢 Kimse atılmadı!");
+});
 socket.on("gameEnd",msg=>alert(msg));
 
 /* === DRAW LOOP === */
@@ -153,7 +154,7 @@ function draw(){
 
   /* --- PLAYERS --- */
   Object.values(players).forEach(p=>{
-    if(!p.alive && !me.alive) return; // spectate dead players
+    if(!p.alive && !me.alive) return;
     const distP = Math.hypot(p.x-me.x,p.y-me.y);
     if(distP<vision || !me.alive){
       ctx.beginPath();
@@ -247,6 +248,13 @@ document.addEventListener("keydown",e=>{
   if(!me?.alive) return;
   if(e.key==="e"||e.key==="E") tryTask();
   if(e.key==="q"||e.key==="Q") tryKill();
+
+  /* === VOTE === */
+  if(lobby?.meeting && e.key>='0' && e.key<='9'){
+    const aliveIds = Object.values(players).filter(p=>p.alive).map(p=>p.id);
+    const idx = parseInt(e.key);
+    if(idx<aliveIds.length) socket.emit("vote", aliveIds[idx]);
+  }
 });
 </script>
 </body>
