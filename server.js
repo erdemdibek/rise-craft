@@ -1,3 +1,4 @@
+// server.js
 const express = require("express");
 const http = require("http");
 const { Server } = require("socket.io");
@@ -25,11 +26,8 @@ const lobby = {
   votes: {}
 };
 
-/* === MAP === */
-const MAP_W = 2000;
-const MAP_H = 1200;
+const MAP_W = 2000, MAP_H = 1200;
 
-/* === MACHINES === */
 function resetMachines(){
   lobby.machines=[];
   const xs=[300,700,1100,1500,1900];
@@ -41,21 +39,17 @@ function resetMachines(){
 }
 resetMachines();
 
-/* === SERVER === */
 app.use(express.static(path.join(__dirname,"public")));
 app.get("/",(_,res)=>res.sendFile(path.join(__dirname,"public","index.html")));
 
-/* === HELPERS === */
 const dist=(a,b)=>Math.hypot(a.x-b.x,a.y-b.y);
 
-/* === ROLES === */
 function assignRoles(){
   lobby.players.forEach(p=>p.role="Operatör");
   lobby.players[Math.floor(Math.random()*lobby.players.length)].role="Hain";
   io.emit("rolesAssigned",lobby.players.map(p=>({id:p.id,role:p.role})));
 }
 
-/* === RESET === */
 function resetGame(){
   lobby.started=false;
   lobby.meeting=false;
@@ -71,7 +65,6 @@ function resetGame(){
   });
 }
 
-/* === WIN CHECK === */
 function checkWin(){
   const ops=lobby.players.filter(p=>p.role==="Operatör"&&p.alive);
   const hain=lobby.players.filter(p=>p.role==="Hain"&&p.alive);
@@ -86,7 +79,6 @@ function checkWin(){
   }
 }
 
-/* === MEETING === */
 function startMeeting(){
   lobby.meeting=true;
   lobby.votes={};
@@ -108,12 +100,11 @@ function endMeeting(){
   checkWin();
 }
 
-/* === SOCKET === */
 io.on("connection",socket=>{
 
   socket.on("joinLobby",({name},cb)=>{
     if(!name) return cb({error:"İsim gir"});
-    // Oyuna başladıysa yeni oyuncu sadece lobiye alınır
+    const isAdmin = lobby.players.length===0;
     const inGame = lobby.started;
     lobby.players.push({
       id:socket.id,
@@ -121,32 +112,40 @@ io.on("connection",socket=>{
       x:Math.random()*MAP_W,
       y:Math.random()*MAP_H,
       color:`hsl(${Math.random()*360},70%,50%)`,
-      ready:false,alive:!inGame,role:null,
+      ready:false,
+      alive:!inGame,
+      role:null,
       tasksCompleted:0,
       lastKill:0,
-      inGame:!inGame
+      inGame:!inGame,
+      isAdmin
     });
     io.emit("lobbyUpdate",{players:lobby.players,machines:lobby.machines});
-    cb({success:true, inGame: !inGame});
+    cb({success:true,inGame:!inGame,isAdmin});
   });
 
   socket.on("playerReady",()=>{
     const p=lobby.players.find(p=>p.id===socket.id);
     if(!p) return;
     p.ready=true;
-    if(lobby.players.filter(x=>!x.inGame).length>=3 && lobby.players.filter(x=>!x.inGame).every(p=>p.ready)){
-      lobby.started=true;
-      lobby.players.forEach(p=>p.inGame=true);
-      assignRoles();
-      io.emit("gameStart");
-      startLoop();
-    }
+    io.emit("lobbyUpdate",{players:lobby.players,machines:lobby.machines});
+  });
+
+  socket.on("startGame",()=>{
+    const admin = lobby.players.find(p=>p.id===socket.id && p.isAdmin);
+    if(!admin) return;
+    if(lobby.players.filter(p=>!p.ready).length>0) return;
+    lobby.started=true;
+    lobby.players.forEach(p=>p.inGame=true);
+    assignRoles();
+    io.emit("gameStart");
+    startLoop();
   });
 
   socket.on("move",d=>{
     const p=lobby.players.find(p=>p.id===socket.id);
-    if(p&&p.alive&&!lobby.meeting){
-      p.x=d.x;p.y=d.y;
+    if(p && p.alive && !lobby.meeting){
+      p.x=d.x; p.y=d.y;
     }
   });
 
@@ -168,10 +167,8 @@ io.on("connection",socket=>{
     if(!killer||!target) return;
     if(killer.role!=="Hain"||!killer.alive||!target.alive) return;
     if(dist(killer,target)>60||lobby.meeting) return;
-
     const now=Date.now();
-    if(now-killer.lastKill<3000) return; // cooldown
-
+    if(now-killer.lastKill<3000) return;
     killer.lastKill=now;
     target.alive=false;
     io.emit("playerKilled",target.id);
@@ -181,7 +178,7 @@ io.on("connection",socket=>{
   socket.on("vote",id=>{
     if(!lobby.meeting) return;
     const p=lobby.players.find(p=>p.id===socket.id);
-    if(p&&p.alive) lobby.votes[p.id]=id;
+    if(p && p.alive) lobby.votes[p.id]=id;
   });
 
   socket.on("disconnect",()=>{
@@ -190,11 +187,10 @@ io.on("connection",socket=>{
   });
 });
 
-/* === LOOP === */
 function startLoop(){
   if(gameInterval) clearInterval(gameInterval);
   gameInterval=setInterval(()=>{
-    if(!lobby.started||lobby.meeting) return;
+    if(!lobby.started || lobby.meeting) return;
     lobby.time--;
     if(lobby.time%15===0){
       const ok=lobby.machines.filter(m=>!m.broken);
