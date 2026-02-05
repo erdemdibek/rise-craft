@@ -6,15 +6,25 @@
 <title>HAİN</title>
 
 <style>
-html,body{margin:0;padding:0;width:100%;height:100%;background:#111;color:#fff;overflow:hidden;font-family:sans-serif}
+html,body{
+  margin:0;padding:0;width:100%;height:100%;
+  background:#111;color:#fff;overflow:hidden;
+  font-family:sans-serif
+}
 canvas{position:absolute;top:0;left:0}
 
+/* LOBBY */
 #lobby{
-  position:fixed;inset:0;background:#000c;
-  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  position:fixed;inset:0;
+  background:#000e;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:center;
   z-index:100
 }
 
+/* UI */
 #miniMap{
   position:fixed;
   top:10px;
@@ -48,43 +58,6 @@ canvas{position:absolute;top:0;left:0}
   overflow:auto;
   z-index:50
 }
-
-#joystick{
-  position:fixed;
-  bottom:20px;
-  left:20px;
-  width:90px;
-  height:90px;
-  border-radius:50%;
-  background:#3338;
-  display:none;
-  z-index:50
-}
-#stick{
-  position:absolute;
-  left:30px;
-  top:30px;
-  width:30px;
-  height:30px;
-  border-radius:50%;
-  background:#0f08
-}
-
-#voteMenu{
-  position:fixed;inset:0;
-  background:#000d;
-  display:none;
-  flex-direction:column;
-  align-items:center;
-  justify-content:center;
-  z-index:200
-}
-.vote{
-  padding:10px 30px;
-  margin:6px;
-  border:1px solid #fff;
-  cursor:pointer
-}
 </style>
 </head>
 
@@ -98,36 +71,34 @@ canvas{position:absolute;top:0;left:0}
   <div id="players"></div>
 </div>
 
-<div id="status">Canlı: <span id="alive">0</span></div>
+<div id="status">Oyuncu: <span id="alive">0</span></div>
 <canvas id="game"></canvas>
 <canvas id="miniMap"></canvas>
 <div id="log"></div>
 
-<div id="joystick">
-  <div id="stick"></div>
-</div>
-
-<div id="voteMenu">
-  <h2>Oylama</h2>
-  <div id="votes"></div>
-</div>
-
 <script src="/socket.io/socket.io.js"></script>
 <script>
-const socket=io();
-const canvas=document.getElementById("game");
-const ctx=canvas.getContext("2d");
-const map=document.getElementById("miniMap");
-const mctx=map.getContext("2d");
+const socket = io();
 
-canvas.width=innerWidth;
-canvas.height=innerHeight;
-addEventListener("resize",()=>{canvas.width=innerWidth;canvas.height=innerHeight});
+const canvas = document.getElementById("game");
+const ctx = canvas.getContext("2d");
+const map = document.getElementById("miniMap");
+const mctx = map.getContext("2d");
 
-let me=null;
-let state=null;
-const MAP_W=2000,MAP_H=1200;
+canvas.width = innerWidth;
+canvas.height = innerHeight;
+addEventListener("resize",()=>{
+  canvas.width = innerWidth;
+  canvas.height = innerHeight;
+});
 
+const MAP_W = 2000, MAP_H = 1200;
+
+let state = null;
+let me = null;
+let started = false;
+
+/* LOG */
 function log(t){
   const d=document.getElementById("log");
   d.innerHTML+=t+"<br>";
@@ -137,6 +108,7 @@ function log(t){
 /* LOBBY */
 function join(){
   const n=document.getElementById("name").value;
+  if(!n) return;
   socket.emit("join",n);
 }
 function ready(){ socket.emit("ready"); }
@@ -147,31 +119,37 @@ socket.on("lobby",data=>{
   p.innerHTML="";
   data.players.forEach(x=>{
     p.innerHTML+=`${x.name} ${x.ready?"✔️":"❌"}${x.admin?" (Admin)":""}<br>`;
+    if(x.id===socket.id && x.admin){
+      document.getElementById("startBtn").style.display=data.canStart?"inline":"none";
+    }
   });
   document.getElementById("readyBtn").style.display="inline";
-  if(data.canStart) document.getElementById("startBtn").style.display="inline";
 });
 
-/* GAME STATE */
+/* GAME START */
+socket.on("gameStarted",()=>{
+  started=true;
+  document.getElementById("lobby").style.display="none";
+  log("🎮 Oyun başladı");
+});
+
+/* STATE */
 socket.on("state",s=>{
   state=s;
   me=s.players.find(p=>p.id===socket.id);
-  document.getElementById("alive").innerText=
-    s.players.filter(p=>p.alive).length;
+  document.getElementById("alive").innerText=s.players.length;
 });
-
-socket.on("log",log);
 
 /* DRAW */
 function draw(){
   requestAnimationFrame(draw);
-  if(!state||!me) return;
+  if(!started||!state||!me) return;
 
   ctx.clearRect(0,0,canvas.width,canvas.height);
   ctx.font="12px Arial";
 
-  const camX=me.x-canvas.width/2;
-  const camY=me.y-canvas.height/2;
+  const camX = me.x - canvas.width/2;
+  const camY = me.y - canvas.height/2;
 
   state.machines.forEach(m=>{
     ctx.fillStyle=m.broken?"red":"lime";
@@ -209,7 +187,7 @@ addEventListener("keydown",e=>keys[e.key]=true);
 addEventListener("keyup",e=>keys[e.key]=false);
 
 setInterval(()=>{
-  if(!me||!state||!me.alive) return;
+  if(!started||!me) return;
   let dx=0,dy=0;
   if(keys.w||keys.ArrowUp) dy=-1;
   if(keys.s||keys.ArrowDown) dy=1;
@@ -217,21 +195,6 @@ setInterval(()=>{
   if(keys.d||keys.ArrowRight) dx=1;
   if(dx||dy) socket.emit("move",{dx,dy});
 },50);
-
-/* VOTE */
-socket.on("vote",players=>{
-  const v=document.getElementById("votes");
-  document.getElementById("voteMenu").style.display="flex";
-  v.innerHTML="";
-  players.forEach(p=>{
-    const d=document.createElement("div");
-    d.className="vote";
-    d.innerText=p.name;
-    d.onclick=()=>socket.emit("vote",p.id);
-    v.appendChild(d);
-  });
-});
-socket.on("voteEnd",()=>document.getElementById("voteMenu").style.display="none");
 </script>
 </body>
 </html>
