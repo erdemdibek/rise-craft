@@ -59,6 +59,34 @@ canvas{position:absolute;top:0;left:0}
   z-index:50
 }
 
+/* ROLE */
+#roleBox{
+  position:fixed;
+  top:50px;
+  left:10px;
+  background:#000c;
+  padding:6px 10px;
+  border:1px solid #666;
+  z-index:60;
+  display:none
+}
+
+/* KILL */
+#killBtn{
+  position:fixed;
+  bottom:20px;
+  right:20px;
+  width:80px;
+  height:80px;
+  border-radius:50%;
+  background:#a00;
+  color:#fff;
+  border:none;
+  font-size:14px;
+  display:none;
+  z-index:80
+}
+
 /* JOYSTICK */
 #joystick{
   position:fixed;
@@ -87,43 +115,44 @@ canvas{position:absolute;top:0;left:0}
 
 <div id="lobby">
   <input id="name" placeholder="İsmin">
-  <button onclick="join()">Katıl</button>
+  <button id="joinBtn" onclick="join()">Katıl</button>
   <button id="readyBtn" onclick="ready()" style="display:none">Hazır</button>
   <button id="startBtn" onclick="start()" style="display:none">Başlat</button>
   <div id="players"></div>
 </div>
 
 <div id="status">Oyuncu: <span id="alive">0</span></div>
+<div id="roleBox">ROL: <span id="roleText"></span></div>
+<button id="killBtn">ÖLDÜR</button>
+
 <canvas id="game"></canvas>
 <canvas id="miniMap"></canvas>
 <div id="log"></div>
 
-<!-- 🔥 JOYSTICK HTML -->
-<div id="joystick">
-  <div id="stick"></div>
-</div>
+<div id="joystick"><div id="stick"></div></div>
 
 <script src="/socket.io/socket.io.js"></script>
 <script>
 const socket = io();
 
-const canvas = document.getElementById("game");
-const ctx = canvas.getContext("2d");
-const map = document.getElementById("miniMap");
-const mctx = map.getContext("2d");
+const canvas=document.getElementById("game");
+const ctx=canvas.getContext("2d");
+const map=document.getElementById("miniMap");
+const mctx=map.getContext("2d");
 
-canvas.width = innerWidth;
-canvas.height = innerHeight;
+canvas.width=innerWidth;
+canvas.height=innerHeight;
 addEventListener("resize",()=>{
-  canvas.width = innerWidth;
-  canvas.height = innerHeight;
+  canvas.width=innerWidth;
+  canvas.height=innerHeight;
 });
 
-const MAP_W = 2000, MAP_H = 1200;
+const MAP_W=2000, MAP_H=1200;
 
-let state = null;
-let me = null;
-let started = false;
+let state=null;
+let me=null;
+let started=false;
+let myRole=null;
 
 /* LOG */
 function log(t){
@@ -137,6 +166,7 @@ function join(){
   const n=document.getElementById("name").value;
   if(!n) return;
   socket.emit("join",n);
+  document.getElementById("joinBtn").style.display="none";
 }
 function ready(){ socket.emit("ready"); }
 function start(){ socket.emit("start"); }
@@ -153,6 +183,16 @@ socket.on("lobby",data=>{
   document.getElementById("readyBtn").style.display="inline";
 });
 
+/* ROLE */
+socket.on("role",role=>{
+  myRole=role;
+  document.getElementById("roleBox").style.display="block";
+  document.getElementById("roleText").innerText=role;
+  if(role==="Hain"){
+    document.getElementById("killBtn").style.display="block";
+  }
+});
+
 socket.on("gameStarted",()=>{
   started=true;
   document.getElementById("lobby").style.display="none";
@@ -163,7 +203,8 @@ socket.on("gameStarted",()=>{
 socket.on("state",s=>{
   state=s;
   me=s.players.find(p=>p.id===socket.id);
-  document.getElementById("alive").innerText=s.players.filter(p=>p.alive).length;
+  document.getElementById("alive").innerText=
+    s.players.filter(p=>p.alive).length;
 });
 
 /* DRAW */
@@ -172,17 +213,8 @@ function draw(){
   if(!started||!state||!me) return;
 
   ctx.clearRect(0,0,canvas.width,canvas.height);
-  ctx.font="12px Arial";
-
-  const camX = me.x - canvas.width/2;
-  const camY = me.y - canvas.height/2;
-
-  state.machines.forEach(m=>{
-    ctx.fillStyle=m.broken?"red":"lime";
-    ctx.fillRect(m.x-camX-15,m.y-camY-15,30,30);
-    ctx.fillStyle="#fff";
-    ctx.fillText(m.name,m.x-camX-20,m.y-camY-20);
-  });
+  const camX=me.x-canvas.width/2;
+  const camY=me.y-canvas.height/2;
 
   state.players.forEach(p=>{
     if(!p.alive) return;
@@ -207,6 +239,17 @@ function drawMini(){
   });
 }
 
+/* KILL */
+document.getElementById("killBtn").onclick=()=>{
+  if(myRole!=="Hain"||!me||!me.alive) return;
+  state.players.forEach(p=>{
+    if(p.id!==me.id && p.alive){
+      const d=Math.hypot(me.x-p.x,me.y-p.y);
+      if(d<60) socket.emit("kill",p.id);
+    }
+  });
+};
+
 /* KEYBOARD */
 let keys={};
 addEventListener("keydown",e=>keys[e.key]=true);
@@ -222,14 +265,13 @@ setInterval(()=>{
   if(dx||dy) socket.emit("move",{dx,dy});
 },50);
 
-/* 📱 MOBILE JOYSTICK */
-const joystick = document.getElementById("joystick");
-const stick = document.getElementById("stick");
+/* MOBILE JOYSTICK */
+const joystick=document.getElementById("joystick");
+const stick=document.getElementById("stick");
+let joyX=0,joyY=0,joyActive=false;
+const center=45,max=30;
 
-let joyX=0, joyY=0, joyActive=false;
-const center=45, max=30;
-
-if ("ontouchstart" in window) joystick.style.display="block";
+if("ontouchstart"in window) joystick.style.display="block";
 
 joystick.addEventListener("touchstart",()=>joyActive=true);
 joystick.addEventListener("touchmove",e=>{
@@ -241,7 +283,7 @@ joystick.addEventListener("touchmove",e=>{
   const d=Math.hypot(x,y);
   if(d>max){x=x/d*max;y=y/d*max;}
   stick.style.left=center+x-15+"px";
-  stick.style.top =center+y-15+"px";
+  stick.style.top=center+y-15+"px";
   joyX=x/max; joyY=y/max;
 });
 joystick.addEventListener("touchend",()=>{
@@ -249,7 +291,6 @@ joystick.addEventListener("touchend",()=>{
   stick.style.left="30px"; stick.style.top="30px";
 });
 
-/* 🔥 JOYSTICK MOVE */
 setInterval(()=>{
   if(!started||!me||!me.alive) return;
   if(Math.abs(joyX)>0.1||Math.abs(joyY)>0.1)
