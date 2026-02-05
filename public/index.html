@@ -1,135 +1,89 @@
 <!DOCTYPE html>
-<html>
+<html lang="tr">
 <head>
+<meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no">
 <title>HAİN</title>
 
 <style>
-html,body{
-  margin:0;padding:0;
-  background:#111;color:#fff;
-  font-family:sans-serif;
-  overflow:hidden;width:100%;height:100%;
-}
-canvas{display:block;position:absolute;top:0;left:0}
+html,body{margin:0;padding:0;width:100%;height:100%;background:#111;color:#fff;overflow:hidden;font-family:sans-serif}
+canvas{position:absolute;top:0;left:0}
 
-/* LOBBY */
 #lobby{
-  position:absolute;inset:0;
-  background:#111a;
-  display:flex;
-  align-items:center;
-  justify-content:center;
-  flex-direction:column;
-  z-index:50;
-}
-#lobby input,#lobby button{
-  padding:8px;
-  font-size:16px;
-  margin:5px;
+  position:fixed;inset:0;background:#000c;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  z-index:100
 }
 
-/* UI */
-#ui{display:none;position:absolute;inset:0;z-index:20}
-
-#statusBar{
-  position:absolute;
-  top:10px;left:10px;
-  background:#000c;
-  padding:6px;
-  font-size:13px;
-  border:1px solid #555;
-  display:flex;
-  align-items:center;
-  z-index:30;
-}
-#statusBar img{width:18px;margin-right:6px}
-
-/* MINI MAP – KESİN SAĞ ÜST */
 #miniMap{
-  position:absolute;
+  position:fixed;
   top:10px;
   right:10px;
-  width:160px;
-  height:90px;
-  background:#0008;
-  border:1px solid #555;
-  z-index:30;
+  width:200px;
+  height:120px;
+  background:#000c;
+  border:1px solid #666;
+  z-index:50
 }
 
-/* LOG */
+#status{
+  position:fixed;
+  top:10px;
+  left:10px;
+  background:#000c;
+  padding:6px 10px;
+  border:1px solid #666;
+  z-index:50
+}
+
 #log{
-  position:absolute;
+  position:fixed;
   bottom:10px;
   right:10px;
   width:160px;
-  max-height:80px;
-  background:#000c;
+  height:80px;
   font-size:10px;
+  background:#000c;
   padding:4px;
   overflow:auto;
-  z-index:30;
-  border-radius:6px;
-}
-@media (min-width:768px){
-  #log{
-    width:260px;
-    max-height:140px;
-    font-size:12px;
-  }
+  z-index:50
 }
 
-/* JOYSTICK */
 #joystick{
-  position:absolute;
-  bottom:10px;left:10px;
-  width:80px;height:80px;
+  position:fixed;
+  bottom:20px;
+  left:20px;
+  width:90px;
+  height:90px;
   border-radius:50%;
   background:#3338;
   display:none;
-  z-index:30;
+  z-index:50
 }
 #stick{
   position:absolute;
-  left:15px;top:15px;
-  width:50px;height:50px;
+  left:30px;
+  top:30px;
+  width:30px;
+  height:30px;
   border-radius:50%;
-  background:#0f08;
+  background:#0f08
 }
 
-/* ACTIONS */
-#actionButtons{
-  position:absolute;
-  bottom:10px;left:110px;
-  display:none;
-  gap:10px;
-  z-index:30;
-}
-.actionBtn{
-  width:50px;height:50px;
-  border-radius:50%;
-  background:#3338;
-  color:#fff;
-  border:none;
-  cursor:pointer;
-}
-
-/* VOTE */
 #voteMenu{
-  position:fixed;
-  inset:0;
-  background:#000c;
+  position:fixed;inset:0;
+  background:#000d;
   display:none;
+  flex-direction:column;
   align-items:center;
   justify-content:center;
-  flex-direction:column;
-  z-index:60;
+  z-index:200
 }
-.voteOption{
+.vote{
   padding:10px 30px;
   margin:6px;
   border:1px solid #fff;
-  cursor:pointer;
+  cursor:pointer
 }
 </style>
 </head>
@@ -137,214 +91,147 @@ canvas{display:block;position:absolute;top:0;left:0}
 <body>
 
 <div id="lobby">
-  <input id="nameInput" placeholder="İsmin">
-  <button id="joinBtn">Katıl</button>
-  <button id="readyBtn" style="display:none">Hazır</button>
-  <button id="startGameBtn" style="display:none">Oyunu Başlat</button>
-  <div id="playerList"></div>
+  <input id="name" placeholder="İsmin">
+  <button onclick="join()">Katıl</button>
+  <button id="readyBtn" onclick="ready()" style="display:none">Hazır</button>
+  <button id="startBtn" onclick="start()" style="display:none">Başlat</button>
+  <div id="players"></div>
 </div>
 
-<div id="ui">
-  <div id="statusBar">
-    <img src="https://i.imgur.com/8qH7cQO.png">
-    <span id="aliveCount">0</span>
-  </div>
-  <canvas id="miniMap"></canvas>
-</div>
-
+<div id="status">Canlı: <span id="alive">0</span></div>
 <canvas id="game"></canvas>
+<canvas id="miniMap"></canvas>
 <div id="log"></div>
 
-<div id="joystick"><div id="stick"></div></div>
-
-<div id="actionButtons">
-  <button class="actionBtn" id="fixBtn">Görev</button>
-  <button class="actionBtn" id="killBtn">Öldür</button>
+<div id="joystick">
+  <div id="stick"></div>
 </div>
 
 <div id="voteMenu">
   <h2>Oylama</h2>
-  <div id="voteOptions"></div>
+  <div id="votes"></div>
 </div>
 
 <script src="/socket.io/socket.io.js"></script>
 <script>
 const socket=io();
-const c=document.getElementById("game"),ctx=c.getContext("2d");
-const map=document.getElementById("miniMap"),mctx=map.getContext("2d");
+const canvas=document.getElementById("game");
+const ctx=canvas.getContext("2d");
+const map=document.getElementById("miniMap");
+const mctx=map.getContext("2d");
 
-const logDiv=document.getElementById("log");
-const aliveCount=document.getElementById("aliveCount");
-const lobbyDiv=document.getElementById("lobby");
-const playerListDiv=document.getElementById("playerList");
-const startGameBtn=document.getElementById("startGameBtn");
-const joinBtn=document.getElementById("joinBtn");
-const readyBtn=document.getElementById("readyBtn");
-const joystick=document.getElementById("joystick");
-const voteMenu=document.getElementById("voteMenu");
-const voteOptions=document.getElementById("voteOptions");
-const killBtn=document.getElementById("killBtn");
+canvas.width=innerWidth;
+canvas.height=innerHeight;
+addEventListener("resize",()=>{canvas.width=innerWidth;canvas.height=innerHeight});
 
-let me=null, players={}, machines=[];
-const MAP_W=2000, MAP_H=1200;
+let me=null;
+let state=null;
+const MAP_W=2000,MAP_H=1200;
 
-/* RESIZE */
-function resize(){c.width=innerWidth;c.height=innerHeight}
-resize();addEventListener("resize",resize);
-
-/* LOG */
 function log(t){
-  logDiv.innerHTML+=t+"<br>";
-  logDiv.scrollTop=logDiv.scrollHeight;
+  const d=document.getElementById("log");
+  d.innerHTML+=t+"<br>";
+  d.scrollTop=d.scrollHeight;
 }
 
 /* LOBBY */
-socket.on("lobbyUpdate",d=>{
-  players={};
-  d.players.forEach(p=>players[p.id]=p);
-  machines=d.machines;
-  me=players[socket.id]||me;
+function join(){
+  const n=document.getElementById("name").value;
+  socket.emit("join",n);
+}
+function ready(){ socket.emit("ready"); }
+function start(){ socket.emit("start"); }
 
-  playerListDiv.innerHTML="";
-  Object.values(players).forEach(p=>{
-    playerListDiv.innerHTML+=`${p.name} ${p.ready?"✔️":"❌"}<br>`;
+socket.on("lobby",data=>{
+  const p=document.getElementById("players");
+  p.innerHTML="";
+  data.players.forEach(x=>{
+    p.innerHTML+=`${x.name} ${x.ready?"✔️":"❌"}${x.admin?" (Admin)":""}<br>`;
   });
-
-  if(me?.isAdmin &&
-     Object.values(players).length>=4 &&
-     Object.values(players).every(p=>p.ready)){
-    startGameBtn.style.display="block";
-  }else startGameBtn.style.display="none";
+  document.getElementById("readyBtn").style.display="inline";
+  if(data.canStart) document.getElementById("startBtn").style.display="inline";
 });
 
-joinBtn.onclick=()=>{
-  const name=nameInput.value;
-  socket.emit("joinLobby",{name},r=>{
-    if(r.error) return alert(r.error);
-    joinBtn.style.display="none";
-    nameInput.style.display="none";
-    readyBtn.style.display="block";
-    me={id:socket.id,isAdmin:r.isAdmin};
-  });
-};
-readyBtn.onclick=()=>socket.emit("playerReady");
-startGameBtn.onclick=()=>socket.emit("startGame");
-
-/* GAME */
-socket.on("rolesAssigned",r=>{
-  const role=r.find(x=>x.id===socket.id)?.role;
-  killBtn.style.display=role==="Hain"?"block":"none";
+/* GAME STATE */
+socket.on("state",s=>{
+  state=s;
+  me=s.players.find(p=>p.id===socket.id);
+  document.getElementById("alive").innerText=
+    s.players.filter(p=>p.alive).length;
 });
 
-socket.on("gameStart",()=>{
-  lobbyDiv.style.display="none";
-  document.getElementById("ui").style.display="block";
-  joystick.style.display="block";
-  document.getElementById("actionButtons").style.display="flex";
-  log("🎮 Oyun başladı");
-});
-
-socket.on("state",d=>{
-  d.players.forEach(p=>players[p.id]=p);
-  me=players[socket.id];
-  aliveCount.innerText=Object.values(players).filter(p=>p.alive).length;
-});
-
-socket.on("playerKilled",id=>{
-  if(players[id]){
-    players[id].alive=false;
-    log("💀 "+players[id].name+" öldürüldü");
-  }
-});
+socket.on("log",log);
 
 /* DRAW */
 function draw(){
-  ctx.fillStyle="#222";
-  ctx.fillRect(0,0,c.width,c.height);
-  if(!me){requestAnimationFrame(draw);return}
+  requestAnimationFrame(draw);
+  if(!state||!me) return;
 
-  const camX=me.x-c.width/2, camY=me.y-c.height/2;
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+  ctx.font="12px Arial";
 
-  machines.forEach(m=>{
+  const camX=me.x-canvas.width/2;
+  const camY=me.y-canvas.height/2;
+
+  state.machines.forEach(m=>{
     ctx.fillStyle=m.broken?"red":"lime";
     ctx.fillRect(m.x-camX-15,m.y-camY-15,30,30);
+    ctx.fillStyle="#fff";
+    ctx.fillText(m.name,m.x-camX-20,m.y-camY-20);
   });
 
-  Object.values(players).forEach(p=>{
+  state.players.forEach(p=>{
     if(!p.alive) return;
     ctx.beginPath();
     ctx.arc(p.x-camX,p.y-camY,15,0,Math.PI*2);
     ctx.fillStyle=p.color;
     ctx.fill();
+    ctx.fillStyle="#fff";
+    ctx.fillText(p.name,p.x-camX-15,p.y-camY-20);
   });
 
-  drawMiniMap();
-  requestAnimationFrame(draw);
+  drawMini();
 }
 draw();
 
-function drawMiniMap(){
-  mctx.clearRect(0,0,160,90);
-  machines.forEach(m=>{
-    mctx.fillStyle=m.broken?"red":"lime";
-    mctx.fillRect(m.x/MAP_W*160,m.y/MAP_H*90,4,4);
-  });
-  Object.values(players).forEach(p=>{
-    if(p.alive){
-      mctx.fillStyle=p.color;
-      mctx.fillRect(p.x/MAP_W*160,p.y/MAP_H*90,4,4);
-    }
+function drawMini(){
+  mctx.clearRect(0,0,200,120);
+  state.players.forEach(p=>{
+    if(!p.alive) return;
+    mctx.fillStyle=p.color;
+    mctx.fillRect(p.x/MAP_W*200,p.y/MAP_H*120,4,4);
   });
 }
 
-/* JOYSTICK + WASD */
-let jx=0,jy=0,joy=false,sx=0,sy=0;
-joystick.ontouchstart=e=>{joy=true;sx=e.touches[0].clientX;sy=e.touches[0].clientY}
-joystick.ontouchmove=e=>{
-  if(!joy||!me) return;
-  jx=e.touches[0].clientX-sx;
-  jy=e.touches[0].clientY-sy;
-}
-joystick.ontouchend=()=>{joy=false;jx=jy=0}
-
-const keys={};
-addEventListener("keydown",e=>keys[e.key.toLowerCase()]=true);
-addEventListener("keyup",e=>keys[e.key.toLowerCase()]=false);
+/* INPUT */
+let keys={};
+addEventListener("keydown",e=>keys[e.key]=true);
+addEventListener("keyup",e=>keys[e.key]=false);
 
 setInterval(()=>{
-  if(!me||!me.alive) return;
-  let speed=4;
-  if(keys.w||keys.arrowup) me.y-=speed;
-  if(keys.s||keys.arrowdown) me.y+=speed;
-  if(keys.a||keys.arrowleft) me.x-=speed;
-  if(keys.d||keys.arrowright) me.x+=speed;
-
-  me.x+=jx*0.1; me.y+=jy*0.1;
-  me.x=Math.max(20,Math.min(MAP_W-20,me.x));
-  me.y=Math.max(20,Math.min(MAP_H-20,me.y));
-
-  socket.emit("move",{x:me.x,y:me.y});
+  if(!me||!state||!me.alive) return;
+  let dx=0,dy=0;
+  if(keys.w||keys.ArrowUp) dy=-1;
+  if(keys.s||keys.ArrowDown) dy=1;
+  if(keys.a||keys.ArrowLeft) dx=-1;
+  if(keys.d||keys.ArrowRight) dx=1;
+  if(dx||dy) socket.emit("move",{dx,dy});
 },50);
 
 /* VOTE */
-socket.on("startMeeting",()=>{
-  if(!me.alive) return;
-  voteMenu.style.display="flex";
-  voteOptions.innerHTML="";
-  Object.values(players).forEach(p=>{
-    if(p.alive && p.id!==me.id){
-      const d=document.createElement("div");
-      d.className="voteOption";
-      d.innerText=p.name;
-      d.onclick=()=>{
-        socket.emit("vote",p.id);
-        voteMenu.style.display="none";
-      };
-      voteOptions.appendChild(d);
-    }
+socket.on("vote",players=>{
+  const v=document.getElementById("votes");
+  document.getElementById("voteMenu").style.display="flex";
+  v.innerHTML="";
+  players.forEach(p=>{
+    const d=document.createElement("div");
+    d.className="vote";
+    d.innerText=p.name;
+    d.onclick=()=>socket.emit("vote",p.id);
+    v.appendChild(d);
   });
 });
-socket.on("endMeeting",()=>voteMenu.style.display="none");
+socket.on("voteEnd",()=>document.getElementById("voteMenu").style.display="none");
 </script>
 </body>
 </html>
