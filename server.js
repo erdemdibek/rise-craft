@@ -20,25 +20,25 @@ let gameOver = false;
 
 /* ---------- MAP ---------- */
 function resetMachines(){
-  machines=[];
-  let i=0;
-  for(let x=300;x<=1700;x+=400){
-    machines.push({x,y:300,broken:false,name:"Makine "+(++i)});
-    machines.push({x,y:800,broken:false,name:"Makine "+(++i)});
+  machines = [];
+  let i = 0;
+  for(let x = 300; x <= 1700; x += 400){
+    machines.push({x, y:300, broken:false, name:"Makine "+(++i)});
+    machines.push({x, y:800, broken:false, name:"Makine "+(++i)});
   }
 }
 resetMachines();
 
 /* ---------- ROLES ---------- */
 function assignRoles(){
-  players.forEach(p=>p.role="Masum");
+  players.forEach(p => p.role = "Masum");
   const traitor = players[Math.floor(Math.random()*players.length)];
   traitor.role = "Hain";
 }
 
 /* ---------- LOBBY ---------- */
 function lobbyUpdate(){
-  const lobbyPlayers = players.map(p=>({
+  const lobbyPlayers = players.map(p => ({
     id: p.id,
     name: p.name,
     ready: p.ready,
@@ -47,15 +47,14 @@ function lobbyUpdate(){
 
   io.emit("lobby",{
     players: lobbyPlayers,
-    canStart:
-      players.length >= 4 &&
-      players.every(p=>p.ready)
+    canStart: players.length >= 4 && players.every(p=>p.ready)
   });
 }
 
 /* ---------- SOCKET ---------- */
 io.on("connection", socket => {
 
+  // Oyuncu katıldı
   socket.on("join", name => {
     if(started || gameOver) return;
 
@@ -74,52 +73,117 @@ io.on("connection", socket => {
     lobbyUpdate();
   });
 
-  socket.on("ready",()=>{
+  // Hazır
+  socket.on("ready", ()=>{
     const p = players.find(p=>p.id===socket.id);
     if(!p) return;
-
-    p.ready = !p.ready;
+    p.ready = true;
     lobbyUpdate();
   });
 
-  socket.on("start",()=>{
-    const admin = players.find(p=>p.admin && p.id===socket.id);
+  // Oyun başlat
+  socket.on("start", ()=>{
+    const admin = players.find(p => p.admin && p.id===socket.id);
     if(!admin) return;
     if(players.length < 4) return;
-    if(players.some(p=>!p.ready)) return;
+    if(players.some(p => !p.ready)) return;
 
     started = true;
     gameOver = false;
 
     assignRoles();
 
-    players.forEach(p=>{
-      io.to(p.id).emit("role",p.role);
-    });
-
+    players.forEach(p => io.to(p.id).emit("role", p.role));
     io.emit("gameStarted");
   });
-socket.on("move", ({dx, dy}) => {
-  const p = players.find(p => p.id === socket.id);
-  if(!p || !started || gameOver) return;
 
-  // Ölüler serbest dolaşır
-  if(!p.alive){
-    p.x += dx * 6;
-    p.y += dy * 6;
-    return;
-  }
+  // Hareket
+  socket.on("move", ({dx, dy}) => {
+    const p = players.find(p => p.id === socket.id);
+    if(!p || !started || gameOver) return;
 
-  if(meeting) return; // toplantı sırasında hareket yok
+    if(!p.alive){
+      p.x += dx*6;
+      p.y += dy*6;
+      return;
+    }
 
-  // Harita sınırları
-  p.x = Math.max(20, Math.min(MAP_W - 20, p.x + dx * 6));
-  p.y = Math.max(20, Math.min(MAP_H - 20, p.y + dy * 6));
-});
+    if(meeting) return;
 
-  socket.on("disconnect",()=>{
+    p.x = Math.max(20, Math.min(MAP_W-20, p.x + dx*6));
+    p.y = Math.max(20, Math.min(MAP_H-20, p.y + dy*6));
+  });
+
+  // Öldürme
+  socket.on("kill", targetId => {
+    if(!started || gameOver || meeting) return;
+
+    const killer = players.find(p => p.id === socket.id);
+    const target = players.find(p => p.id === targetId);
+
+    if(!killer || !target) return;
+    if(!killer.alive || !target.alive) return;
+    if(killer.role !== "Hain") return;
+
+    const dist = Math.hypot(killer.x - target.x, killer.y - target.y);
+    if(dist < 60){
+      target.alive = false;
+      io.emit("log", `💀 ${target.name} öldürüldü`);
+
+      // Toplantıyı başlat
+      meeting = true;
+      votes = {};
+      io.emit("meetingStart",
+        players.filter(p=>p.alive).map(p=>({id:p.id, name:p.name}))
+      );
+
+      setTimeout(() => {
+        meeting = false;
+
+        // Oylama sonucu
+        const count = {};
+        Object.values(votes).forEach(v=>{
+          count[v] = (count[v] || 0) + 1;
+        });
+
+        let max = 0, out = null;
+        for(const id in count){
+          if(count[id] > max){ max = count[id]; out = id; }
+        }
+
+        if(out){
+          const p = players.find(x => x.id === out);
+          if(p && p.alive){
+            p.alive = false;
+            io.emit("log", `🗳️ ${p.name} oylama ile elendi`);
+          }
+        }
+
+        io.emit("meetingEnd");
+
+        // Kazananı kontrol et
+        const alive = players.filter(p=>p.alive);
+        const hain = alive.filter(p=>p.role === "Hain");
+        const masum = alive.filter(p=>p.role === "Masum");
+
+        if(hain.length === 0){
+          gameOver = true;
+          started = false;
+          io.emit("gameEnded",{ winner:"Masumlar", reason:"Tüm hainler öldürüldü" });
+        } else if(hain.length >= masum.length){
+          gameOver = true;
+          started = false;
+          io.emit("gameEnded",{ winner:"Hainler", reason:"Hain sayısı masumlara eşit/fazla" });
+        }
+
+      }, 15000);
+    }
+  });
+
+  // Oyuncu disconnect
+  socket.on("disconnect", ()=>{
     const wasAdmin = players.find(p=>p.id===socket.id)?.admin;
-    players = players.filter(p=>p.id!==socket.id);
+    players = players.filter(p=>p.id !== socket.id);
 
     if(wasAdmin && players.length>0){
       players[0].admin = true;
@@ -128,77 +192,19 @@ socket.on("move", ({dx, dy}) => {
     lobbyUpdate();
   });
 
+  // Oylama
+  socket.on("vote", id=>{
+    const p = players.find(p=>p.id===socket.id);
+    if(!meeting || !p || !p.alive || gameOver) return;
+    votes[socket.id] = id;
+  });
+
 });
-socket.on("kill", targetId => {
-  if(!started || gameOver || meeting) return;
 
-  const killer = players.find(p => p.id === socket.id);
-  const target = players.find(p => p.id === targetId);
-
-  if(!killer || !target) return;
-  if(!killer.alive || !target.alive) return;
-  if(killer.role !== "Hain") return;
-
-  // Mesafe kontrolü
-  const dist = Math.hypot(killer.x - target.x, killer.y - target.y);
-  if(dist < 60){
-    target.alive = false;
-    io.emit("log", `💀 ${target.name} öldürüldü`);
-    
-    // Hain öldürdükten sonra toplantı başlat
-    meeting = true;
-    votes = {};
-    io.emit("meetingStart",
-      players.filter(p=>p.alive).map(p=>({id:p.id,name:p.name}))
-    );
-
-    setTimeout(() => {
-      meeting = false;
-
-      // Oylama sonucu (en çok oy alan elenir)
-      const count = {};
-      Object.values(votes).forEach(v=>{
-        count[v] = (count[v] || 0) + 1;
-      });
-
-      let max = 0, out = null;
-      for(const id in count){
-        if(count[id] > max){ max = count[id]; out = id; }
-      }
-
-      if(out){
-        const p = players.find(x => x.id === out);
-        if(p && p.alive){
-          p.alive = false;
-          io.emit("log", `🗳️ ${p.name} oylama ile elendi`);
-        }
-      }
-
-      io.emit("meetingEnd");
-
-      // Kazananı kontrol et
-      const alive = players.filter(p=>p.alive);
-      const hain = alive.filter(p=>p.role === "Hain");
-      const masum = alive.filter(p=>p.role === "Masum");
-
-      if(hain.length === 0){
-        gameOver = true;
-        started = false;
-        io.emit("gameEnded",{ winner:"Masumlar", reason:"Tüm hainler öldürüldü" });
-      } else if(hain.length >= masum.length){
-        gameOver = true;
-        started = false;
-        io.emit("gameEnded",{ winner:"Hainler", reason:"Hain sayısı masumlara eşit/fazla" });
-      }
-
-    }, 15000);
-  }
-});
 /* ---------- STATE ---------- */
 setInterval(()=>{
   if(!started || gameOver) return;
-  io.emit("state",{players,machines});
+  io.emit("state", {players, machines});
 },50);
 
-server.listen(process.env.PORT||3000,
-  ()=>console.log("🚀 SERVER READY"));
+server.listen(process.env.PORT||3000, ()=>console.log("🚀 SERVER READY"));
