@@ -43,6 +43,18 @@ canvas{display:block}
   z-index:20
 }
 
+#statusBar{
+  position:absolute;
+  bottom:160px;
+  right:10px;
+  width:260px;
+  background:#000c;
+  border:1px solid #555;
+  padding:6px;
+  font-size:12px;
+  z-index:22;
+}
+
 #voteMenu{
   position:fixed;
   inset:0;
@@ -81,6 +93,12 @@ canvas{display:block}
   <button id="killBtn">Öldür</button>
 </div>
 
+<div id="statusBar">
+  <div id="timeDisplay">⏰ Süre: 0</div>
+  <div id="brokenMachines">⚠️ Bozulan makineler: 0</div>
+  <div id="alivePlayers">👥 Hayatta kalan: 0</div>
+</div>
+
 <div id="log"></div>
 
 <div id="voteMenu">
@@ -94,8 +112,13 @@ const socket=io();
 const c=document.getElementById("game"),ctx=c.getContext("2d");
 const map=document.getElementById("miniMap"),mctx=map.getContext("2d");
 const logDiv=document.getElementById("log");
+const timeDisplay=document.getElementById("timeDisplay");
+const brokenMachinesDisplay=document.getElementById("brokenMachines");
+const alivePlayersDisplay=document.getElementById("alivePlayers");
 
 let me=null,players={},machines=[],prevMachines=[];
+let gameTime=0;
+
 const MAP_W=2000,MAP_H=1200;
 
 function resize(){c.width=innerWidth;c.height=innerHeight}
@@ -143,6 +166,8 @@ socket.on("gameStart",()=>{
 socket.on("state",d=>{
   d.players.forEach(p=>players[p.id]=p);
   me=players[socket.id];
+  gameTime=d.time;
+  updateStatusBar();
 });
 
 socket.on("machinesUpdate",m=>{
@@ -154,17 +179,26 @@ socket.on("machinesUpdate",m=>{
   });
   prevMachines=JSON.parse(JSON.stringify(m));
   machines=m;
+  updateStatusBar();
 });
 
 socket.on("playerKilled",id=>{
   if(players[id]){
     players[id].alive=false;
     log(`💀 ${players[id].name} öldürüldü`);
+    updateStatusBar();
   }
 });
 
 socket.on("startMeeting",showVote);
 socket.on("endMeeting",()=>voteMenu.style.display="none");
+
+/* STATUS BAR */
+function updateStatusBar(){
+  timeDisplay.innerText=`⏰ Süre: ${gameTime}`;
+  brokenMachinesDisplay.innerText=`⚠️ Bozulan makineler: ${machines.filter(m=>m.broken).length}`;
+  alivePlayersDisplay.innerText=`👥 Hayatta kalan: ${Object.values(players).filter(p=>p.alive).length}`;
+}
 
 /* DRAW */
 function draw(){
