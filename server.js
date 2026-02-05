@@ -10,7 +10,6 @@ const io = new Server(server);
 const PORT = 3000;
 let gameInterval = null;
 
-/* === MACHINE NAMES === */
 const MACHINE_NAMES = [
   "Fette 1200","Fette 2200","Fette 3200","Korsch XT600",
   "Korsch XL400","Bosch GKF701","Kilian KTP 720",
@@ -26,7 +25,6 @@ const lobby = {
   votes: {}
 };
 
-/* === MACHINES === */
 function resetMachines(){
   lobby.machines=[];
   const xs=[300,700,1100,1500,1900];
@@ -38,33 +36,24 @@ function resetMachines(){
 }
 resetMachines();
 
-/* === SERVER === */
 app.use(express.static(path.join(__dirname,"public")));
 app.get("/",(_,res)=>res.sendFile(path.join(__dirname,"public","index.html")));
 
-/* === ROLES === */
 function assignRoles(){
   lobby.players.forEach(p=>p.role="Operatör");
   lobby.players[Math.floor(Math.random()*lobby.players.length)].role="Hain";
   io.emit("rolesAssigned",lobby.players.map(p=>({id:p.id,role:p.role})));
 }
 
-/* === HELPERS === */
 const dist=(a,b)=>Math.hypot(a.x-b.x,a.y-b.y);
 
-/* === RESET === */
 function resetGame(){
   lobby.started=false;
   lobby.meeting=false;
   lobby.votes={};
   lobby.time=300;
   resetMachines();
-
-  if(gameInterval){
-    clearInterval(gameInterval);
-    gameInterval=null;
-  }
-
+  if(gameInterval){clearInterval(gameInterval); gameInterval=null;}
   lobby.players.forEach(p=>{
     p.alive=true;
     p.ready=false;
@@ -72,7 +61,6 @@ function resetGame(){
   });
 }
 
-/* === WIN CHECK === */
 function checkWin(){
   const ops=lobby.players.filter(p=>p.role==="Operatör"&&p.alive);
   const hain=lobby.players.filter(p=>p.role==="Hain"&&p.alive);
@@ -88,41 +76,27 @@ function checkWin(){
   }
 }
 
-/* === MEETING === */
 function startMeeting(){
   lobby.meeting=true;
   lobby.votes={};
   io.emit("startMeeting");
-
-  setTimeout(endMeeting,15000); // 15 sn
+  setTimeout(endMeeting,15000);
 }
 
 function endMeeting(){
   lobby.meeting=false;
-
   const count={};
-  Object.values(lobby.votes).forEach(v=>{
-    count[v]=(count[v]||0)+1;
-  });
-
+  Object.values(lobby.votes).forEach(v=>{count[v]=(count[v]||0)+1;});
   let max=0, out=null;
-  for(const id in count){
-    if(count[id]>max){
-      max=count[id];
-      out=id;
-    }
-  }
-
+  for(const id in count){if(count[id]>max){max=count[id]; out=id;}}
   if(out){
     const p=lobby.players.find(p=>p.id===out);
     if(p) p.alive=false;
   }
-
   io.emit("endMeeting",out);
   checkWin();
 }
 
-/* === SOCKET === */
 io.on("connection",socket=>{
 
   socket.on("joinLobby",({name},cb)=>{
@@ -154,16 +128,13 @@ io.on("connection",socket=>{
 
   socket.on("move",d=>{
     const p=lobby.players.find(p=>p.id===socket.id);
-    if(p&&p.alive&&!lobby.meeting){
-      p.x=d.x;p.y=d.y;
-    }
+    if(p&&p.alive&&!lobby.meeting){p.x=d.x;p.y=d.y;}
   });
 
   socket.on("action",({type,machineIndex})=>{
     const p=lobby.players.find(p=>p.id===socket.id);
     const m=lobby.machines[machineIndex];
     if(!p||!m||dist(p,m)>80||lobby.meeting) return;
-
     if(type==="fixMachine"&&p.role==="Operatör"&&m.broken){
       m.broken=false;
       p.tasksCompleted++;
@@ -195,7 +166,6 @@ io.on("connection",socket=>{
   });
 });
 
-/* === LOOP === */
 function startLoop(){
   if(gameInterval) clearInterval(gameInterval);
 
