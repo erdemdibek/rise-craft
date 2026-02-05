@@ -99,6 +99,23 @@ io.on("connection", socket => {
 
     io.emit("gameStarted");
   });
+socket.on("move", ({dx, dy}) => {
+  const p = players.find(p => p.id === socket.id);
+  if(!p || !started || gameOver) return;
+
+  // Ölüler serbest dolaşır
+  if(!p.alive){
+    p.x += dx * 6;
+    p.y += dy * 6;
+    return;
+  }
+
+  if(meeting) return; // toplantı sırasında hareket yok
+
+  // Harita sınırları
+  p.x = Math.max(20, Math.min(MAP_W - 20, p.x + dx * 6));
+  p.y = Math.max(20, Math.min(MAP_H - 20, p.y + dy * 6));
+});
 
   socket.on("disconnect",()=>{
     const wasAdmin = players.find(p=>p.id===socket.id)?.admin;
