@@ -3,52 +3,165 @@
 <head>
 <meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no">
 <title>HAİN</title>
+
 <style>
-html,body{margin:0;padding:0;background:#111;color:#fff;font-family:sans-serif;overflow:hidden;width:100%;height:100%;}
-canvas{display:block;position:absolute;top:0;left:0;}
-
-#lobby{
-  position:absolute;inset:0;background:#111a;display:flex;align-items:center;justify-content:center;flex-direction:column;z-index:50;
+html,body{
+  margin:0;padding:0;
+  background:#111;color:#fff;
+  font-family:sans-serif;
+  overflow:hidden;width:100%;height:100%;
 }
-#lobby input{padding:6px;font-size:16px;margin-bottom:10px;}
-#lobby button{padding:6px 12px;margin:4px;font-size:16px;cursor:pointer;}
-#playerList{margin-top:10px;}
-#startGameBtn{display:none;padding:6px 12px;margin-top:10px;font-size:16px;cursor:pointer;}
+canvas{display:block;position:absolute;top:0;left:0}
 
-#ui{display:none;position:absolute;top:10px;left:10px;z-index:40;}
-#miniMap{position:absolute;top:10px;right:10px;width:180px;height:100px;background:#0008;border:1px solid #555;z-index:30;}
-#log{position:absolute;bottom:10px;right:10px;width:200px;height:100px;background:#000c;font-size:10px;padding:4px;overflow:auto;z-index:30;}
-#statusBar{position:absolute;top:10px;left:10px;background:#000c;padding:4px 6px;font-size:12px;border:1px solid #555;z-index:30;display:flex;align-items:center;}
-#statusBar img{width:18px;height:18px;margin-right:4px;}
-#joystick{position:absolute;bottom:10px;left:10px;width:80px;height:80px;border-radius:50%;background:#3338;display:none;z-index:30;}
-#stick{position:absolute;left:15px;top:15px;width:50px;height:50px;border-radius:50%;background:#0f08}
-#actionButtons{position:absolute;bottom:10px;left:100px;display:none;flex-direction:row;gap:10px;z-index:30;}
-.actionBtn{width:50px;height:50px;border-radius:50%;font-size:12px;background:#3338;color:#fff;border:none;display:flex;align-items:center;justify-content:center;cursor:pointer;}
-#voteMenu{position:fixed;inset:0;background:#000c;display:none;align-items:center;justify-content:center;flex-direction:column;z-index:60;}
-.voteOption{padding:8px 20px;margin:4px;border:1px solid #fff;cursor:pointer;}
+/* LOBBY */
+#lobby{
+  position:absolute;inset:0;
+  background:#111a;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  flex-direction:column;
+  z-index:50;
+}
+#lobby input,#lobby button{
+  padding:8px;
+  font-size:16px;
+  margin:5px;
+}
+
+/* UI */
+#ui{display:none;position:absolute;inset:0;z-index:20}
+
+#statusBar{
+  position:absolute;
+  top:10px;left:10px;
+  background:#000c;
+  padding:6px;
+  font-size:13px;
+  border:1px solid #555;
+  display:flex;
+  align-items:center;
+  z-index:30;
+}
+#statusBar img{width:18px;margin-right:6px}
+
+/* MINI MAP – KESİN SAĞ ÜST */
+#miniMap{
+  position:absolute;
+  top:10px;
+  right:10px;
+  width:160px;
+  height:90px;
+  background:#0008;
+  border:1px solid #555;
+  z-index:30;
+}
+
+/* LOG */
+#log{
+  position:absolute;
+  bottom:10px;
+  right:10px;
+  width:160px;
+  max-height:80px;
+  background:#000c;
+  font-size:10px;
+  padding:4px;
+  overflow:auto;
+  z-index:30;
+  border-radius:6px;
+}
+@media (min-width:768px){
+  #log{
+    width:260px;
+    max-height:140px;
+    font-size:12px;
+  }
+}
+
+/* JOYSTICK */
+#joystick{
+  position:absolute;
+  bottom:10px;left:10px;
+  width:80px;height:80px;
+  border-radius:50%;
+  background:#3338;
+  display:none;
+  z-index:30;
+}
+#stick{
+  position:absolute;
+  left:15px;top:15px;
+  width:50px;height:50px;
+  border-radius:50%;
+  background:#0f08;
+}
+
+/* ACTIONS */
+#actionButtons{
+  position:absolute;
+  bottom:10px;left:110px;
+  display:none;
+  gap:10px;
+  z-index:30;
+}
+.actionBtn{
+  width:50px;height:50px;
+  border-radius:50%;
+  background:#3338;
+  color:#fff;
+  border:none;
+  cursor:pointer;
+}
+
+/* VOTE */
+#voteMenu{
+  position:fixed;
+  inset:0;
+  background:#000c;
+  display:none;
+  align-items:center;
+  justify-content:center;
+  flex-direction:column;
+  z-index:60;
+}
+.voteOption{
+  padding:10px 30px;
+  margin:6px;
+  border:1px solid #fff;
+  cursor:pointer;
+}
 </style>
 </head>
+
 <body>
 
 <div id="lobby">
   <input id="nameInput" placeholder="İsmin">
   <button id="joinBtn">Katıl</button>
   <button id="readyBtn" style="display:none">Hazır</button>
-  <button id="startGameBtn">Oyunu Başlat</button>
+  <button id="startGameBtn" style="display:none">Oyunu Başlat</button>
   <div id="playerList"></div>
 </div>
 
 <div id="ui">
-  <div id="statusBar"><img src="https://i.imgur.com/8qH7cQO.png" alt="Players"> <span id="aliveCount">0</span></div>
+  <div id="statusBar">
+    <img src="https://i.imgur.com/8qH7cQO.png">
+    <span id="aliveCount">0</span>
+  </div>
+  <canvas id="miniMap"></canvas>
 </div>
+
 <canvas id="game"></canvas>
-<canvas id="miniMap"></canvas>
 <div id="log"></div>
+
 <div id="joystick"><div id="stick"></div></div>
+
 <div id="actionButtons">
   <button class="actionBtn" id="fixBtn">Görev</button>
   <button class="actionBtn" id="killBtn">Öldür</button>
 </div>
+
 <div id="voteMenu">
   <h2>Oylama</h2>
   <div id="voteOptions"></div>
@@ -59,80 +172,73 @@ canvas{display:block;position:absolute;top:0;left:0;}
 const socket=io();
 const c=document.getElementById("game"),ctx=c.getContext("2d");
 const map=document.getElementById("miniMap"),mctx=map.getContext("2d");
+
 const logDiv=document.getElementById("log");
 const aliveCount=document.getElementById("aliveCount");
 const lobbyDiv=document.getElementById("lobby");
 const playerListDiv=document.getElementById("playerList");
 const startGameBtn=document.getElementById("startGameBtn");
-const uiDiv=document.getElementById("ui");
 const joinBtn=document.getElementById("joinBtn");
 const readyBtn=document.getElementById("readyBtn");
-const fixBtn=document.getElementById("fixBtn");
-const killBtn=document.getElementById("killBtn");
 const joystick=document.getElementById("joystick");
 const voteMenu=document.getElementById("voteMenu");
 const voteOptions=document.getElementById("voteOptions");
+const killBtn=document.getElementById("killBtn");
 
-let me=null, players={}, machines=[], prevMachines=[];
+let me=null, players={}, machines=[];
 const MAP_W=2000, MAP_H=1200;
 
-function resize(){c.width=innerWidth;c.height=innerHeight;}
+/* RESIZE */
+function resize(){c.width=innerWidth;c.height=innerHeight}
 resize();addEventListener("resize",resize);
 
-/* LOBBY */
-function updateLobby(){
-  playerListDiv.innerHTML="";
-  Object.values(players).forEach(p=>{
-    const d=document.createElement("div");
-    d.innerText=`${p.name} - ${p.ready?"✔️":"❌"}${p.isAdmin?" (Admin)":""}`;
-    playerListDiv.appendChild(d);
-  });
-  const allReady=Object.values(players).every(p=>p.ready);
-  const enoughPlayers=Object.values(players).length>=4;
-  if(me?.isAdmin && allReady && enoughPlayers) startGameBtn.style.display="inline";
-  else startGameBtn.style.display="none";
+/* LOG */
+function log(t){
+  logDiv.innerHTML+=t+"<br>";
+  logDiv.scrollTop=logDiv.scrollHeight;
 }
 
-joinBtn.onclick=()=>{
-  const name=document.getElementById("nameInput").value;
-  socket.emit("joinLobby",{name},r=>{
-    if(r.error) return alert(r.error);
-    joinBtn.style.display="none";
-    document.getElementById("nameInput").style.display="none";
-    readyBtn.style.display="inline";
-    me={id:socket.id,isAdmin:r.isAdmin};
-  });
-};
-
-readyBtn.onclick=()=>socket.emit("playerReady");
-startGameBtn.onclick=()=>socket.emit("startGame");
-
-/* LOG */
-function log(t){logDiv.innerHTML+=t+"<br>"; logDiv.scrollTop=logDiv.scrollHeight;}
-
-/* SOCKET */
+/* LOBBY */
 socket.on("lobbyUpdate",d=>{
   players={};
   d.players.forEach(p=>players[p.id]=p);
   machines=d.machines;
-  prevMachines=JSON.parse(JSON.stringify(machines));
-  me=players[socket.id] || me;
-  updateLobby();
+  me=players[socket.id]||me;
+
+  playerListDiv.innerHTML="";
+  Object.values(players).forEach(p=>{
+    playerListDiv.innerHTML+=`${p.name} ${p.ready?"✔️":"❌"}<br>`;
+  });
+
+  if(me?.isAdmin &&
+     Object.values(players).length>=4 &&
+     Object.values(players).every(p=>p.ready)){
+    startGameBtn.style.display="block";
+  }else startGameBtn.style.display="none";
 });
 
+joinBtn.onclick=()=>{
+  const name=nameInput.value;
+  socket.emit("joinLobby",{name},r=>{
+    if(r.error) return alert(r.error);
+    joinBtn.style.display="none";
+    nameInput.style.display="none";
+    readyBtn.style.display="block";
+    me={id:socket.id,isAdmin:r.isAdmin};
+  });
+};
+readyBtn.onclick=()=>socket.emit("playerReady");
+startGameBtn.onclick=()=>socket.emit("startGame");
+
+/* GAME */
 socket.on("rolesAssigned",r=>{
-  const m=r.find(x=>x.id===socket.id);
-  document.getElementById("role")?.remove();
-  const roleDiv=document.createElement("div");
-  roleDiv.id="role";
-  roleDiv.innerText="ROL: "+m.role;
-  uiDiv.appendChild(roleDiv);
-  killBtn.style.display=m.role==="Hain"?"inline":"none";
+  const role=r.find(x=>x.id===socket.id)?.role;
+  killBtn.style.display=role==="Hain"?"block":"none";
 });
 
 socket.on("gameStart",()=>{
   lobbyDiv.style.display="none";
-  uiDiv.style.display="block";
+  document.getElementById("ui").style.display="block";
   joystick.style.display="block";
   document.getElementById("actionButtons").style.display="flex";
   log("🎮 Oyun başladı");
@@ -141,59 +247,35 @@ socket.on("gameStart",()=>{
 socket.on("state",d=>{
   d.players.forEach(p=>players[p.id]=p);
   me=players[socket.id];
-  updateStatusBar();
-});
-
-socket.on("machinesUpdate",m=>{
-  m.forEach((nm,i)=>{
-    const pm=prevMachines[i];
-    if(pm && pm.broken!==nm.broken){
-      log(nm.broken ? `⚠️ ${nm.name} bozuldu` : `✅ ${nm.name} tamir edildi`);
-    }
-  });
-  prevMachines=JSON.parse(JSON.stringify(m));
-  machines=m;
-  updateStatusBar();
+  aliveCount.innerText=Object.values(players).filter(p=>p.alive).length;
 });
 
 socket.on("playerKilled",id=>{
   if(players[id]){
     players[id].alive=false;
-    log(`💀 ${players[id].name} öldürüldü`);
-    updateStatusBar();
+    log("💀 "+players[id].name+" öldürüldü");
   }
 });
 
-socket.on("startMeeting",showVote);
-socket.on("endMeeting",()=>voteMenu.style.display="none");
-
-function updateStatusBar(){
-  aliveCount.innerText=Object.values(players).filter(p=>p.alive).length;
-}
-
 /* DRAW */
 function draw(){
-  ctx.fillStyle="#222"; ctx.fillRect(0,0,c.width,c.height);
-  if(!me){requestAnimationFrame(draw);return;}
+  ctx.fillStyle="#222";
+  ctx.fillRect(0,0,c.width,c.height);
+  if(!me){requestAnimationFrame(draw);return}
+
   const camX=me.x-c.width/2, camY=me.y-c.height/2;
 
   machines.forEach(m=>{
-    if(m.broken || Math.hypot(m.x-me.x,m.y-me.y)<260){
-      ctx.fillStyle=m.broken?"red":"lime";
-      ctx.fillRect(m.x-camX-18,m.y-camY-18,36,36);
-      ctx.fillStyle="#fff";
-      ctx.fillText(m.name,m.x-camX-30,m.y-camY-22);
-    }
+    ctx.fillStyle=m.broken?"red":"lime";
+    ctx.fillRect(m.x-camX-15,m.y-camY-15,30,30);
   });
 
   Object.values(players).forEach(p=>{
     if(!p.alive) return;
     ctx.beginPath();
-    ctx.arc(p.x-camX,p.y-camY,18,0,Math.PI*2);
+    ctx.arc(p.x-camX,p.y-camY,15,0,Math.PI*2);
     ctx.fillStyle=p.color;
     ctx.fill();
-    ctx.fillStyle="#fff";
-    ctx.fillText(p.name,p.x-camX-15,p.y-camY-25);
   });
 
   drawMiniMap();
@@ -202,64 +284,67 @@ function draw(){
 draw();
 
 function drawMiniMap(){
-  mctx.clearRect(0,0,200,120);
+  mctx.clearRect(0,0,160,90);
   machines.forEach(m=>{
     mctx.fillStyle=m.broken?"red":"lime";
-    mctx.fillRect(m.x/MAP_W*200,m.y/MAP_H*120,4,4);
+    mctx.fillRect(m.x/MAP_W*160,m.y/MAP_H*90,4,4);
   });
   Object.values(players).forEach(p=>{
     if(p.alive){
       mctx.fillStyle=p.color;
-      mctx.fillRect(p.x/MAP_W*200,p.y/MAP_H*120,4,4);
+      mctx.fillRect(p.x/MAP_W*160,p.y/MAP_H*90,4,4);
     }
   });
 }
 
-/* JOYSTICK */
+/* JOYSTICK + WASD */
 let jx=0,jy=0,joy=false,sx=0,sy=0;
-joystick.ontouchstart=e=>{joy=true;sx=e.touches[0].clientX;sy=e.touches[0].clientY;};
+joystick.ontouchstart=e=>{joy=true;sx=e.touches[0].clientX;sy=e.touches[0].clientY}
 joystick.ontouchmove=e=>{
-  if(!joy||!me||!me.alive) return;
+  if(!joy||!me) return;
   jx=e.touches[0].clientX-sx;
   jy=e.touches[0].clientY-sy;
-};
-joystick.ontouchend=()=>{joy=false;jx=jy=0;};
+}
+joystick.ontouchend=()=>{joy=false;jx=jy=0}
+
+const keys={};
+addEventListener("keydown",e=>keys[e.key.toLowerCase()]=true);
+addEventListener("keyup",e=>keys[e.key.toLowerCase()]=false);
 
 setInterval(()=>{
-  if(!me||!me.alive)return;
-  me.x=Math.max(20,Math.min(MAP_W-20,me.x+jx*0.1));
-  me.y=Math.max(20,Math.min(MAP_H-20,me.y+jy*0.1));
+  if(!me||!me.alive) return;
+  let speed=4;
+  if(keys.w||keys.arrowup) me.y-=speed;
+  if(keys.s||keys.arrowdown) me.y+=speed;
+  if(keys.a||keys.arrowleft) me.x-=speed;
+  if(keys.d||keys.arrowright) me.x+=speed;
+
+  me.x+=jx*0.1; me.y+=jy*0.1;
+  me.x=Math.max(20,Math.min(MAP_W-20,me.x));
+  me.y=Math.max(20,Math.min(MAP_H-20,me.y));
+
   socket.emit("move",{x:me.x,y:me.y});
 },50);
 
-/* ACTIONS */
-killBtn.onclick=()=>{
-  if(!me.alive) return;
-  Object.values(players).forEach(p=>{
-    if(p.id!==me.id && p.alive && Math.hypot(p.x-me.x,p.y-me.y)<60)
-      socket.emit("killPlayer",p.id);
-  });
-};
-fixBtn.onclick=()=>{
-  if(!me.alive) return;
-  const m=machines.find(x=>Math.hypot(x.x-me.x,x.y-me.y)<60);
-  if(m) socket.emit("action",{type:"fixMachine",machineIndex:machines.indexOf(m)});
-};
-
 /* VOTE */
-function showVote(){
+socket.on("startMeeting",()=>{
+  if(!me.alive) return;
   voteMenu.style.display="flex";
   voteOptions.innerHTML="";
   Object.values(players).forEach(p=>{
-    if(p.alive){
+    if(p.alive && p.id!==me.id){
       const d=document.createElement("div");
       d.className="voteOption";
       d.innerText=p.name;
-      d.onclick=()=>socket.emit("vote",p.id);
+      d.onclick=()=>{
+        socket.emit("vote",p.id);
+        voteMenu.style.display="none";
+      };
       voteOptions.appendChild(d);
     }
   });
-}
+});
+socket.on("endMeeting",()=>voteMenu.style.display="none");
 </script>
 </body>
 </html>
