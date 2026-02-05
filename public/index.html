@@ -157,7 +157,10 @@ socket.on("machinesUpdate",m=>{
 });
 
 socket.on("playerKilled",id=>{
-  if(players[id]) log(`💀 ${players[id].name} öldürüldü`);
+  if(players[id]){
+    players[id].alive=false;
+    log(`💀 ${players[id].name} öldürüldü`);
+  }
 });
 
 socket.on("startMeeting",showVote);
@@ -172,16 +175,19 @@ function draw(){
   const camX=me.x-c.width/2,camY=me.y-c.height/2;
 
   machines.forEach(m=>{
-    ctx.fillStyle=m.broken?"red":"lime";
-    ctx.fillRect(m.x-camX-18,m.y-camY-18,36,36);
-    ctx.fillStyle="#fff";
-    ctx.fillText(m.name,m.x-camX-30,m.y-camY-22);
+    if(m.broken || Math.hypot(m.x-me.x,m.y-me.y)<260){
+      ctx.fillStyle=m.broken?"red":"lime";
+      ctx.fillRect(m.x-camX-18,m.y-camY-18,36,36);
+      ctx.fillStyle="#fff";
+      ctx.fillText(m.name,m.x-camX-30,m.y-camY-22);
+    }
   });
 
   Object.values(players).forEach(p=>{
+    if(!p.alive) return;
     ctx.beginPath();
     ctx.arc(p.x-camX,p.y-camY,18,0,Math.PI*2);
-    ctx.fillStyle=p.alive?p.color:"#555";
+    ctx.fillStyle=p.color;
     ctx.fill();
     ctx.fillStyle="#fff";
     ctx.fillText(p.name,p.x-camX-15,p.y-camY-25);
@@ -202,8 +208,10 @@ function drawMiniMap(){
   });
 
   Object.values(players).forEach(p=>{
-    mctx.fillStyle=p.color;
-    mctx.fillRect(p.x/MAP_W*200,p.y/MAP_H*120,4,4);
+    if(p.alive){
+      mctx.fillStyle=p.color;
+      mctx.fillRect(p.x/MAP_W*200,p.y/MAP_H*120,4,4);
+    }
   });
 }
 
