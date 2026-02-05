@@ -50,14 +50,20 @@ canvas{position:absolute;top:0;left:0}
   position:fixed;
   bottom:10px;
   right:10px;
-  width:200px;
-  font-size:11px;
-  z-index:50;
-  pointer-events:none
+  width:220px;
+  max-height:150px;
+  overflow-y:auto;
+  font-size:12px;
+  background:#0005;
+  padding:6px;
+  border-radius:6px;
+  z-index:60;
+  pointer-events:none;
 }
 .logItem{
   opacity:1;
   transition:opacity 1s;
+  margin-bottom:2px;
 }
 
 /* ROLE */
@@ -139,7 +145,7 @@ canvas{position:absolute;top:0;left:0}
 
 <div id="status">Canlı: <span id="alive">0</span></div>
 <div id="roleBox">ROL: <span id="roleText"></span></div>
-<button id="killBtn">ÖLDÜR</button>
+<button id="killBtn" onclick="killPlayer()">ÖLDÜR</button>
 
 <canvas id="game"></canvas>
 <canvas id="miniMap"></canvas>
@@ -185,7 +191,7 @@ function join(){
   socket.emit("join",n);
 
   document.getElementById("joinBtn").style.display="none";
-  document.getElementById("readyBtn").style.display="inline"; // ✅ FIX
+  document.getElementById("readyBtn").style.display="inline";
 }
 
 function ready(){ socket.emit("ready") }
@@ -206,7 +212,7 @@ socket.on("role",r=>{
   myRole=r;
   document.getElementById("roleBox").style.display="block";
   document.getElementById("roleText").innerText=r;
-  if(r==="Hain") document.getElementById("killBtn").style.display="block";
+  document.getElementById("killBtn").style.display=(r==="Hain")?"block":"none";
 });
 
 socket.on("gameStarted",()=>{
@@ -253,24 +259,19 @@ function drawMini(){
   });
 }
 
-/* INPUT */
-let keys = {};
-addEventListener("keydown", e => keys[e.key] = true);
-addEventListener("keyup", e => keys[e.key] = false);
+/* MOVE */
+let keys={};
+addEventListener("keydown",e=>keys[e.key]=true);
+addEventListener("keyup",e=>keys[e.key]=false);
 
 setInterval(()=>{
-  if(!started || !me) return;
-
-  let dx = 0, dy = 0;
-
-  if(keys["w"] || keys["ArrowUp"]) dy -= 1;
-  if(keys["s"] || keys["ArrowDown"]) dy += 1;
-  if(keys["a"] || keys["ArrowLeft"]) dx -= 1;
-  if(keys["d"] || keys["ArrowRight"]) dx += 1;
-
-  if(dx || dy){
-    socket.emit("move",{ dx, dy });
-  }
+  if(!started||!me) return;
+  let dx=0,dy=0;
+  if(keys.w||keys.ArrowUp) dy=-1;
+  if(keys.s||keys.ArrowDown) dy=1;
+  if(keys.a||keys.ArrowLeft) dx=-1;
+  if(keys.d||keys.ArrowRight) dx=1;
+  if(dx||dy) socket.emit("move",{dx,dy});
 },50);
 
 /* JOYSTICK */
@@ -302,6 +303,23 @@ setInterval(()=>{
   if(started&&me&&(Math.abs(joyX)>0.1||Math.abs(joyY)>0.1))
     socket.emit("move",{dx:joyX,dy:joyY});
 },50);
+
+/* KILL */
+function killPlayer(){
+  if(!me||!state) return;
+  const targets=state.players.filter(p=>p.alive && p.id!==me.id);
+  if(targets.length===0) return;
+
+  // En yakınını bul
+  let closest = null, minDist = Infinity;
+  targets.forEach(t=>{
+    const dist = Math.hypot(me.x-t.x,me.y-t.y);
+    if(dist<minDist){ minDist=dist; closest=t; }
+  });
+  if(minDist<60){
+    socket.emit("kill",closest.id);
+  }
+}
 
 /* MEETING */
 const meeting=document.getElementById("meeting");
