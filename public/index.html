@@ -24,17 +24,7 @@ canvas{position:absolute;top:0;left:0}
   z-index:100
 }
 
-/* UI */
-#miniMap{
-  position:fixed;
-  top:10px;
-  right:10px;
-  width:200px;
-  height:120px;
-  background:#000c;
-  border:1px solid #666;
-  z-index:50
-}
+/* STATUS */
 #status{
   position:fixed;
   top:10px;
@@ -45,25 +35,36 @@ canvas{position:absolute;top:0;left:0}
   z-index:50
 }
 
+/* MINI MAP */
+#miniMap{
+  position:fixed;
+  top:10px;
+  right:10px;
+  width:200px;
+  height:120px;
+  background:#0009;
+  border:1px solid #555;
+  z-index:50
+}
+
 /* LOG */
 #log{
   position:fixed;
   bottom:10px;
   right:10px;
-  width:220px;
-  max-height:150px;
-  overflow-y:auto;
+  width:260px;
+  max-height:160px;
+  background:rgba(0,0,0,0.45);
+  padding:8px;
+  border-radius:8px;
   font-size:12px;
-  background:#0005;
-  padding:6px;
-  border-radius:6px;
   z-index:60;
   pointer-events:none;
 }
 .logItem{
   opacity:1;
   transition:opacity 1s;
-  margin-bottom:2px;
+  margin-bottom:4px;
 }
 
 /* ROLE */
@@ -137,7 +138,7 @@ canvas{position:absolute;top:0;left:0}
 
 <div id="lobby">
   <input id="name" placeholder="İsmin">
-  <button id="joinBtn" onclick="join()">Katıl</button>
+  <button onclick="join()">Katıl</button>
   <button id="readyBtn" onclick="ready()" style="display:none">Hazır</button>
   <button id="startBtn" onclick="start()" style="display:none">Başlat</button>
   <div id="players"></div>
@@ -171,61 +172,57 @@ canvas.height=innerHeight;
 addEventListener("resize",()=>{canvas.width=innerWidth;canvas.height=innerHeight});
 
 const MAP_W=2000,MAP_H=1200;
-let state=null,me=null,started=false,myRole=null;
+let state=null,me=null,started=false;
 
 /* LOG */
-function log(t){
-  const d=document.getElementById("log");
-  const p=document.createElement("div");
-  p.className="logItem";
-  p.innerText=t;
-  d.appendChild(p);
-  setTimeout(()=>p.style.opacity=0,9000);
-  setTimeout(()=>p.remove(),10000);
+function log(msg){
+  const box=document.getElementById("log");
+  const d=document.createElement("div");
+  d.className="logItem";
+  d.textContent=msg;
+  box.appendChild(d);
+  setTimeout(()=>d.style.opacity=0,9000);
+  setTimeout(()=>d.remove(),10000);
 }
+socket.on("log",log);
 
 /* LOBBY */
 function join(){
-  const n=document.getElementById("name").value;
+  const n=name.value;
   if(!n) return;
   socket.emit("join",n);
-
-  document.getElementById("joinBtn").style.display="none";
-  document.getElementById("readyBtn").style.display="inline";
+  readyBtn.style.display="inline";
 }
-
 function ready(){ socket.emit("ready") }
 function start(){ socket.emit("start") }
 
 socket.on("lobby",data=>{
-  const p=document.getElementById("players");
-  p.innerHTML="";
-  data.players.forEach(x=>{
-    p.innerHTML+=`${x.name} ${x.ready?"✔️":"❌"}${x.admin?" (Admin)":""}<br>`;
-    if(x.id===socket.id && x.admin)
-      document.getElementById("startBtn").style.display=data.canStart?"inline":"none";
+  players.innerHTML="";
+  data.players.forEach(p=>{
+    players.innerHTML+=`${p.name} ${p.ready?"✔️":"❌"} ${p.admin?"(Admin)":""}<br>`;
+    if(p.id===socket.id && p.admin)
+      startBtn.style.display=data.canStart?"inline":"none";
   });
 });
 
 /* ROLE */
 socket.on("role",r=>{
-  myRole=r;
-  document.getElementById("roleBox").style.display="block";
-  document.getElementById("roleText").innerText=r;
-  document.getElementById("killBtn").style.display=(r==="Hain")?"block":"none";
+  roleBox.style.display="block";
+  roleText.textContent=r;
+  killBtn.style.display=(r==="Hain")?"block":"none";
 });
 
+/* GAME */
 socket.on("gameStarted",()=>{
   started=true;
-  document.getElementById("lobby").style.display="none";
+  lobby.style.display="none";
   log("🎮 Oyun başladı");
 });
 
-/* STATE */
 socket.on("state",s=>{
   state=s;
   me=s.players.find(p=>p.id===socket.id);
-  document.getElementById("alive").innerText=s.players.filter(p=>p.alive).length;
+  alive.textContent=s.players.filter(p=>p.alive).length;
 });
 
 /* DRAW */
@@ -233,23 +230,18 @@ function draw(){
   requestAnimationFrame(draw);
   if(!started||!state||!me) return;
   ctx.clearRect(0,0,canvas.width,canvas.height);
-  const camX=me.x-canvas.width/2;
-  const camY=me.y-canvas.height/2;
+  const cx=me.x-canvas.width/2;
+  const cy=me.y-canvas.height/2;
 
   state.players.forEach(p=>{
-    if(!p.alive && p.id!==me.id) return;
+    if(!p.alive&&p.id!==me.id) return;
     ctx.beginPath();
-    ctx.arc(p.x-camX,p.y-camY,15,0,Math.PI*2);
+    ctx.arc(p.x-cx,p.y-cy,15,0,Math.PI*2);
     ctx.fillStyle=p.alive?p.color:"#666";
     ctx.fill();
-    ctx.fillStyle="#fff";
-    ctx.fillText(p.name,p.x-camX-15,p.y-camY-20);
+    ctx.fillText(p.name,p.x-cx-15,p.y-cy-20);
   });
-  drawMini();
-}
-draw();
 
-function drawMini(){
   mctx.clearRect(0,0,200,120);
   state.players.forEach(p=>{
     if(p.alive){
@@ -258,73 +250,29 @@ function drawMini(){
     }
   });
 }
+draw();
 
 /* MOVE */
 let keys={};
 addEventListener("keydown",e=>keys[e.key]=true);
 addEventListener("keyup",e=>keys[e.key]=false);
-
 setInterval(()=>{
   if(!started||!me) return;
-  let dx=0,dy=0;
-  if(keys.w||keys.ArrowUp) dy=-1;
-  if(keys.s||keys.ArrowDown) dy=1;
-  if(keys.a||keys.ArrowLeft) dx=-1;
-  if(keys.d||keys.ArrowRight) dx=1;
+  let dx=(keys.a||keys.ArrowLeft?-1:0)+(keys.d||keys.ArrowRight?1:0);
+  let dy=(keys.w||keys.ArrowUp?-1:0)+(keys.s||keys.ArrowDown?1:0);
   if(dx||dy) socket.emit("move",{dx,dy});
-},50);
-
-/* JOYSTICK */
-const joystick=document.getElementById("joystick");
-const stick=document.getElementById("stick");
-let joyX=0,joyY=0,joy=false;
-const center=45,max=30;
-if("ontouchstart"in window) joystick.style.display="block";
-
-joystick.ontouchstart=()=>joy=true;
-joystick.ontouchmove=e=>{
-  if(!joy) return;
-  const t=e.touches[0];
-  const r=joystick.getBoundingClientRect();
-  let x=t.clientX-r.left-center;
-  let y=t.clientY-r.top-center;
-  const d=Math.hypot(x,y);
-  if(d>max){x=x/d*max;y=y/d*max;}
-  stick.style.left=center+x-15+"px";
-  stick.style.top=center+y-15+"px";
-  joyX=x/max; joyY=y/max;
-};
-joystick.ontouchend=()=>{
-  joy=false; joyX=joyY=0;
-  stick.style.left="30px"; stick.style.top="30px";
-};
-
-setInterval(()=>{
-  if(started&&me&&(Math.abs(joyX)>0.1||Math.abs(joyY)>0.1))
-    socket.emit("move",{dx:joyX,dy:joyY});
 },50);
 
 /* KILL */
 function killPlayer(){
   if(!me||!state) return;
-  const targets=state.players.filter(p=>p.alive && p.id!==me.id);
-  if(targets.length===0) return;
-
-  // En yakınını bul
-  let closest = null, minDist = Infinity;
-  targets.forEach(t=>{
-    const dist = Math.hypot(me.x-t.x,me.y-t.y);
-    if(dist<minDist){ minDist=dist; closest=t; }
-  });
-  if(minDist<60){
-    socket.emit("kill",closest.id);
-  }
+  let t=state.players.filter(p=>p.alive&&p.id!==me.id)
+    .sort((a,b)=>Math.hypot(me.x-a.x,me.y-a.y)-Math.hypot(me.x-b.x,me.y-b.y))[0];
+  if(t&&Math.hypot(me.x-t.x,me.y-t.y)<60)
+    socket.emit("kill",t.id);
 }
 
 /* MEETING */
-const meeting=document.getElementById("meeting");
-const voteList=document.getElementById("voteList");
-
 socket.on("meetingStart",list=>{
   if(!me.alive) return;
   meeting.style.display="block";
@@ -332,15 +280,11 @@ socket.on("meetingStart",list=>{
   list.forEach(p=>{
     if(p.id===socket.id) return;
     const b=document.createElement("button");
-    b.innerText=p.name;
-    b.onclick=()=>{
-      socket.emit("vote",p.id);
-      meeting.style.display="none";
-    };
+    b.textContent=p.name;
+    b.onclick=()=>{socket.emit("vote",p.id);meeting.style.display="none"};
     voteList.appendChild(b);
   });
 });
-
 socket.on("meetingEnd",()=>meeting.style.display="none");
 </script>
 </body>
