@@ -123,9 +123,17 @@ function draw(){
   }
 
   machines.forEach(m=>{
-    ctx.fillStyle = m.broken ? "red":"lime";
-    ctx.fillRect(m.x-camX-20,m.y-camY-20,40,40);
-  });
+  ctx.fillStyle = m.broken ? "red" : "lime";
+  ctx.fillRect(m.x-camX-20,m.y-camY-20,40,40);
+
+  ctx.fillStyle = "#fff";
+  ctx.font = "12px Arial";
+  ctx.fillText(
+    m.name,
+    m.x-camX-35,
+    m.y-camY-30
+  );
+});
 
   Object.values(players).forEach(p=>{
     if(!p.alive) return;
