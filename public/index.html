@@ -44,17 +44,20 @@ canvas{position:absolute;top:0;left:0}
   border:1px solid #666;
   z-index:50
 }
+
+/* LOG – SAYDAM */
 #log{
   position:fixed;
   bottom:10px;
   right:10px;
-  width:160px;
-  height:80px;
-  font-size:10px;
-  background:#000c;
-  padding:4px;
-  overflow:auto;
-  z-index:50
+  width:200px;
+  font-size:11px;
+  z-index:50;
+  pointer-events:none
+}
+.logItem{
+  opacity:1;
+  transition:opacity 1s;
 }
 
 /* ROLE */
@@ -144,7 +147,6 @@ canvas{position:absolute;top:0;left:0}
 
 <div id="joystick"><div id="stick"></div></div>
 
-<!-- MEETING -->
 <div id="meeting">
   <h2>🗳️ OYLAMA</h2>
   <div id="voteList"></div>
@@ -163,14 +165,17 @@ canvas.height=innerHeight;
 addEventListener("resize",()=>{canvas.width=innerWidth;canvas.height=innerHeight});
 
 const MAP_W=2000,MAP_H=1200;
-
 let state=null,me=null,started=false,myRole=null;
 
-/* LOG */
+/* LOG – 10 sn sonra silinir */
 function log(t){
   const d=document.getElementById("log");
-  d.innerHTML+=t+"<br>";
-  d.scrollTop=d.scrollHeight;
+  const p=document.createElement("div");
+  p.className="logItem";
+  p.innerText=t;
+  d.appendChild(p);
+  setTimeout(()=>p.style.opacity=0,9000);
+  setTimeout(()=>p.remove(),10000);
 }
 
 /* LOBBY */
@@ -188,9 +193,8 @@ socket.on("lobby",data=>{
   p.innerHTML="";
   data.players.forEach(x=>{
     p.innerHTML+=`${x.name} ${x.ready?"✔️":"❌"}${x.admin?" (Admin)":""}<br>`;
-    if(x.id===socket.id && x.admin){
+    if(x.id===socket.id && x.admin)
       document.getElementById("startBtn").style.display=data.canStart?"inline":"none";
-    }
   });
   document.getElementById("readyBtn").style.display="inline";
 });
@@ -223,11 +227,12 @@ function draw(){
   ctx.clearRect(0,0,canvas.width,canvas.height);
   const camX=me.x-canvas.width/2;
   const camY=me.y-canvas.height/2;
+
   state.players.forEach(p=>{
-    if(!p.alive) return;
+    if(!p.alive && p.id!==me.id) return; // 👻 hayalet gizle
     ctx.beginPath();
     ctx.arc(p.x-camX,p.y-camY,15,0,Math.PI*2);
-    ctx.fillStyle=p.color;
+    ctx.fillStyle=p.alive?p.color:"#666";
     ctx.fill();
     ctx.fillStyle="#fff";
     ctx.fillText(p.name,p.x-camX-15,p.y-camY-20);
@@ -250,10 +255,9 @@ function drawMini(){
 document.getElementById("killBtn").onclick=()=>{
   if(myRole!=="Hain"||!me||!me.alive) return;
   state.players.forEach(p=>{
-    if(p.id!==me.id && p.alive){
-      if(Math.hypot(me.x-p.x,me.y-p.y)<60)
+    if(p.id!==me.id && p.alive &&
+      Math.hypot(me.x-p.x,me.y-p.y)<60)
         socket.emit("kill",p.id);
-    }
   });
 };
 
@@ -263,7 +267,7 @@ addEventListener("keydown",e=>keys[e.key]=true);
 addEventListener("keyup",e=>keys[e.key]=false);
 
 setInterval(()=>{
-  if(!started||!me||!me.alive) return;
+  if(!started||!me) return;
   let dx=0,dy=0;
   if(keys.w||keys.ArrowUp) dy=-1;
   if(keys.s||keys.ArrowDown) dy=1;
@@ -298,7 +302,7 @@ joystick.ontouchend=()=>{
 };
 
 setInterval(()=>{
-  if(started&&me&&me.alive&&(Math.abs(joyX)>0.1||Math.abs(joyY)>0.1))
+  if(started&&me&&(Math.abs(joyX)>0.1||Math.abs(joyY)>0.1))
     socket.emit("move",{dx:joyX,dy:joyY});
 },50);
 
@@ -307,6 +311,7 @@ const meeting=document.getElementById("meeting");
 const voteList=document.getElementById("voteList");
 
 socket.on("meetingStart",list=>{
+  if(!me.alive) return; // ❌ ölü oy kullanamaz
   meeting.style.display="block";
   voteList.innerHTML="";
   list.forEach(p=>{
