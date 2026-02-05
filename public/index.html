@@ -254,18 +254,23 @@ function drawMini(){
 }
 
 /* INPUT */
-let keys={};
-addEventListener("keydown",e=>keys[e.key]=true);
-addEventListener("keyup",e=>keys[e.key]=false);
+let keys = {};
+addEventListener("keydown", e => keys[e.key] = true);
+addEventListener("keyup", e => keys[e.key] = false);
 
 setInterval(()=>{
-  if(!started||!me) return;
-  let dx=0,dy=0;
-  if(keys.w||keys.ArrowUp) dy=-1;
-  if(keys.s||keys.ArrowDown) dy=1;
-  if(keys.a||keys.ArrowLeft) dx=-1;
-  if(keys.d||keys.ArrowRight) dx=1;
-  if(dx||dy) socket.emit("move",{dx,dy});
+  if(!started || !me) return;
+
+  let dx = 0, dy = 0;
+
+  if(keys["w"] || keys["ArrowUp"]) dy -= 1;
+  if(keys["s"] || keys["ArrowDown"]) dy += 1;
+  if(keys["a"] || keys["ArrowLeft"]) dx -= 1;
+  if(keys["d"] || keys["ArrowRight"]) dx += 1;
+
+  if(dx || dy){
+    socket.emit("move",{ dx, dy });
+  }
 },50);
 
 /* JOYSTICK */
