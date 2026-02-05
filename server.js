@@ -73,11 +73,11 @@ io.on("connection", socket => {
     lobbyUpdate();
   });
 
-  // Hazır
+  // Hazır (toggle)
   socket.on("ready", ()=>{
     const p = players.find(p=>p.id===socket.id);
     if(!p) return;
-    p.ready = true;
+    p.ready = !p.ready;
     lobbyUpdate();
   });
 
@@ -199,6 +199,13 @@ io.on("connection", socket => {
     votes[socket.id] = id;
   });
 
+});
+
+/* ---------- LOG EVENT EKLENDİ ---------- */
+io.on("connection", socket => {
+  socket.on("log", msg => {
+    io.emit("log", msg);
+  });
 });
 
 /* ---------- STATE ---------- */
