@@ -35,7 +35,6 @@ canvas{position:absolute;top:0;left:0}
   border:1px solid #666;
   z-index:50
 }
-
 #status{
   position:fixed;
   top:10px;
@@ -45,7 +44,6 @@ canvas{position:absolute;top:0;left:0}
   border:1px solid #666;
   z-index:50
 }
-
 #log{
   position:fixed;
   bottom:10px;
@@ -108,6 +106,21 @@ canvas{position:absolute;top:0;left:0}
   border-radius:50%;
   background:#0f8
 }
+
+/* MEETING */
+#meeting{
+  position:fixed;inset:0;
+  background:#000e;
+  display:none;
+  z-index:200;
+  text-align:center;
+  padding-top:40px
+}
+#meeting button{
+  margin:6px;
+  padding:10px 20px;
+  font-size:16px;
+}
 </style>
 </head>
 
@@ -121,7 +134,7 @@ canvas{position:absolute;top:0;left:0}
   <div id="players"></div>
 </div>
 
-<div id="status">Oyuncu: <span id="alive">0</span></div>
+<div id="status">Canlı: <span id="alive">0</span></div>
 <div id="roleBox">ROL: <span id="roleText"></span></div>
 <button id="killBtn">ÖLDÜR</button>
 
@@ -131,10 +144,15 @@ canvas{position:absolute;top:0;left:0}
 
 <div id="joystick"><div id="stick"></div></div>
 
+<!-- MEETING -->
+<div id="meeting">
+  <h2>🗳️ OYLAMA</h2>
+  <div id="voteList"></div>
+</div>
+
 <script src="/socket.io/socket.io.js"></script>
 <script>
-const socket = io();
-
+const socket=io();
 const canvas=document.getElementById("game");
 const ctx=canvas.getContext("2d");
 const map=document.getElementById("miniMap");
@@ -142,17 +160,11 @@ const mctx=map.getContext("2d");
 
 canvas.width=innerWidth;
 canvas.height=innerHeight;
-addEventListener("resize",()=>{
-  canvas.width=innerWidth;
-  canvas.height=innerHeight;
-});
+addEventListener("resize",()=>{canvas.width=innerWidth;canvas.height=innerHeight});
 
-const MAP_W=2000, MAP_H=1200;
+const MAP_W=2000,MAP_H=1200;
 
-let state=null;
-let me=null;
-let started=false;
-let myRole=null;
+let state=null,me=null,started=false,myRole=null;
 
 /* LOG */
 function log(t){
@@ -168,8 +180,8 @@ function join(){
   socket.emit("join",n);
   document.getElementById("joinBtn").style.display="none";
 }
-function ready(){ socket.emit("ready"); }
-function start(){ socket.emit("start"); }
+function ready(){socket.emit("ready")}
+function start(){socket.emit("start")}
 
 socket.on("lobby",data=>{
   const p=document.getElementById("players");
@@ -184,13 +196,11 @@ socket.on("lobby",data=>{
 });
 
 /* ROLE */
-socket.on("role",role=>{
-  myRole=role;
+socket.on("role",r=>{
+  myRole=r;
   document.getElementById("roleBox").style.display="block";
-  document.getElementById("roleText").innerText=role;
-  if(role==="Hain"){
-    document.getElementById("killBtn").style.display="block";
-  }
+  document.getElementById("roleText").innerText=r;
+  if(r==="Hain") document.getElementById("killBtn").style.display="block";
 });
 
 socket.on("gameStarted",()=>{
@@ -203,19 +213,16 @@ socket.on("gameStarted",()=>{
 socket.on("state",s=>{
   state=s;
   me=s.players.find(p=>p.id===socket.id);
-  document.getElementById("alive").innerText=
-    s.players.filter(p=>p.alive).length;
+  document.getElementById("alive").innerText=s.players.filter(p=>p.alive).length;
 });
 
 /* DRAW */
 function draw(){
   requestAnimationFrame(draw);
   if(!started||!state||!me) return;
-
   ctx.clearRect(0,0,canvas.width,canvas.height);
   const camX=me.x-canvas.width/2;
   const camY=me.y-canvas.height/2;
-
   state.players.forEach(p=>{
     if(!p.alive) return;
     ctx.beginPath();
@@ -225,7 +232,6 @@ function draw(){
     ctx.fillStyle="#fff";
     ctx.fillText(p.name,p.x-camX-15,p.y-camY-20);
   });
-
   drawMini();
 }
 draw();
@@ -233,9 +239,10 @@ draw();
 function drawMini(){
   mctx.clearRect(0,0,200,120);
   state.players.forEach(p=>{
-    if(!p.alive) return;
-    mctx.fillStyle=p.color;
-    mctx.fillRect(p.x/MAP_W*200,p.y/MAP_H*120,4,4);
+    if(p.alive){
+      mctx.fillStyle=p.color;
+      mctx.fillRect(p.x/MAP_W*200,p.y/MAP_H*120,4,4);
+    }
   });
 }
 
@@ -244,8 +251,8 @@ document.getElementById("killBtn").onclick=()=>{
   if(myRole!=="Hain"||!me||!me.alive) return;
   state.players.forEach(p=>{
     if(p.id!==me.id && p.alive){
-      const d=Math.hypot(me.x-p.x,me.y-p.y);
-      if(d<60) socket.emit("kill",p.id);
+      if(Math.hypot(me.x-p.x,me.y-p.y)<60)
+        socket.emit("kill",p.id);
     }
   });
 };
@@ -265,17 +272,16 @@ setInterval(()=>{
   if(dx||dy) socket.emit("move",{dx,dy});
 },50);
 
-/* MOBILE JOYSTICK */
+/* JOYSTICK */
 const joystick=document.getElementById("joystick");
 const stick=document.getElementById("stick");
-let joyX=0,joyY=0,joyActive=false;
+let joyX=0,joyY=0,joy=false;
 const center=45,max=30;
-
 if("ontouchstart"in window) joystick.style.display="block";
 
-joystick.addEventListener("touchstart",()=>joyActive=true);
-joystick.addEventListener("touchmove",e=>{
-  if(!joyActive) return;
+joystick.ontouchstart=()=>joy=true;
+joystick.ontouchmove=e=>{
+  if(!joy) return;
   const t=e.touches[0];
   const r=joystick.getBoundingClientRect();
   let x=t.clientX-r.left-center;
@@ -285,17 +291,39 @@ joystick.addEventListener("touchmove",e=>{
   stick.style.left=center+x-15+"px";
   stick.style.top=center+y-15+"px";
   joyX=x/max; joyY=y/max;
-});
-joystick.addEventListener("touchend",()=>{
-  joyActive=false; joyX=joyY=0;
+};
+joystick.ontouchend=()=>{
+  joy=false; joyX=joyY=0;
   stick.style.left="30px"; stick.style.top="30px";
-});
+};
 
 setInterval(()=>{
-  if(!started||!me||!me.alive) return;
-  if(Math.abs(joyX)>0.1||Math.abs(joyY)>0.1)
+  if(started&&me&&me.alive&&(Math.abs(joyX)>0.1||Math.abs(joyY)>0.1))
     socket.emit("move",{dx:joyX,dy:joyY});
 },50);
+
+/* MEETING */
+const meeting=document.getElementById("meeting");
+const voteList=document.getElementById("voteList");
+
+socket.on("meetingStart",list=>{
+  meeting.style.display="block";
+  voteList.innerHTML="";
+  list.forEach(p=>{
+    if(p.id===socket.id) return;
+    const b=document.createElement("button");
+    b.innerText=p.name;
+    b.onclick=()=>{
+      socket.emit("vote",p.id);
+      meeting.style.display="none";
+    };
+    voteList.appendChild(b);
+  });
+});
+
+socket.on("meetingEnd",()=>{
+  meeting.style.display="none";
+});
 </script>
 </body>
 </html>
