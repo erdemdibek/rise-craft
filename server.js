@@ -8,7 +8,6 @@ const io = new Server(server);
 
 app.use(express.static("public"));
 
-const PORT = process.env.PORT || 3000;
 const MAP_W = 2000;
 const MAP_H = 1200;
 
@@ -16,83 +15,102 @@ let players = [];
 let machines = [];
 let started = false;
 
-function resetMachines() {
-  machines = [];
-  let i = 1;
-  const xs = [300, 700, 1100, 1500, 1900];
-  xs.forEach(x => {
-    machines.push({ id: i++, x, y: 300, broken: false, name: "Makine " + (i - 1) });
-    machines.push({ id: i++, x, y: 800, broken: false, name: "Makine " + (i - 1) });
-  });
+function resetMachines(){
+  machines=[];
+  let i=0;
+  for(let x=300;x<=1700;x+=400){
+    machines.push({x,y:300,broken:false,name:"Makine "+(++i)});
+    machines.push({x,y:800,broken:false,name:"Makine "+(++i)});
+  }
 }
-
 resetMachines();
 
+function assignRoles(){
+  players.forEach(p=>p.role="Masum");
+  const traitor = players[Math.floor(Math.random()*players.length)];
+  traitor.role = "Hain";
+}
+
 io.on("connection", socket => {
-  console.log("🟢 Connected:", socket.id);
 
   socket.on("join", name => {
-    const player = {
+    if(started) return;
+
+    players.push({
       id: socket.id,
       name,
-      x: Math.random() * MAP_W,
-      y: Math.random() * MAP_H,
-      color: `hsl(${Math.random() * 360},70%,50%)`,
+      x: Math.random()*MAP_W,
+      y: Math.random()*MAP_H,
+      color: `hsl(${Math.random()*360},70%,50%)`,
       alive: true,
       ready: false,
-      admin: players.length === 0
-    };
-
-    players.push(player);
-    sendLobby();
+      admin: players.length===0,
+      role: null
+    });
+    lobbyUpdate();
   });
 
-  socket.on("ready", () => {
-    const p = players.find(p => p.id === socket.id);
-    if (p) p.ready = true;
-    sendLobby();
+  socket.on("ready",()=>{
+    const p=players.find(p=>p.id===socket.id);
+    if(p) p.ready=true;
+    lobbyUpdate();
   });
 
-  socket.on("start", () => {
-    if (players.length < 4) return;
-    if (players.some(p => !p.ready)) return;
+  socket.on("start",()=>{
+    if(players.length<4) return;
+    if(players.some(p=>!p.ready)) return;
 
-    started = true;
+    started=true;
+    assignRoles();
+
+    players.forEach(p=>{
+      io.to(p.id).emit("role",p.role);
+    });
+
     io.emit("gameStarted");
   });
 
-  socket.on("move", ({ dx, dy }) => {
-    if (!started) return;
-
-    const p = players.find(p => p.id === socket.id);
-    if (!p || !p.alive) return;
-
-    p.x = Math.max(0, Math.min(MAP_W, p.x + dx * 5));
-    p.y = Math.max(0, Math.min(MAP_H, p.y + dy * 5));
+  socket.on("move",({dx,dy})=>{
+    const p=players.find(p=>p.id===socket.id);
+    if(!p||!p.alive||!started) return;
+    p.x=Math.max(20,Math.min(MAP_W-20,p.x+dx*6));
+    p.y=Math.max(20,Math.min(MAP_H-20,p.y+dy*6));
   });
 
-  socket.on("disconnect", () => {
-    players = players.filter(p => p.id !== socket.id);
-    if (players.length > 0) players[0].admin = true;
-    sendLobby();
+  socket.on("kill", targetId=>{
+    const killer=players.find(p=>p.id===socket.id);
+    const target=players.find(p=>p.id===targetId);
+    if(!killer||!target) return;
+    if(!killer.alive||!target.alive) return;
+    if(killer.role!=="Hain") return;
+
+    const dist=Math.hypot(killer.x-target.x,killer.y-target.y);
+    if(dist<60){
+      target.alive=false;
+      io.emit("log",`💀 ${target.name} öldürüldü`);
+    }
   });
+
+  socket.on("disconnect",()=>{
+    players=players.filter(p=>p.id!==socket.id);
+    lobbyUpdate();
+  });
+
 });
 
-function sendLobby() {
-  io.emit("lobby", {
+function lobbyUpdate(){
+  io.emit("lobby",{
     players,
-    canStart:
-      players.length >= 4 &&
-      players.every(p => p.ready) &&
-      players.some(p => p.admin)
+    canStart: players.length>=4 &&
+              players.every(p=>p.ready) &&
+              players.find(p=>p.admin)
   });
 }
 
-setInterval(() => {
-  if (!started) return;
-  io.emit("state", { players, machines });
-}, 50);
+setInterval(()=>{
+  if(!started) return;
+  io.emit("state",{players,machines});
+},50);
 
-server.listen(PORT, () => {
-  console.log("🚀 Server running on port", PORT);
-});
+server.listen(process.env.PORT||3000,
+  ()=>console.log("🚀 SERVER READY"));
