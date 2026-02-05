@@ -67,6 +67,7 @@ function resetGame(){
     p.alive=true;
     p.ready=false;
     p.tasksCompleted=0;
+    p.inGame=false;
   });
 }
 
@@ -98,9 +99,7 @@ function endMeeting(){
   const count={};
   Object.values(lobby.votes).forEach(v=>count[v]=(count[v]||0)+1);
   let max=0,out=null;
-  for(const id in count){
-    if(count[id]>max){max=count[id];out=id;}
-  }
+  for(const id in count){if(count[id]>max){max=count[id];out=id;}}
   if(out){
     const p=lobby.players.find(p=>p.id===out);
     if(p) p.alive=false;
@@ -114,26 +113,30 @@ io.on("connection",socket=>{
 
   socket.on("joinLobby",({name},cb)=>{
     if(!name) return cb({error:"İsim gir"});
+    // Oyuna başladıysa yeni oyuncu sadece lobiye alınır
+    const inGame = lobby.started;
     lobby.players.push({
       id:socket.id,
       name,
       x:Math.random()*MAP_W,
       y:Math.random()*MAP_H,
       color:`hsl(${Math.random()*360},70%,50%)`,
-      ready:false,alive:true,role:null,
+      ready:false,alive:!inGame,role:null,
       tasksCompleted:0,
-      lastKill:0
+      lastKill:0,
+      inGame:!inGame
     });
     io.emit("lobbyUpdate",{players:lobby.players,machines:lobby.machines});
-    cb({success:true});
+    cb({success:true, inGame: !inGame});
   });
 
   socket.on("playerReady",()=>{
     const p=lobby.players.find(p=>p.id===socket.id);
     if(!p) return;
     p.ready=true;
-    if(lobby.players.length>=3&&lobby.players.every(p=>p.ready)){
+    if(lobby.players.filter(x=>!x.inGame).length>=3 && lobby.players.filter(x=>!x.inGame).every(p=>p.ready)){
       lobby.started=true;
+      lobby.players.forEach(p=>p.inGame=true);
       assignRoles();
       io.emit("gameStart");
       startLoop();
