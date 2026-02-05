@@ -119,7 +119,6 @@ io.on("connection",socket=>{
       inGame:!inGame,
       isAdmin
     });
-    // Lobby güncellemesini tüm oyunculara gönder
     io.emit("lobbyUpdate",{players:lobby.players,machines:lobby.machines});
     cb({success:true,inGame:!inGame,isAdmin});
   });
@@ -135,6 +134,7 @@ io.on("connection",socket=>{
     const admin = lobby.players.find(p=>p.id===socket.id && p.isAdmin);
     if(!admin) return;
     if(lobby.players.filter(p=>!p.ready).length>0) return;
+    if(lobby.players.length<4) return; // Minimum 4 oyuncu
     lobby.started=true;
     lobby.players.forEach(p=>p.inGame=true);
     assignRoles();
@@ -153,58 +153,4 @@ io.on("connection",socket=>{
     const p=lobby.players.find(p=>p.id===socket.id);
     const m=lobby.machines[machineIndex];
     if(!p||!m||dist(p,m)>80||lobby.meeting) return;
-    if(type==="fixMachine"&&p.role==="Operatör"&&m.broken){
-      m.broken=false;
-      p.tasksCompleted++;
-      io.emit("machinesUpdate",lobby.machines);
-      checkWin();
-    }
-  });
-
-  socket.on("killPlayer",targetId=>{
-    const killer=lobby.players.find(p=>p.id===socket.id);
-    const target=lobby.players.find(p=>p.id===targetId);
-    if(!killer||!target) return;
-    if(killer.role!=="Hain"||!killer.alive||!target.alive) return;
-    if(dist(killer,target)>60||lobby.meeting) return;
-    const now=Date.now();
-    if(now-killer.lastKill<3000) return;
-    killer.lastKill=now;
-    target.alive=false;
-    io.emit("playerKilled",target.id);
-    startMeeting();
-  });
-
-  socket.on("vote",id=>{
-    if(!lobby.meeting) return;
-    const p=lobby.players.find(p=>p.id===socket.id);
-    if(p && p.alive) lobby.votes[p.id]=id;
-  });
-
-  socket.on("disconnect",()=>{
-    lobby.players=lobby.players.filter(p=>p.id!==socket.id);
-    io.emit("lobbyUpdate",{players:lobby.players,machines:lobby.machines});
-  });
-});
-
-function startLoop(){
-  if(gameInterval) clearInterval(gameInterval);
-  gameInterval=setInterval(()=>{
-    if(!lobby.started || lobby.meeting) return;
-    lobby.time--;
-    if(lobby.time%15===0){
-      const ok=lobby.machines.filter(m=>!m.broken);
-      if(ok.length){
-        ok[Math.floor(Math.random()*ok.length)].broken=true;
-        io.emit("machinesUpdate",lobby.machines);
-      }
-    }
-    io.emit("state",{players:lobby.players,time:lobby.time});
-    if(lobby.time<=0){
-      io.emit("gameEnd","⏰ Süre doldu");
-      resetGame();
-    }
-  },1000);
-}
-
-server.listen(PORT,()=>console.log("🚀 Server 3000"));
+    if(type==="fixMachine"&&p.role==="Operatör"&&
