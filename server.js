@@ -1,4 +1,3 @@
-// server.js
 const express = require("express");
 const http = require("http");
 const { Server } = require("socket.io");
@@ -120,6 +119,7 @@ io.on("connection",socket=>{
       inGame:!inGame,
       isAdmin
     });
+    // Lobby güncellemesini tüm oyunculara gönder
     io.emit("lobbyUpdate",{players:lobby.players,machines:lobby.machines});
     cb({success:true,inGame:!inGame,isAdmin});
   });
