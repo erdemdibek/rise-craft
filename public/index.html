@@ -45,7 +45,7 @@ canvas{position:absolute;top:0;left:0}
   z-index:50
 }
 
-/* LOG – SAYDAM */
+/* LOG */
 #log{
   position:fixed;
   bottom:10px;
@@ -167,7 +167,7 @@ addEventListener("resize",()=>{canvas.width=innerWidth;canvas.height=innerHeight
 const MAP_W=2000,MAP_H=1200;
 let state=null,me=null,started=false,myRole=null;
 
-/* LOG – 10 sn sonra silinir */
+/* LOG */
 function log(t){
   const d=document.getElementById("log");
   const p=document.createElement("div");
@@ -183,10 +183,13 @@ function join(){
   const n=document.getElementById("name").value;
   if(!n) return;
   socket.emit("join",n);
+
   document.getElementById("joinBtn").style.display="none";
+  document.getElementById("readyBtn").style.display="inline"; // ✅ FIX
 }
-function ready(){socket.emit("ready")}
-function start(){socket.emit("start")}
+
+function ready(){ socket.emit("ready") }
+function start(){ socket.emit("start") }
 
 socket.on("lobby",data=>{
   const p=document.getElementById("players");
@@ -196,7 +199,6 @@ socket.on("lobby",data=>{
     if(x.id===socket.id && x.admin)
       document.getElementById("startBtn").style.display=data.canStart?"inline":"none";
   });
-  document.getElementById("readyBtn").style.display="inline";
 });
 
 /* ROLE */
@@ -229,7 +231,7 @@ function draw(){
   const camY=me.y-canvas.height/2;
 
   state.players.forEach(p=>{
-    if(!p.alive && p.id!==me.id) return; // 👻 hayalet gizle
+    if(!p.alive && p.id!==me.id) return;
     ctx.beginPath();
     ctx.arc(p.x-camX,p.y-camY,15,0,Math.PI*2);
     ctx.fillStyle=p.alive?p.color:"#666";
@@ -251,17 +253,7 @@ function drawMini(){
   });
 }
 
-/* KILL */
-document.getElementById("killBtn").onclick=()=>{
-  if(myRole!=="Hain"||!me||!me.alive) return;
-  state.players.forEach(p=>{
-    if(p.id!==me.id && p.alive &&
-      Math.hypot(me.x-p.x,me.y-p.y)<60)
-        socket.emit("kill",p.id);
-  });
-};
-
-/* KEYBOARD */
+/* INPUT */
 let keys={};
 addEventListener("keydown",e=>keys[e.key]=true);
 addEventListener("keyup",e=>keys[e.key]=false);
@@ -311,7 +303,7 @@ const meeting=document.getElementById("meeting");
 const voteList=document.getElementById("voteList");
 
 socket.on("meetingStart",list=>{
-  if(!me.alive) return; // ❌ ölü oy kullanamaz
+  if(!me.alive) return;
   meeting.style.display="block";
   voteList.innerHTML="";
   list.forEach(p=>{
@@ -326,9 +318,7 @@ socket.on("meetingStart",list=>{
   });
 });
 
-socket.on("meetingEnd",()=>{
-  meeting.style.display="none";
-});
+socket.on("meetingEnd",()=>meeting.style.display="none");
 </script>
 </body>
 </html>
