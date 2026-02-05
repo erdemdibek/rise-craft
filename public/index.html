@@ -1,105 +1,67 @@
 <!DOCTYPE html>
 <html>
 <head>
-<meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no">
+<meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no,orientation=landscape">
 <title>HAİN</title>
 <style>
-html,body{margin:0;background:#111;color:#fff;overflow:hidden;font-family:sans-serif}
-#ui{position:absolute;top:10px;left:10px;z-index:30}
-canvas{display:block}
+html,body{margin:0;padding:0;background:#111;color:#fff;font-family:sans-serif;overflow:hidden;width:100%;height:100%;}
+canvas{display:block;position:absolute;top:0;left:0;}
 
-#joystick{position:fixed;left:30px;bottom:30px;width:120px;height:120px;border-radius:50%;background:#3338;display:none}
-#stick{position:absolute;left:35px;top:35px;width:50px;height:50px;border-radius:50%;background:#0f08}
-
-#actionButtons{
-  position:absolute;
-  bottom:170px;
-  right:20px;
-  display:none;
-  z-index:25
+#lobby{
+  position:absolute;inset:0;background:#111a;display:flex;align-items:center;justify-content:center;flex-direction:column;z-index:50;
 }
+#lobby input{padding:6px;font-size:16px;margin-bottom:10px;}
+#lobby button{padding:6px 12px;margin:4px;font-size:16px;cursor:pointer;}
+#playerList{margin-top:10px;}
+
+#ui{display:none;position:absolute;top:10px;left:10px;z-index:40;}
 
 #miniMap{
-  position:absolute;
-  top:10px;
-  right:10px;
-  width:200px;
-  height:120px;
-  background:#0008;
-  border:1px solid #555;
-  z-index:20
+  position:absolute;top:10px;right:10px;width:180px;height:100px;background:#0008;border:1px solid #555;z-index:30;
 }
-
 #log{
-  position:absolute;
-  right:10px;
-  bottom:10px;
-  width:260px;
-  height:140px;
-  background:#000c;
-  font-size:12px;
-  padding:6px;
-  overflow:auto;
-  z-index:20
+  position:absolute;bottom:10px;right:10px;width:200px;height:100px;background:#000c;font-size:10px;padding:4px;overflow:auto;z-index:30;
 }
-
 #statusBar{
-  position:absolute;
-  bottom:160px;
-  right:10px;
-  width:260px;
-  background:#000c;
-  border:1px solid #555;
-  padding:6px;
-  font-size:12px;
-  z-index:22;
+  position:absolute;top:10px;left:10px;background:#000c;padding:4px 6px;font-size:12px;border:1px solid #555;z-index:30;
+  display:flex;align-items:center;
 }
+#statusBar img{width:18px;height:18px;margin-right:4px;}
 
-#voteMenu{
-  position:fixed;
-  inset:0;
-  background:#000c;
-  display:none;
-  align-items:center;
-  justify-content:center;
-  flex-direction:column;
-  z-index:50
-}
+#joystick{position:absolute;bottom:10px;left:10px;width:80px;height:80px;border-radius:50%;background:#3338;display:none;z-index:30;}
+#stick{position:absolute;left:15px;top:15px;width:50px;height:50px;border-radius:50%;background:#0f08}
 
-.voteOption{
-  padding:8px 20px;
-  margin:4px;
-  border:1px solid #fff;
-  cursor:pointer
-}
+#actionButtons{position:absolute;bottom:10px;left:100px;display:none;flex-direction:row;gap:10px;z-index:30;}
+.actionBtn{width:50px;height:50px;border-radius:50%;font-size:12px;background:#3338;color:#fff;border:none;display:flex;align-items:center;justify-content:center;cursor:pointer;}
+
+#voteMenu{position:fixed;inset:0;background:#000c;display:none;align-items:center;justify-content:center;flex-direction:column;z-index:60;}
+.voteOption{padding:8px 20px;margin:4px;border:1px solid #fff;cursor:pointer;}
 </style>
 </head>
 <body>
 
-<div id="ui">
+<!-- LOBBY -->
+<div id="lobby">
   <input id="nameInput" placeholder="İsmin">
   <button id="joinBtn">Katıl</button>
   <button id="readyBtn" style="display:none">Hazır</button>
-  <div id="role"></div>
+  <div id="playerList"></div>
 </div>
 
+<!-- GAME UI -->
+<div id="ui">
+  <div id="statusBar"><img src="https://i.imgur.com/8qH7cQO.png" alt="Players"> <span id="aliveCount">0</span></div>
+</div>
 <canvas id="game"></canvas>
 <canvas id="miniMap"></canvas>
 
-<div id="joystick"><div id="stick"></div></div>
-
-<div id="actionButtons">
-  <button id="fixBtn">Görev</button>
-  <button id="killBtn">Öldür</button>
-</div>
-
-<div id="statusBar">
-  <div id="timeDisplay">⏰ Süre: 0</div>
-  <div id="brokenMachines">⚠️ Bozulan makineler: 0</div>
-  <div id="alivePlayers">👥 Hayatta kalan: 0</div>
-</div>
-
 <div id="log"></div>
+
+<div id="joystick"><div id="stick"></div></div>
+<div id="actionButtons">
+  <button class="actionBtn" id="fixBtn">Görev</button>
+  <button class="actionBtn" id="killBtn">Öldür</button>
+</div>
 
 <div id="voteMenu">
   <h2>Oylama</h2>
@@ -112,19 +74,28 @@ const socket=io();
 const c=document.getElementById("game"),ctx=c.getContext("2d");
 const map=document.getElementById("miniMap"),mctx=map.getContext("2d");
 const logDiv=document.getElementById("log");
-const timeDisplay=document.getElementById("timeDisplay");
-const brokenMachinesDisplay=document.getElementById("brokenMachines");
-const alivePlayersDisplay=document.getElementById("alivePlayers");
+const aliveCount=document.getElementById("aliveCount");
+const lobbyDiv=document.getElementById("lobby");
+const playerListDiv=document.getElementById("playerList");
+const uiDiv=document.getElementById("ui");
 
 let me=null,players={},machines=[],prevMachines=[];
 let gameTime=0;
-
 const MAP_W=2000,MAP_H=1200;
 
-function resize(){c.width=innerWidth;c.height=innerHeight}
+function resize(){c.width=innerWidth;c.height=innerHeight;}
 resize();addEventListener("resize",resize);
 
-/* JOIN */
+/* LOBBY */
+function updateLobby(){
+  playerListDiv.innerHTML="";
+  Object.values(players).forEach(p=>{
+    const d=document.createElement("div");
+    d.innerText=`${p.name} - ${p.ready?"✔️":"❌"}`;
+    playerListDiv.appendChild(d);
+  });
+}
+
 joinBtn.onclick=()=>socket.emit("joinLobby",{name:nameInput.value},r=>{
   if(r.error) alert(r.error);
   else{
@@ -133,6 +104,7 @@ joinBtn.onclick=()=>socket.emit("joinLobby",{name:nameInput.value},r=>{
     readyBtn.style.display="inline";
   }
 });
+
 readyBtn.onclick=()=>socket.emit("playerReady");
 
 /* LOG */
@@ -148,6 +120,7 @@ socket.on("lobbyUpdate",d=>{
   machines=d.machines;
   prevMachines=JSON.parse(JSON.stringify(machines));
   me=players[socket.id];
+  updateLobby();
 });
 
 socket.on("rolesAssigned",r=>{
@@ -157,9 +130,10 @@ socket.on("rolesAssigned",r=>{
 });
 
 socket.on("gameStart",()=>{
-  readyBtn.style.display="none";
+  lobbyDiv.style.display="none";
+  uiDiv.style.display="block";
   joystick.style.display="block";
-  actionButtons.style.display="block";
+  actionButtons.style.display="flex";
   log("🎮 Oyun başladı");
 });
 
@@ -195,9 +169,7 @@ socket.on("endMeeting",()=>voteMenu.style.display="none");
 
 /* STATUS BAR */
 function updateStatusBar(){
-  timeDisplay.innerText=`⏰ Süre: ${gameTime}`;
-  brokenMachinesDisplay.innerText=`⚠️ Bozulan makineler: ${machines.filter(m=>m.broken).length}`;
-  alivePlayersDisplay.innerText=`👥 Hayatta kalan: ${Object.values(players).filter(p=>p.alive).length}`;
+  aliveCount.innerText=Object.values(players).filter(p=>p.alive).length;
 }
 
 /* DRAW */
@@ -251,13 +223,13 @@ function drawMiniMap(){
 
 /* JOYSTICK */
 let jx=0,jy=0,joy=false,sx=0,sy=0;
-joystick.ontouchstart=e=>{joy=true;sx=e.touches[0].clientX;sy=e.touches[0].clientY};
+joystick.ontouchstart=e=>{joy=true;sx=e.touches[0].clientX;sy=e.touches[0].clientY;};
 joystick.ontouchmove=e=>{
   if(!joy||!me)return;
   jx=e.touches[0].clientX-sx;
   jy=e.touches[0].clientY-sy;
 };
-joystick.ontouchend=()=>{joy=false;jx=jy=0};
+joystick.ontouchend=()=>{joy=false;jx=jy=0;};
 
 setInterval(()=>{
   if(!me||!me.alive)return;
@@ -273,7 +245,6 @@ killBtn.onclick=()=>{
       socket.emit("killPlayer",p.id);
   });
 };
-
 fixBtn.onclick=()=>{
   const m=machines.find(x=>Math.hypot(x.x-me.x,x.y-me.y)<60);
   if(m) socket.emit("action",{type:"fixMachine",machineIndex:machines.indexOf(m)});
