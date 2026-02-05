@@ -129,7 +129,71 @@ socket.on("move", ({dx, dy}) => {
   });
 
 });
+socket.on("kill", targetId => {
+  if(!started || gameOver || meeting) return;
 
+  const killer = players.find(p => p.id === socket.id);
+  const target = players.find(p => p.id === targetId);
+
+  if(!killer || !target) return;
+  if(!killer.alive || !target.alive) return;
+  if(killer.role !== "Hain") return;
+
+  // Mesafe kontrolü
+  const dist = Math.hypot(killer.x - target.x, killer.y - target.y);
+  if(dist < 60){
+    target.alive = false;
+    io.emit("log", `💀 ${target.name} öldürüldü`);
+    
+    // Hain öldürdükten sonra toplantı başlat
+    meeting = true;
+    votes = {};
+    io.emit("meetingStart",
+      players.filter(p=>p.alive).map(p=>({id:p.id,name:p.name}))
+    );
+
+    setTimeout(() => {
+      meeting = false;
+
+      // Oylama sonucu (en çok oy alan elenir)
+      const count = {};
+      Object.values(votes).forEach(v=>{
+        count[v] = (count[v] || 0) + 1;
+      });
+
+      let max = 0, out = null;
+      for(const id in count){
+        if(count[id] > max){ max = count[id]; out = id; }
+      }
+
+      if(out){
+        const p = players.find(x => x.id === out);
+        if(p && p.alive){
+          p.alive = false;
+          io.emit("log", `🗳️ ${p.name} oylama ile elendi`);
+        }
+      }
+
+      io.emit("meetingEnd");
+
+      // Kazananı kontrol et
+      const alive = players.filter(p=>p.alive);
+      const hain = alive.filter(p=>p.role === "Hain");
+      const masum = alive.filter(p=>p.role === "Masum");
+
+      if(hain.length === 0){
+        gameOver = true;
+        started = false;
+        io.emit("gameEnded",{ winner:"Masumlar", reason:"Tüm hainler öldürüldü" });
+      } else if(hain.length >= masum.length){
+        gameOver = true;
+        started = false;
+        io.emit("gameEnded",{ winner:"Hainler", reason:"Hain sayısı masumlara eşit/fazla" });
+      }
+
+    }, 15000);
+  }
+});
 /* ---------- STATE ---------- */
 setInterval(()=>{
   if(!started || gameOver) return;
