@@ -5,18 +5,61 @@
 <title>HAİN</title>
 <style>
 html,body{margin:0;background:#111;color:#fff;overflow:hidden;font-family:sans-serif}
-#ui{position:absolute;top:10px;left:10px;z-index:20}
+#ui{position:absolute;top:10px;left:10px;z-index:30}
 canvas{display:block}
 
 #joystick{position:fixed;left:30px;bottom:30px;width:120px;height:120px;border-radius:50%;background:#3338;display:none}
 #stick{position:absolute;left:35px;top:35px;width:50px;height:50px;border-radius:50%;background:#0f08}
 
-#actionButtons{position:absolute;bottom:30px;right:30px;display:none}
-#miniMap{position:absolute;top:10px;right:10px;width:200px;height:120px;background:#0008;border:1px solid #555}
-#log{position:absolute;right:10px;bottom:10px;width:240px;height:120px;background:#0008;font-size:12px;padding:5px;overflow:auto}
+#actionButtons{
+  position:absolute;
+  bottom:170px;
+  right:20px;
+  display:none;
+  z-index:25
+}
 
-#voteMenu{position:fixed;inset:0;background:#000c;display:none;align-items:center;justify-content:center;flex-direction:column}
-.voteOption{padding:8px 20px;margin:4px;border:1px solid #fff;cursor:pointer}
+#miniMap{
+  position:absolute;
+  top:10px;
+  right:10px;
+  width:200px;
+  height:120px;
+  background:#0008;
+  border:1px solid #555;
+  z-index:20
+}
+
+#log{
+  position:absolute;
+  right:10px;
+  bottom:10px;
+  width:260px;
+  height:140px;
+  background:#000c;
+  font-size:12px;
+  padding:6px;
+  overflow:auto;
+  z-index:20
+}
+
+#voteMenu{
+  position:fixed;
+  inset:0;
+  background:#000c;
+  display:none;
+  align-items:center;
+  justify-content:center;
+  flex-direction:column;
+  z-index:50
+}
+
+.voteOption{
+  padding:8px 20px;
+  margin:4px;
+  border:1px solid #fff;
+  cursor:pointer
+}
 </style>
 </head>
 <body>
@@ -52,7 +95,7 @@ const c=document.getElementById("game"),ctx=c.getContext("2d");
 const map=document.getElementById("miniMap"),mctx=map.getContext("2d");
 const logDiv=document.getElementById("log");
 
-let me=null,players={},machines=[];
+let me=null,players={},machines=[],prevMachines=[];
 const MAP_W=2000,MAP_H=1200;
 
 function resize(){c.width=innerWidth;c.height=innerHeight}
@@ -69,43 +112,56 @@ joinBtn.onclick=()=>socket.emit("joinLobby",{name:nameInput.value},r=>{
 });
 readyBtn.onclick=()=>socket.emit("playerReady");
 
-/* SOCKET */
-socket.on("lobbyUpdate",d=>{
-  players={};
-  d.players.forEach(p=>players[p.id]=p);
-  machines=d.machines;
-  me=players[socket.id];
-});
-socket.on("rolesAssigned",r=>{
-  const m=r.find(x=>x.id===socket.id);
-  role.innerText="ROL: "+m.role;
-  killBtn.style.display=m.role==="Hain"?"inline":"none";
-});
-socket.on("gameStart",()=>{
-  readyBtn.style.display="none";
-  joystick.style.display="block";
-  actionButtons.style.display="block";
-  log("Oyun başladı");
-});
-socket.on("state",d=>{
-  d.players.forEach(p=>players[p.id]=p);
-  me=players[socket.id];
-});
-socket.on("machinesUpdate",m=>{
-  machines=m;
-  log("Makine bozuldu / tamir edildi");
-});
-socket.on("playerKilled",id=>{
-  if(players[id]) log(players[id].name+" öldürüldü");
-});
-socket.on("startMeeting",showVote);
-socket.on("endMeeting",()=>voteMenu.style.display="none");
-
 /* LOG */
 function log(t){
   logDiv.innerHTML+=t+"<br>";
   logDiv.scrollTop=logDiv.scrollHeight;
 }
+
+/* SOCKET */
+socket.on("lobbyUpdate",d=>{
+  players={};
+  d.players.forEach(p=>players[p.id]=p);
+  machines=d.machines;
+  prevMachines=JSON.parse(JSON.stringify(machines));
+  me=players[socket.id];
+});
+
+socket.on("rolesAssigned",r=>{
+  const m=r.find(x=>x.id===socket.id);
+  role.innerText="ROL: "+m.role;
+  killBtn.style.display=m.role==="Hain"?"inline":"none";
+});
+
+socket.on("gameStart",()=>{
+  readyBtn.style.display="none";
+  joystick.style.display="block";
+  actionButtons.style.display="block";
+  log("🎮 Oyun başladı");
+});
+
+socket.on("state",d=>{
+  d.players.forEach(p=>players[p.id]=p);
+  me=players[socket.id];
+});
+
+socket.on("machinesUpdate",m=>{
+  m.forEach((nm,i)=>{
+    const pm=prevMachines[i];
+    if(pm && pm.broken!==nm.broken){
+      log(nm.broken ? `⚠️ ${nm.name} bozuldu` : `✅ ${nm.name} tamir edildi`);
+    }
+  });
+  prevMachines=JSON.parse(JSON.stringify(m));
+  machines=m;
+});
+
+socket.on("playerKilled",id=>{
+  if(players[id]) log(`💀 ${players[id].name} öldürüldü`);
+});
+
+socket.on("startMeeting",showVote);
+socket.on("endMeeting",()=>voteMenu.style.display="none");
 
 /* DRAW */
 function draw(){
@@ -117,9 +173,9 @@ function draw(){
 
   machines.forEach(m=>{
     ctx.fillStyle=m.broken?"red":"lime";
-    ctx.fillRect(m.x-camX-20,m.y-camY-20,40,40);
+    ctx.fillRect(m.x-camX-18,m.y-camY-18,36,36);
     ctx.fillStyle="#fff";
-    ctx.fillText(m.name,m.x-camX-30,m.y-camY-25);
+    ctx.fillText(m.name,m.x-camX-30,m.y-camY-22);
   });
 
   Object.values(players).forEach(p=>{
@@ -139,6 +195,12 @@ draw();
 /* MINIMAP */
 function drawMiniMap(){
   mctx.clearRect(0,0,200,120);
+
+  machines.forEach(m=>{
+    mctx.fillStyle=m.broken?"red":"lime";
+    mctx.fillRect(m.x/MAP_W*200,m.y/MAP_H*120,4,4);
+  });
+
   Object.values(players).forEach(p=>{
     mctx.fillStyle=p.color;
     mctx.fillRect(p.x/MAP_W*200,p.y/MAP_H*120,4,4);
@@ -169,6 +231,7 @@ killBtn.onclick=()=>{
       socket.emit("killPlayer",p.id);
   });
 };
+
 fixBtn.onclick=()=>{
   const m=machines.find(x=>Math.hypot(x.x-me.x,x.y-me.y)<60);
   if(m) socket.emit("action",{type:"fixMachine",machineIndex:machines.indexOf(m)});
