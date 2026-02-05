@@ -195,6 +195,52 @@ setInterval(()=>{
   if(keys.d||keys.ArrowRight) dx=1;
   if(dx||dy) socket.emit("move",{dx,dy});
 },50);
+
+/* MOBILE JOYSTICK */
+const joystick = document.getElementById("joystick");
+const stick = document.getElementById("stick");
+
+let joyActive = false;
+let joyX = 0;
+let joyY = 0;
+let centerX = 45;
+let centerY = 45;
+
+if ("ontouchstart" in window) {
+  joystick.style.display = "block";
+}
+
+joystick.addEventListener("touchstart", e => {
+  joyActive = true;
+});
+
+joystick.addEventListener("touchmove", e => {
+  if (!joyActive) return;
+  const t = e.touches[0];
+  const rect = joystick.getBoundingClientRect();
+  let x = t.clientX - rect.left - centerX;
+  let y = t.clientY - rect.top - centerY;
+
+  const max = 30;
+  const dist = Math.hypot(x, y);
+  if (dist > max) {
+    x = x / dist * max;
+    y = y / dist * max;
+  }
+
+  stick.style.left = centerX + x - 15 + "px";
+  stick.style.top  = centerY + y - 15 + "px";
+
+  joyX = x / max;
+  joyY = y / max;
+});
+
+joystick.addEventListener("touchend", () => {
+  joyActive = false;
+  joyX = joyY = 0;
+  stick.style.left = "30px";
+  stick.style.top  = "30px";
+});
 </script>
 </body>
 </html>
