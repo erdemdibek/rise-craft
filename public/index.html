@@ -6,85 +6,34 @@
 <title>HAİN</title>
 
 <style>
-html,body{
-  margin:0;padding:0;width:100%;height:100%;
-  background:#111;color:#fff;overflow:hidden;
-  font-family:sans-serif
-}
+html,body{margin:0;padding:0;width:100%;height:100%;background:#111;color:#fff;overflow:hidden;font-family:sans-serif}
 canvas{position:absolute;top:0;left:0}
 
 /* LOBBY */
-#lobby{
-  position:fixed;inset:0;
-  background:#000e;
-  display:flex;flex-direction:column;
-  align-items:center;justify-content:center;
-  z-index:100
-}
+#lobby{position:fixed;inset:0;background:#000e;display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:100}
 
 /* UI */
 #status{position:fixed;top:10px;left:10px;background:#000c;padding:6px 10px;border:1px solid #666;z-index:50}
 #roleBox{position:fixed;top:50px;left:10px;background:#000c;padding:6px 10px;border:1px solid #666;display:none;z-index:60}
 
 /* MINI MAP */
-#miniMap{
-  position:fixed;
-  top:10px;right:10px;
-  width:200px;height:120px;
-  background:#0009;
-  border:1px solid #555;
-  z-index:50
-}
+#miniMap{position:fixed;top:10px;right:10px;width:200px;height:120px;background:#0009;border:1px solid #555;z-index:50}
 
 /* LOG */
-#log{
-  position:fixed;
-  bottom:10px;right:10px;
-  width:260px;
-  background:rgba(0,0,0,.45);
-  padding:8px;
-  border-radius:8px;
-  font-size:12px;
-  z-index:60;
-  pointer-events:none
-}
+#log{position:fixed;bottom:10px;right:10px;width:260px;background:rgba(0,0,0,.45);padding:8px;border-radius:8px;font-size:12px;z-index:60;pointer-events:none}
 .logItem{margin-bottom:4px;opacity:1;transition:opacity 1s}
 
 /* KILL */
-#killBtn{
-  position:fixed;
-  bottom:120px;right:20px;
-  width:80px;height:80px;
-  border-radius:50%;
-  background:#a00;color:#fff;
-  border:none;
-  display:none;
-  z-index:80
-}
+#killBtn{position:fixed;bottom:120px;right:20px;width:80px;height:80px;border-radius:50%;background:#a00;color:#fff;border:none;display:none;z-index:80}
 
 /* JOYSTICK */
-#joy{
-  position:fixed;
-  bottom:20px;left:20px;
-  width:120px;height:120px;
-  border-radius:50%;
-  background:rgba(255,255,255,.1);
-  z-index:90;
-  touch-action:none
-}
-#stick{
-  position:absolute;
-  left:40px;top:40px;
-  width:40px;height:40px;
-  border-radius:50%;
-  background:#fff
-}
+#joy{position:fixed;bottom:20px;left:20px;width:120px;height:120px;border-radius:50%;background:rgba(255,255,255,.1);z-index:90;touch-action:none}
+#stick{position:absolute;left:40px;top:40px;width:40px;height:40px;border-radius:50%;background:#fff}
 </style>
 </head>
 
 <body>
 
-<!-- LOBBY -->
 <div id="lobby">
   <input id="name" placeholder="İsmin">
   <button onclick="join()">Katıl</button>
@@ -93,26 +42,27 @@ canvas{position:absolute;top:0;left:0}
   <div id="players"></div>
 </div>
 
-<!-- UI -->
 <div id="status">Canlı: <span id="alive">0</span></div>
 <div id="roleBox">ROL: <span id="roleText"></span></div>
 <button id="killBtn" onclick="kill()">ÖLDÜR</button>
 
-<!-- GAME -->
 <canvas id="game"></canvas>
 <canvas id="miniMap"></canvas>
 
-<!-- JOYSTICK -->
-<div id="joy">
-  <div id="stick"></div>
-</div>
-
-<!-- LOG -->
+<div id="joy"><div id="stick"></div></div>
 <div id="log"></div>
 
 <script src="/socket.io/socket.io.js"></script>
 <script>
 const socket = io();
+
+/* CANVAS */
+const canvas=document.getElementById("game");
+const ctx=canvas.getContext("2d");
+function resize(){canvas.width=innerWidth;canvas.height=innerHeight}
+addEventListener("resize",resize);resize();
+
+let players=[];
 
 /* LOG */
 function log(msg){
@@ -128,36 +78,54 @@ socket.on("log",log);
 
 /* LOBBY */
 function join(){
-  const n=document.getElementById("name").value.trim();
+  const n=name.value.trim();
   if(!n) return;
   socket.emit("join",n);
-  document.getElementById("readyBtn").style.display="inline";
+  readyBtn.style.display="inline";
 }
 function ready(){socket.emit("ready")}
 function start(){socket.emit("start")}
 
 socket.on("lobby",d=>{
-  const div=document.getElementById("players");
-  div.innerHTML="";
+  playersDiv.innerHTML="";
   d.players.forEach(p=>{
-    div.innerHTML+=`${p.name} ${p.ready?"✔️":"❌"} ${p.admin?"(Admin)":""}<br>`;
+    playersDiv.innerHTML+=`${p.name} ${p.ready?"✔️":"❌"} ${p.admin?"(Admin)":""}<br>`;
     if(p.id===socket.id && p.admin)
-      document.getElementById("startBtn").style.display=d.canStart?"inline":"none";
+      startBtn.style.display=d.canStart?"inline":"none";
   });
 });
 
 /* GAME */
-socket.on("gameStarted",()=>{
-  document.getElementById("lobby").style.display="none";
-});
+socket.on("gameStarted",()=>lobby.style.display="none");
 socket.on("role",r=>{
-  document.getElementById("roleBox").style.display="block";
-  document.getElementById("roleText").textContent=r;
-  document.getElementById("killBtn").style.display = r==="Hain"?"block":"none";
+  roleBox.style.display="block";
+  roleText.textContent=r;
+  killBtn.style.display=r==="Hain"?"block":"none";
 });
+
 socket.on("state",s=>{
-  document.getElementById("alive").textContent=s.players.filter(p=>p.alive).length;
+  players=s.players;
+  alive.textContent=players.filter(p=>p.alive).length;
 });
+
+/* DRAW */
+function draw(){
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+
+  players.forEach(p=>{
+    if(!p.alive) return;
+    ctx.fillStyle=p.color;
+    ctx.beginPath();
+    ctx.arc(p.x,p.y,15,0,Math.PI*2);
+    ctx.fill();
+
+    ctx.fillStyle="#fff";
+    ctx.fillText(p.name,p.x-15,p.y-20);
+  });
+
+  requestAnimationFrame(draw);
+}
+draw();
 
 /* JOYSTICK */
 const joy=document.getElementById("joy");
@@ -165,10 +133,7 @@ const stick=document.getElementById("stick");
 let dragging=false;
 
 joy.addEventListener("touchstart",()=>dragging=true);
-joy.addEventListener("touchend",()=>{
-  dragging=false;
-  stick.style.left="40px";stick.style.top="40px";
-});
+joy.addEventListener("touchend",()=>{dragging=false;stick.style.left="40px";stick.style.top="40px"});
 joy.addEventListener("touchmove",e=>{
   if(!dragging) return;
   const r=60;
@@ -185,7 +150,8 @@ joy.addEventListener("touchmove",e=>{
 
 /* KILL */
 function kill(){
-  socket.emit("kill",null);
+  // en yakın oyuncu serverda seçilecek
+  socket.emit("kill", true);
 }
 </script>
 </body>
