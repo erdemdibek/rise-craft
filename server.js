@@ -67,14 +67,46 @@ io.on("connection", socket => {
   });
 
   // --- Kill ---
-  socket.on("killPlayer", ({ lobbyId, targetId }) => {
-    const lobby = lobbies[lobbyId];
-    if(!lobby || lobby.roles[socket.id]!=="hain") return;
-    if(!lobby.players[targetId] || !lobby.players[targetId].alive) return;
-    lobby.players[targetId].alive = false;
-    io.to(lobbyId).emit("playerKilled",{ targetId });
-    checkGameEnd(lobbyId);
-  });
+socket.on("killPlayer", ({ lobbyId, targetId }) => {
+  const lobby = lobbies[lobbyId];
+  if(!lobby) return;
+
+  // Rol kontrolü
+  if(lobby.roles[socket.id] !== "hain"){
+    socket.emit("killFailed",{ reason:"Hain değilsin" });
+    return;
+  }
+
+  const killer = lobby.players[socket.id];
+  const target = lobby.players[targetId];
+
+  if(!killer || !target){
+    socket.emit("killFailed",{ reason:"Oyuncu bulunamadı" });
+    return;
+  }
+
+  if(!target.alive){
+    socket.emit("killFailed",{ reason:"Oyuncu zaten ölü" });
+    return;
+  }
+
+  // 🔥 MESAFE KONTROLÜ (KRİTİK)
+  const dx = killer.x - target.x;
+  const dy = killer.y - target.y;
+  const dist = Math.sqrt(dx*dx + dy*dy);
+
+  if(dist > 80){
+    socket.emit("killFailed",{ reason:"Çok uzaktasın" });
+    return;
+  }
+
+  // KILL
+  target.alive = false;
+  io.to(lobbyId).emit("playerKilled",{ targetId });
+  io.to(lobbyId).emit("log",{ text: `${target.name} öldürüldü!` });
+
+  checkGameEnd(lobbyId);
+});
 
   // --- Repair ---
   socket.on("repairMachine", ({ lobbyId, machineName }) => {
