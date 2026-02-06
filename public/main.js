@@ -144,12 +144,17 @@ function create(){
   this.meetingBtn=this.add.text(250,window.innerHeight-200,"Toplantı",{backgroundColor:"#0ff",padding:10})
     .setScrollFactor(0).setInteractive().setVisible(false);
 
+  // --- KILL BUTTON ---
   this.killBtn.on("pointerdown",()=>{
     for(const id in playerSprites){
-      if(!players[id].alive) continue;
-      if(players[id].role!=="operatör") continue;
+      if(id===selfId) continue;
+      if(!players[id]?.alive) continue;
+      if(players[id]?.role!=="operatör") continue;
       const d=Phaser.Math.Distance.Between(playerCircle.x,playerCircle.y,playerSprites[id].x,playerSprites[id].y);
-      if(d<60) socket.emit("killPlayer",{lobbyId,targetId:id});
+      if(d<60){
+        socket.emit("killPlayer",{lobbyId,targetId:id});
+        break; // sadece birini öldür
+      }
     }
   });
 
@@ -207,8 +212,9 @@ function update(){
   // HAIN
   if(playerRole==="hain"){
     for(const id in playerSprites){
-      if(!players[id].alive) continue;
-      if(players[id].role!=="operatör") continue;
+      if(id===selfId) continue;
+      if(!players[id]?.alive) continue;
+      if(players[id]?.role!=="operatör") continue;
       const d=Phaser.Math.Distance.Between(playerCircle.x,playerCircle.y,playerSprites[id].x,playerSprites[id].y);
       if(d<60){ canKill=true; break; }
     }
