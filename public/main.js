@@ -4,7 +4,6 @@ let deadBodies=[], phaserScene, playerCircle;
 let playerSprites={}, machineSprites={}, nameTexts={}, corpseSprites={};
 let joystick={dirX:0, dirY:0};
 let machineNames=[];
-const playerSpeed = 150;
 
 /* ---------------- LOBBY ---------------- */
 document.getElementById("joinBtn").onclick = () => {
@@ -42,9 +41,8 @@ socket.on("gameStart", ({ roles, machines:gm, players:pl })=>{
 /* ---------------- EVENTS ---------------- */
 socket.on("playerKilled", ({ targetId })=>{
   deadBodies.push(targetId);
-  addLog(`${players[targetId].name} öldürüldü!`);
-
   const p=players[targetId];
+
   if(phaserScene){
     corpseSprites[targetId]=phaserScene.add
       .text(p.x,p.y,"☠️",{fontSize:"32px"})
@@ -62,7 +60,6 @@ socket.on("machineRepaired",({machineName})=>{
 });
 
 socket.on("voteStart",({players})=>showVoteUI(players));
-socket.on("gameOver",({winner})=>addLog(`Oyun bitti! Kazanan: ${winner}`));
 
 socket.on("updatePlayerPosition",({id,x,y})=>{
   if(id===selfId){
@@ -74,22 +71,19 @@ socket.on("updatePlayerPosition",({id,x,y})=>{
   }
 });
 
-/* ---------------- LOG ---------------- */
-function addLog(t){
-  const e=document.createElement("div");
-  e.innerText=t;
-  document.getElementById("log").appendChild(e);
-  setTimeout(()=>e.remove(),8000);
-}
-
 /* ---------------- PHASER ---------------- */
 function startPhaserGame(){
   machineNames=Object.keys(machines);
+
   new Phaser.Game({
-    type:Phaser.AUTO,
-    width:window.innerWidth,
-    height:window.innerHeight,
-    scene:{ preload, create, update }
+    type: Phaser.AUTO,
+    width: window.innerWidth,
+    height: window.innerHeight,
+    physics: {
+      default: "arcade",
+      arcade: { debug: false }
+    },
+    scene: { preload, create, update }
   });
 }
 
@@ -108,7 +102,7 @@ function create(){
   this.cameras.main.startFollow(playerCircle);
   this.cameras.main.setBounds(0,0,1200,1000);
 
-  this.selfNameText=this.add.text(400,470,playerName).setOrigin(0.5);
+  this.selfNameText=this.add.text(400,470,playerName,{color:"#fff"}).setOrigin(0.5);
 
   this.infoText=this.add.text(
     window.innerWidth-10,10,"",
@@ -119,7 +113,7 @@ function create(){
     if(id!==selfId){
       const p=players[id];
       playerSprites[id]=this.add.circle(p.x,p.y,20,0x00ff00);
-      nameTexts[id]=this.add.text(p.x,p.y-30,p.name).setOrigin(0.5);
+      nameTexts[id]=this.add.text(p.x,p.y-30,p.name,{color:"#fff"}).setOrigin(0.5);
     }
   }
 
@@ -127,9 +121,8 @@ function create(){
     const name=machineNames[i];
     const col=machines[name]==="ok"?0x00ff00:0xff0000;
     const m=this.add.rectangle(pos.x,pos.y,40,40,col);
-    m.name=name;
     machineSprites[name]=m;
-    m.nameText=this.add.text(pos.x,pos.y-30,name).setOrigin(0.5);
+    m.nameText=this.add.text(pos.x,pos.y-30,name,{color:"#fff"}).setOrigin(0.5);
   });
 
   this.killBtn=this.add.text(50,window.innerHeight-200,"Öldür",{backgroundColor:"#f00",padding:10})
@@ -148,7 +141,8 @@ function create(){
         playerCircle.x,playerCircle.y,
         playerSprites[id].x,playerSprites[id].y
       );
-      if(d<50) socket.emit("killPlayer",{lobbyId,targetId:id});
+      if(d<50 && players[id].role==="operatör")
+        socket.emit("killPlayer",{lobbyId,targetId:id});
     }
   });
 
@@ -179,9 +173,14 @@ function update(){
   if(playerRole==="hain"){
     for(const id in playerSprites){
       if(!players[id].alive) continue;
+      if(players[id].role!=="operatör") continue;
+
       if(Phaser.Math.Distance.Between(
         playerCircle.x,playerCircle.y,
-        playerSprites[id].x,playerSprites[id].y)<50) canKill=true;
+        playerSprites[id].x,playerSprites[id].y)<60) {
+        canKill=true;
+        break;
+      }
     }
   }
 
@@ -189,12 +188,15 @@ function update(){
     for(const n in machineSprites){
       const m=machineSprites[n];
       if(Phaser.Math.Distance.Between(
-        playerCircle.x,playerCircle.y,m.x,m.y)<50 && machines[n]==="bozuk") canRepair=true;
+        playerCircle.x,playerCircle.y,m.x,m.y)<50 && machines[n]==="bozuk")
+        canRepair=true;
     }
+
     for(const id of deadBodies){
       const c=corpseSprites[id];
       if(c && Phaser.Math.Distance.Between(
-        playerCircle.x,playerCircle.y,c.x,c.y)<50) canMeet=true;
+        playerCircle.x,playerCircle.y,c.x,c.y)<50)
+        canMeet=true;
     }
   }
 
