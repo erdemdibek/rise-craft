@@ -9,6 +9,9 @@ let playerSprites={}, corpseSprites={}, nameTexts={};
 let joystick={dirX:0,dirY:0};
 let deadBodies=[];
 
+let repairButton=null;
+let killButton=null;
+
 /* ---------------- LOBBY ---------------- */
 joinBtn.onclick=()=>{
   playerName=nameInput.value||"Player";
@@ -93,13 +96,13 @@ socket.on("updatePlayerPosition",({id,x,y})=>{
 
 socket.on("machineBroken",({name})=>{
   machines[name].state="bozuk";
-  machines[name].sprite.setFillStyle(0xff0000);
+  if(machines[name].sprite) machines[name].sprite.setFillStyle(0xff0000);
   addLog(name+" bozuldu");
 });
 
 socket.on("machineRepaired",({name})=>{
   machines[name].state="ok";
-  machines[name].sprite.setFillStyle(0x00ff00);
+  if(machines[name].sprite) machines[name].sprite.setFillStyle(0x00ff00);
   addLog(name+" tamir edildi");
 });
 
@@ -146,7 +149,7 @@ function create(){
     }
   }
 
-  // MACHINES (sabit konum)
+  // MACHINES
   const positions=[
     {x:200,y:200},{x:400,y:200},{x:600,y:200},{x:800,y:200},{x:1000,y:200},
     {x:200,y:800},{x:400,y:800},{x:600,y:800},{x:800,y:800},{x:1000,y:800}
@@ -154,13 +157,49 @@ function create(){
 
   let i=0;
   for(const n in machines){
-    machines[n]={name:n,state:machines[n],x:positions[i].x,y:positions[i].y};
+    const state = machines[n].state || "ok";
+    machines[n]={name:n,state:state,x:positions[i].x,y:positions[i].y};
     machines[n].sprite=this.add.rectangle(
       machines[n].x,machines[n].y,40,40,
-      machines[n].state==="ok"?0x00ff00:0xff0000
+      state==="ok"?0x00ff00:0xff0000
     );
+    machines[n].text=this.add.text(machines[n].x,machines[n].y-30,n,{color:"#fff"}).setOrigin(0.5);
     i++;
   }
+
+  // REPAIR BUTTON
+  repairButton=document.createElement("button");
+  repairButton.innerText="TAMİR ET";
+  repairButton.style.position="absolute";
+  repairButton.style.display="none";
+  repairButton.onclick=()=>{
+    for(const n in machines){
+      if(machines[n].state==="bozuk"){
+        socket.emit("repairMachine",{lobbyId,name:n});
+        repairButton.style.display="none";
+      }
+    }
+  };
+  document.body.appendChild(repairButton);
+
+  // KILL BUTTON
+  killButton=document.createElement("button");
+  killButton.innerText="ÖLDÜR";
+  killButton.style.position="absolute";
+  killButton.style.display="none";
+  killButton.onclick=()=>{
+    for(const id in players){
+      if(players[id].alive && roles[id]==="operatör"){
+        const p=players[id];
+        const dist=Math.hypot(playerCircle.x-p.x,playerCircle.y-p.y);
+        if(dist<80){
+          socket.emit("killPlayer",{lobbyId,targetId:id});
+          killButton.style.display="none";
+        }
+      }
+    }
+  };
+  document.body.appendChild(killButton);
 
   /* -------- JOYSTICK -------- */
   const h=this.scale.height;
@@ -198,29 +237,32 @@ function update(){
     `Rol: ${playerRole}${isGhost?" 👻":""}\n`+
     `Kalan: ${Object.values(players).filter(p=>p.alive).length}`
   );
-}
 
-/* ---------------- UI ---------------- */
-function showVote(list){
-  if(isGhost)return;
-  const d=document.createElement("div");
-  d.className="vote";
-  list.forEach(p=>{
-    const b=document.createElement("button");
-    b.innerText=p.name;
-    b.onclick=()=>{
-      socket.emit("castVote",{lobbyId,targetId:p.id});
-      d.remove();
-    };
-    d.appendChild(b);
-  });
-  document.body.appendChild(d);
-}
+  // BUTTON PROXIMITY CHECK
+  repairButton.style.display="none";
+  killButton.style.display="none";
 
-function addLog(t){
-  const l=document.getElementById("log");
-  const e=document.createElement("div");
-  e.innerText=t;
-  l.appendChild(e);
-  setTimeout(()=>e.remove(),10000);
-}
+  const px=playerCircle.x;
+  const py=playerCircle.y;
+
+  // REPAIR BUTTON
+  if(playerRole==="operatör"){
+    for(const n in machines){
+      const m=machines[n];
+      const d=Math.hypot(px-m.x,py-m.y);
+      if(m.state==="bozuk" && d<80){
+        repairButton.style.left=(m.x-30)+"px";
+        repairButton.style.top=(m.y-70)+"px";
+        repairButton.style.display="block";
+      }
+    }
+  }
+
+  // KILL BUTTON
+  if(playerRole==="hain"){
+    for(const id in players){
+      const p=players[id];
+      if(p.alive && roles[id]==="operatör"){
+        const d=Math.hypot(px-p.x,py-p.y);
+        if(d<80){
+          killButton.style.left=(p.x-30)+"px";
