@@ -9,8 +9,9 @@ let playerSprites={}, corpseSprites={}, nameTexts={};
 let joystick={dirX:0,dirY:0};
 let deadBodies=[];
 
-let repairButton=null;
-let killButton=null;
+// Phaser UI Buttons
+let repairBtnBg, repairBtnText;
+let killBtnBg, killBtnText;
 
 /* ---------------- LOBBY ---------------- */
 joinBtn.onclick=()=>{
@@ -44,7 +45,6 @@ socket.on("gameStart",d=>{
 /* ---------------- EVENTS ---------------- */
 socket.on("playerKilled",({targetId,x,y})=>{
   players[targetId].alive=false;
-  deadBodies.push(targetId);
 
   if(playerSprites[targetId]){
     playerSprites[targetId].destroy();
@@ -96,13 +96,13 @@ socket.on("updatePlayerPosition",({id,x,y})=>{
 
 socket.on("machineBroken",({name})=>{
   machines[name].state="bozuk";
-  if(machines[name].sprite) machines[name].sprite.setFillStyle(0xff0000);
+  machines[name].sprite.setFillStyle(0xff0000);
   addLog(name+" bozuldu");
 });
 
 socket.on("machineRepaired",({name})=>{
   machines[name].state="ok";
-  if(machines[name].sprite) machines[name].sprite.setFillStyle(0x00ff00);
+  machines[name].sprite.setFillStyle(0x00ff00);
   addLog(name+" tamir edildi");
 });
 
@@ -127,7 +127,7 @@ function create(){
   phaserScene=this;
   this.cameras.main.setBackgroundColor("#2b2b2b");
 
-  // INFO TEXT
+  // INFO
   this.infoText=this.add.text(10,10,"",{
     fontSize:"16px",
     color:"#fff",
@@ -157,51 +157,75 @@ function create(){
 
   let i=0;
   for(const n in machines){
-    const state = machines[n].state || "ok";
-    machines[n]={name:n,state:state,x:positions[i].x,y:positions[i].y};
+    machines[n]={
+      name:n,
+      state:machines[n].state,
+      x:positions[i].x,
+      y:positions[i].y
+    };
     machines[n].sprite=this.add.rectangle(
       machines[n].x,machines[n].y,40,40,
-      state==="ok"?0x00ff00:0xff0000
+      machines[n].state==="ok"?0x00ff00:0xff0000
     );
-    machines[n].text=this.add.text(machines[n].x,machines[n].y-30,n,{color:"#fff"}).setOrigin(0.5);
+    machines[n].text=this.add.text(
+      machines[n].x,machines[n].y-30,n,{color:"#fff"}
+    ).setOrigin(0.5);
     i++;
   }
 
-  // REPAIR BUTTON
-  repairButton=document.createElement("button");
-  repairButton.innerText="TAMİR ET";
-  repairButton.style.position="absolute";
-  repairButton.style.display="none";
-  repairButton.onclick=()=>{
+  /* ---------- PHASER UI BUTTONS ---------- */
+
+  // REPAIR
+  repairBtnBg=this.add.rectangle(
+    this.scale.width-120,
+    this.scale.height-180,
+    160,50,0x00aa00
+  ).setScrollFactor(0).setVisible(false).setDepth(100);
+
+  repairBtnText=this.add.text(
+    this.scale.width-120,
+    this.scale.height-180,
+    "TAMİR ET",
+    {fontSize:"18px",color:"#fff"}
+  ).setOrigin(0.5).setScrollFactor(0).setVisible(false).setDepth(101);
+
+  repairBtnBg.setInteractive().on("pointerdown",()=>{
     for(const n in machines){
       if(machines[n].state==="bozuk"){
         socket.emit("repairMachine",{lobbyId,name:n});
-        repairButton.style.display="none";
+        break;
       }
     }
-  };
-  document.body.appendChild(repairButton);
+  });
 
-  // KILL BUTTON
-  killButton=document.createElement("button");
-  killButton.innerText="ÖLDÜR";
-  killButton.style.position="absolute";
-  killButton.style.display="none";
-  killButton.onclick=()=>{
+  // KILL
+  killBtnBg=this.add.rectangle(
+    this.scale.width-120,
+    this.scale.height-120,
+    160,50,0xaa0000
+  ).setScrollFactor(0).setVisible(false).setDepth(100);
+
+  killBtnText=this.add.text(
+    this.scale.width-120,
+    this.scale.height-120,
+    "ÖLDÜR",
+    {fontSize:"18px",color:"#fff"}
+  ).setOrigin(0.5).setScrollFactor(0).setVisible(false).setDepth(101);
+
+  killBtnBg.setInteractive().on("pointerdown",()=>{
     for(const id in players){
-      if(players[id].alive && roles[id]==="operatör"){
-        const p=players[id];
-        const dist=Math.hypot(playerCircle.x-p.x,playerCircle.y-p.y);
-        if(dist<80){
-          socket.emit("killPlayer",{lobbyId,targetId:id});
-          killButton.style.display="none";
-        }
+      if(!players[id].alive) continue;
+      if(roles[id]!=="operatör") continue;
+
+      const p=players[id];
+      if(Math.hypot(playerCircle.x-p.x,playerCircle.y-p.y)<80){
+        socket.emit("killPlayer",{lobbyId,targetId:id});
+        break;
       }
     }
-  };
-  document.body.appendChild(killButton);
+  });
 
-  /* -------- JOYSTICK -------- */
+  /* ---------- JOYSTICK ---------- */
   const h=this.scale.height;
   this.joyBase=this.add.circle(90,h-90,55,0x000000,0.4).setScrollFactor(0);
   this.joyThumb=this.add.circle(90,h-90,25,0xffffff,0.8).setScrollFactor(0);
@@ -215,18 +239,19 @@ function create(){
     if(!this.joyActive)return;
     const dx=p.x-this.joyBase.x;
     const dy=p.y-this.joyBase.y;
-    const dist=Math.min(40,Math.hypot(dx,dy));
     const a=Math.atan2(dy,dx);
-    this.joyThumb.x=this.joyBase.x+Math.cos(a)*dist;
-    this.joyThumb.y=this.joyBase.y+Math.sin(a)*dist;
     joystick.dirX=Math.cos(a);
     joystick.dirY=Math.sin(a);
+    this.joyThumb.setPosition(
+      this.joyBase.x+joystick.dirX*40,
+      this.joyBase.y+joystick.dirY*40
+    );
   });
 
   this.input.on("pointerup",()=>{
     this.joyActive=false;
-    this.joyThumb.setPosition(this.joyBase.x,this.joyBase.y);
     joystick.dirX=0; joystick.dirY=0;
+    this.joyThumb.setPosition(this.joyBase.x,this.joyBase.y);
   });
 }
 
@@ -238,37 +263,29 @@ function update(){
     `Kalan: ${Object.values(players).filter(p=>p.alive).length}`
   );
 
-  // BUTTON PROXIMITY CHECK
-  repairButton.style.display="none";
-  killButton.style.display="none";
+  repairBtnBg.setVisible(false);
+  repairBtnText.setVisible(false);
+  killBtnBg.setVisible(false);
+  killBtnText.setVisible(false);
 
-  const px=playerCircle.x;
-  const py=playerCircle.y;
-
-  // REPAIR BUTTON
-  if(playerRole==="operatör"){
+  if(!isGhost && playerRole==="operatör"){
     for(const n in machines){
-      const m=machines[n];
-      const d=Math.hypot(px-m.x,py-m.y);
-      if(m.state==="bozuk" && d<80){
-        repairButton.style.left=(m.x-30)+"px";
-        repairButton.style.top=(m.y-70)+"px";
-        repairButton.style.display="block";
+      if(machines[n].state==="bozuk" &&
+        Math.hypot(playerCircle.x-machines[n].x,playerCircle.y-machines[n].y)<80){
+        repairBtnBg.setVisible(true);
+        repairBtnText.setVisible(true);
+        break;
       }
     }
   }
 
-  // KILL BUTTON
-  if(playerRole==="hain"){
+  if(!isGhost && playerRole==="hain"){
     for(const id in players){
-      const p=players[id];
-      if(p.alive && roles[id]==="operatör"){
-        const d=Math.hypot(px-p.x,py-p.y);
-        if(d<80){
-          killButton.style.left=(p.x-30)+"px";
-          killButton.style.top=(p.y-70)+"px";
-          killButton.style.display="block";
-        }
+      if(players[id].alive && roles[id]==="operatör" &&
+        Math.hypot(playerCircle.x-players[id].x,playerCircle.y-players[id].y)<80){
+        killBtnBg.setVisible(true);
+        killBtnText.setVisible(true);
+        break;
       }
     }
   }
