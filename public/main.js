@@ -1,11 +1,10 @@
 const socket = io();
 let lobbyId="default", playerName="", playerRole="", machines={}, players={}, selfId=null;
-let deadBodies=[], phaserScene, playerCircle, playerSprites={}, machineSprites={}, nameTexts={};
+let deadBodies=[], phaserScene, playerCircle, playerSprites={}, machineSprites={}, nameTexts={}, corpseSprites={};
 let joystick={dirX:0, dirY:0};
 let machineNames=[];
 const playerSpeed = 150;
 
-// Lobby
 document.getElementById("joinBtn").onclick = () => {
   playerName = document.getElementById("nameInput").value || "Player";
   socket.emit("joinLobby",{ lobbyId, name: playerName });
@@ -33,7 +32,17 @@ socket.on("gameStart", ({ roles, machines:gameMachines, players:allPlayers })=>{
 });
 
 // Events
-socket.on("playerKilled", ({ targetId })=>{ deadBodies.push(targetId); addLog(`${players[targetId].name} öldürüldü!`); });
+socket.on("playerKilled", ({ targetId })=>{
+  deadBodies.push(targetId);
+  addLog(`${players[targetId].name} öldürüldü!`);
+  // Create corpse sprite
+  const p = players[targetId];
+  if(phaserScene){
+    const corpse = phaserScene.add.text(p.x,p.y,"☠️",{fontSize:'32px',color:'#ff0000'}).setOrigin(0.5);
+    corpseSprites[targetId]=corpse;
+  }
+});
+
 socket.on("machineRepaired", ({ machineName })=>{ machines[machineName]="ok"; updateMachineSprite(machineName); addLog(`${machineName} tamir edildi!`); });
 socket.on("machineBroken", ({ machineName })=>{ machines[machineName]="bozuk"; updateMachineSprite(machineName); addLog(`${machineName} bozuldu!`); });
 socket.on("voteStart", ({ players:alivePlayers })=>showVoteUI(alivePlayers));
@@ -51,7 +60,6 @@ socket.on("updatePlayerPosition", ({ id, x, y })=>{
   }
 });
 
-// Log
 function addLog(text){
   const log = document.getElementById("log");
   const entry = document.createElement("div"); entry.innerText=text;
@@ -82,6 +90,9 @@ function create(){
   this.cameras.main.setBounds(0,0,1200,1000);
   this.selfNameText=this.add.text(playerCircle.x,playerCircle.y-30,playerName,{fontSize:'16px',color:'#fff'}).setOrigin(0.5);
 
+  // Role & remaining
+  this.infoText=this.add.text(window.innerWidth-10,10,`Rol: ${playerRole}\nKalan: ${Object.keys(players).length}`,{fontSize:'16px',color:'#fff'}).setOrigin(1,0).setScrollFactor(0);
+
   // Other players
   for(const id in players){
     if(id!==selfId){
@@ -108,7 +119,7 @@ function create(){
   const thumb=this.add.circle(100,window.innerHeight-100,25,0xcccccc,0.8).setScrollFactor(0);
   joystick.base=base; joystick.thumb=thumb;
   this.input.on('pointerdown', p=>{ if(Phaser.Math.Distance.Between(p.x,p.y,base.x,base.y)<60) joystick.active=true; });
-  this.input.on('pointerup', p=>{ joystick.active=false; thumb.setPosition(base.x,base.y); joystick.dirX=0; joystick.dirY=0; });
+  this.input.on('pointerup', p=>{ joystick.active=false; thumb.setPosition(base.x,base.y); joystick.dirX=0; joystick.dirY=0; socket.emit("playerInput",{ lobbyId, dirX:0, dirY:0 }); });
   this.input.on('pointermove', p=>{
     if(joystick.active){
       const dx=p.x-base.x, dy=p.y-base.y;
@@ -116,20 +127,20 @@ function create(){
       const angle=Math.atan2(dy,dx);
       thumb.setPosition(base.x+dist*Math.cos(angle),base.y+dist*Math.sin(angle));
       joystick.dirX=Math.cos(angle)*(dist/50); joystick.dirY=Math.sin(angle)*(dist/50);
-      // Emit input to server
       socket.emit("playerInput",{ lobbyId, dirX:joystick.dirX, dirY:joystick.dirY });
     }
   });
 
   // Kill / Repair buttons
-  this.killBtn=this.add.text(50,window.innerHeight-200,"Öldür",{backgroundColor:"#ff0000",padding:{x:10,y:5}}).setInteractive().setScrollFactor(0).setVisible(playerRole==="hain");
-  this.repairBtn=this.add.text(150,window.innerHeight-200,"Tamir Et",{backgroundColor:"#0000ff",padding:{x:10,y:5}}).setInteractive().setScrollFactor(0).setVisible(playerRole==="operatör");
+  this.killBtn=this.add.text(50,window.innerHeight-200,"Öldür",{backgroundColor:"#ff0000",padding:{x:10,y:5}}).setInteractive().setScrollFactor(0).setVisible(false);
+  this.repairBtn=this.add.text(150,window.innerHeight-200,"Tamir Et",{backgroundColor:"#0000ff",padding:{x:10,y:5}}).setInteractive().setScrollFactor(0).setVisible(false);
+  this.meetingBtn=this.add.text(250,window.innerHeight-200,"Toplantı",{backgroundColor:"#00ffff",padding:{x:10,y:5}}).setInteractive().setScrollFactor(0).setVisible(false);
 
   this.killBtn.on("pointerdown", ()=>{
     for(const id in playerSprites){
       const p=playerSprites[id];
       const dist=Phaser.Math.Distance.Between(playerCircle.x,playerCircle.y,p.x,p.y);
-      if(dist<50 && !deadBodies.includes(id)) socket.emit("killPlayer",{ lobbyId,targetId:id });
+      if(dist<50 && !deadBodies.includes(id) && players[id].alive && players[id].role==="operatör") socket.emit("killPlayer",{ lobbyId,targetId:id });
     }
   });
   this.repairBtn.on("pointerdown", ()=>{
@@ -138,6 +149,10 @@ function create(){
       const dist=Phaser.Math.Distance.Between(playerCircle.x,playerCircle.y,m.x,m.y);
       if(dist<50 && machines[name]==="bozuk") socket.emit("repairMachine",{ lobbyId,machineName:name });
     }
+  });
+  this.meetingBtn.on("pointerdown", ()=>{
+    socket.emit("startVote",{ lobbyId });
+    this.meetingBtn.setVisible(false);
   });
 }
 
@@ -162,11 +177,39 @@ function showVoteUI(alivePlayers){
 
 function update(){
   if(!phaserScene) return;
-  // Diğer oyuncular ve makineler zaten server’dan güncelleniyor
+
+  // Server authoritative movement handled by server
+
+  // Update corpse positions (stay at original location)
+  for(const id in corpseSprites){
+    corpseSprites[id].setPosition(corpseSprites[id].x, corpseSprites[id].y);
+  }
+
+  // Kill / Repair / Meeting button visibility
+  let canRepair=false, canKill=false, canMeet=false;
+  for(const name in machineSprites){
+    const m=machineSprites[name];
+    const dist=Phaser.Math.Distance.Between(playerCircle.x,playerCircle.y,m.x,m.y);
+    if(dist<50 && machines[name]==="bozuk") canRepair=true;
+  }
   for(const id in playerSprites){
-    const t=nameTexts[id]; t.setPosition(playerSprites[id].x,playerSprites[id].y-30);
+    const p=playerSprites[id];
+    const dist=Phaser.Math.Distance.Between(playerCircle.x,playerCircle.y,p.x,p.y);
+    if(dist<50 && players[id].alive && playerRole==="hain" && players[id].role==="operatör") canKill=true;
   }
-  for(const name of Object.keys(machineSprites)){
-    const m=machineSprites[name]; m.nameText.setPosition(m.x,m.y-30);
+  for(const id of deadBodies){
+    const corpse=corpseSprites[id];
+    const dist=Phaser.Math.Distance.Between(playerCircle.x,playerCircle.y,corpse.x,corpse.y);
+    if(dist<50 && playerRole==="operatör") canMeet=true;
   }
+  phaserScene.repairBtn.setVisible(canRepair && playerRole==="operatör");
+  phaserScene.killBtn.setVisible(canKill && playerRole==="hain");
+  phaserScene.meetingBtn.setVisible(canMeet);
+
+  // Update info text
+  phaserScene.infoText.setText(`Rol: ${playerRole}\nKalan: ${Object.values(players).filter(p=>p.alive).length}`);
+
+  // Update names
+  for(const id in playerSprites){ nameTexts[id].setPosition(playerSprites[id].x,playerSprites[id].y-30); }
+  for(const name of Object.keys(machineSprites)){ machineSprites[name].nameText.setPosition(machineSprites[name].x,machineSprites[name].y-30); }
 }
