@@ -9,13 +9,17 @@ const server = http.createServer(app);
 const io = new Server(server, { cors: { origin: "*" } });
 
 const PORT = 3000;
-
 const PLAYER_SPEED = 150;
 
 const machineNames = [
   "Fette 1200","Fette 2200","Fette 3200","Fette Fe55",
   "Korsch XT600","Korsch XL400","Bosch GKF701",
   "Kilian KTP720","Sejong","Fette 2100"
+];
+
+const machinePositions = [
+  {x:200,y:200},{x:400,y:200},{x:600,y:200},{x:800,y:200},{x:1000,y:200},
+  {x:200,y:800},{x:400,y:800},{x:600,y:800},{x:800,y:800},{x:1000,y:800}
 ];
 
 let lobbies = {};
@@ -34,176 +38,183 @@ io.on("connection", socket => {
         votes: {},
         gameStarted: false
       };
-      machineNames.forEach(m => lobbies[lobbyId].machines[m] = "ok");
+
+      machineNames.forEach((m,i)=>{
+        lobbies[lobbyId].machines[m] = {
+          state:"ok",
+          x: machinePositions[i].x,
+          y: machinePositions[i].y
+        };
+      });
     }
 
     lobbies[lobbyId].players[socket.id] = {
       name,
       alive: true,
-      x: 400,
-      y: 500
+      x: 200 + Math.random()*800,
+      y: 200 + Math.random()*600
     };
 
     lobbies[lobbyId].ready[socket.id] = false;
-    lobbies[lobbyId].inputs[socket.id] = { dirX: 0, dirY: 0 };
+    lobbies[lobbyId].inputs[socket.id] = { dirX:0, dirY:0 };
 
     socket.join(lobbyId);
     io.to(lobbyId).emit("lobbyUpdate", getLobbyInfo(lobbyId));
   });
 
   socket.on("setReady", ({ lobbyId }) => {
-    const lobby = lobbies[lobbyId];
-    if (!lobby) return;
-    lobby.ready[socket.id] = true;
+    const l = lobbies[lobbyId];
+    if(!l) return;
+    l.ready[socket.id]=true;
     io.to(lobbyId).emit("lobbyUpdate", getLobbyInfo(lobbyId));
   });
 
   socket.on("startGame", ({ lobbyId }) => {
-    const lobby = lobbies[lobbyId];
-    if (!lobby || lobby.gameStarted) return;
+    const l = lobbies[lobbyId];
+    if(!l || l.gameStarted) return;
+    if(!Object.values(l.ready).every(r=>r)) return;
 
-    const allReady = Object.values(lobby.ready).every(r => r);
-    if (!allReady) return;
+    const ids = Object.keys(l.players);
+    const hainId = ids[Math.floor(Math.random()*ids.length)];
 
-    const ids = Object.keys(lobby.players);
-    const hainId = ids[Math.floor(Math.random() * ids.length)];
-
-    ids.forEach(id => {
-      lobby.roles[id] = id === hainId ? "hain" : "operatör";
+    ids.forEach(id=>{
+      l.roles[id] = id===hainId ? "hain":"operatör";
     });
 
-    lobby.gameStarted = true;
+    l.gameStarted=true;
 
-    io.to(lobbyId).emit("gameStart", {
-      roles: lobby.roles,
-      machines: lobby.machines,
-      players: lobby.players
+    io.to(lobbyId).emit("gameStart",{
+      roles:l.roles,
+      machines:l.machines,
+      players:l.players
     });
   });
 
-  socket.on("playerInput", ({ lobbyId, dirX, dirY }) => {
-    const lobby = lobbies[lobbyId];
-    if (!lobby || !lobby.players[socket.id]) return;
-    lobby.inputs[socket.id] = { dirX, dirY };
+  socket.on("playerInput",({lobbyId,dirX,dirY})=>{
+    const l=lobbies[lobbyId];
+    if(!l||!l.players[socket.id])return;
+    l.inputs[socket.id]={dirX,dirY};
   });
 
-  socket.on("killPlayer", ({ lobbyId, targetId }) => {
-    const lobby = lobbies[lobbyId];
-    if (!lobby) return;
+  socket.on("killPlayer",({lobbyId,targetId})=>{
+    const l=lobbies[lobbyId];
+    if(!l) return;
+    if(l.roles[socket.id]!=="hain") return;
 
-    if (lobby.roles[socket.id] !== "hain") return;
+    const k=l.players[socket.id];
+    const t=l.players[targetId];
+    if(!k||!t||!t.alive) return;
 
-    const killer = lobby.players[socket.id];
-    const target = lobby.players[targetId];
+    const d=Math.hypot(k.x-t.x,k.y-t.y);
+    if(d>80) return;
 
-    if (!killer || !target || !target.alive) return;
+    t.alive=false;
 
-    const dx = killer.x - target.x;
-    const dy = killer.y - target.y;
-    if (Math.sqrt(dx*dx + dy*dy) > 80) return;
-
-    target.alive = false;
-
-    io.to(lobbyId).emit("playerKilled", {
+    io.to(lobbyId).emit("playerKilled",{
       targetId,
-      x: target.x,
-      y: target.y
+      x:t.x,
+      y:t.y
     });
 
     checkGameEnd(lobbyId);
   });
 
-  socket.on("startVote", ({ lobbyId }) => {
-    const lobby = lobbies[lobbyId];
-    if (!lobby) return;
+  socket.on("repairMachine",({lobbyId,name})=>{
+    const l=lobbies[lobbyId];
+    if(!l||l.roles[socket.id]!=="operatör")return;
+    l.machines[name].state="ok";
+    io.to(lobbyId).emit("machineRepaired",{name});
+  });
 
-    lobby.votes = {};
+  socket.on("startVote",({lobbyId})=>{
+    const l=lobbies[lobbyId];
+    if(!l)return;
 
-    const alive = Object.entries(lobby.players)
-      .filter(([_, p]) => p.alive)
-      .map(([id, p]) => ({ id, name: p.name }));
+    l.votes={};
 
-    io.to(lobbyId).emit("voteStart", { players: alive });
+    const alive=Object.entries(l.players)
+      .filter(([_,p])=>p.alive)
+      .map(([id,p])=>({id,name:p.name}));
 
-    setTimeout(() => {
-      const counts = {};
-      Object.values(lobby.votes).forEach(id => counts[id] = (counts[id] || 0) + 1);
+    io.to(lobbyId).emit("voteStart",{players:alive});
 
-      let max = 0, eliminated = null;
-      Object.entries(counts).forEach(([id, c]) => {
-        if (c > max) { max = c; eliminated = id; }
+    setTimeout(()=>{
+      const counts={};
+      Object.values(l.votes).forEach(id=>{
+        counts[id]=(counts[id]||0)+1;
       });
 
-      if (!eliminated) return;
+      let max=0,elim=null,tie=false;
+      Object.entries(counts).forEach(([id,c])=>{
+        if(c>max){max=c;elim=id;tie=false;}
+        else if(c===max){tie=true;}
+      });
 
-      lobby.players[eliminated].alive = false;
+      if(!elim||tie)return;
 
-      io.to(lobbyId).emit("playerEliminated", {
-        targetId: eliminated,
-        x: lobby.players[eliminated].x,
-        y: lobby.players[eliminated].y
+      l.players[elim].alive=false;
+
+      io.to(lobbyId).emit("playerEliminated",{
+        targetId:elim,
+        x:l.players[elim].x,
+        y:l.players[elim].y
       });
 
       checkGameEnd(lobbyId);
-    }, 15000);
+    },15000);
   });
 
-  socket.on("castVote", ({ lobbyId, targetId }) => {
-    const lobby = lobbies[lobbyId];
-    if (!lobby || !lobby.players[socket.id]?.alive) return;
-    lobby.votes[socket.id] = targetId;
-  });
-
-  socket.on("disconnect", () => {
-    Object.keys(lobbies).forEach(lobbyId => {
-      const lobby = lobbies[lobbyId];
-      delete lobby.players[socket.id];
-      delete lobby.ready[socket.id];
-      delete lobby.roles[socket.id];
-      delete lobby.inputs[socket.id];
-      io.to(lobbyId).emit("lobbyUpdate", getLobbyInfo(lobbyId));
-    });
+  socket.on("castVote",({lobbyId,targetId})=>{
+    const l=lobbies[lobbyId];
+    if(!l||!l.players[socket.id]?.alive)return;
+    l.votes[socket.id]=targetId;
   });
 });
 
-function getLobbyInfo(lobbyId) {
-  const lobby = lobbies[lobbyId];
+function getLobbyInfo(id){
+  const l=lobbies[id];
   return {
-    hostId: lobby.hostId,
-    players: Object.entries(lobby.players).map(([id, p]) => ({
-      id, name: p.name, alive: p.alive
-    })),
-    ready: lobby.ready
+    hostId:l.hostId,
+    players:Object.entries(l.players).map(([id,p])=>({id,name:p.name})),
+    ready:l.ready
   };
 }
 
-function checkGameEnd(lobbyId) {
-  const lobby = lobbies[lobbyId];
-  const alive = Object.entries(lobby.players).filter(([_, p]) => p.alive);
-  const hains = alive.filter(([id]) => lobby.roles[id] === "hain");
-  const ops = alive.filter(([id]) => lobby.roles[id] === "operatör");
+function checkGameEnd(id){
+  const l=lobbies[id];
+  const alive=Object.entries(l.players).filter(([_,p])=>p.alive);
+  const h=alive.filter(([id])=>l.roles[id]==="hain");
+  const o=alive.filter(([id])=>l.roles[id]==="operatör");
 
-  if (hains.length === 0)
-    io.to(lobbyId).emit("gameOver", { winner: "Operatörler" });
-  else if (hains.length >= ops.length)
-    io.to(lobbyId).emit("gameOver", { winner: "Hain" });
+  if(h.length===0)
+    io.to(id).emit("gameOver",{winner:"Kazanan işçi sınıfı!"});
+  else if(h.length>=o.length)
+    io.to(id).emit("gameOver",{winner:"Hain kazandı"});
 }
 
-setInterval(() => {
-  Object.values(lobbies).forEach(lobby => {
-    if (!lobby.gameStarted) return;
+setInterval(()=>{
+  Object.values(lobbies).forEach(l=>{
+    if(!l.gameStarted)return;
 
-    Object.entries(lobby.players).forEach(([id, p]) => {
-      if (!p.alive) return;
-      const i = lobby.inputs[id];
-      if (!i) return;
-
-      p.x += i.dirX * PLAYER_SPEED / 60;
-      p.y += i.dirY * PLAYER_SPEED / 60;
-
-      io.emit("updatePlayerPosition", { id, x: p.x, y: p.y });
+    Object.entries(l.players).forEach(([id,p])=>{
+      if(!p.alive)return;
+      const i=l.inputs[id];
+      p.x+=i.dirX*PLAYER_SPEED/60;
+      p.y+=i.dirY*PLAYER_SPEED/60;
+      io.emit("updatePlayerPosition",{id,x:p.x,y:p.y});
     });
   });
-}, 1000 / 60);
+},1000/60);
 
-server.listen(PORT, () => console.log("Server running", PORT));
+setInterval(()=>{
+  Object.values(lobbies).forEach(l=>{
+    if(!l.gameStarted)return;
+    const ok=Object.keys(l.machines).filter(m=>l.machines[m].state==="ok");
+    if(!ok.length)return;
+    const m=ok[Math.floor(Math.random()*ok.length)];
+    l.machines[m].state="bozuk";
+    io.emit("machineBroken",{name:m});
+  });
+},30000);
+
+server.listen(PORT,()=>console.log("Server running",PORT));
