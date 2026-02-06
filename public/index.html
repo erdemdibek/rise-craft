@@ -8,54 +8,15 @@
 html,body{margin:0;padding:0;width:100%;height:100%;background:#111;color:#fff;overflow:hidden;font-family:sans-serif}
 canvas{position:absolute;top:0;left:0}
 
-<!-- LOBBY -->
-<div id="lobby">
-  <input id="name" placeholder="İsmin">
-  <button id="joinBtn" onclick="join()">Katıl</button>
-  <button id="readyBtn" onclick="ready()" style="display:none">Hazır</button>
-  <button id="startBtn" onclick="start()" style="display:none">Başlat</button>
-  <div id="players"></div>
-</div>
-
-<script>
-const joinBtn = document.getElementById("joinBtn");
-const readyBtn = document.getElementById("readyBtn");
-const startBtn = document.getElementById("startBtn");
-const nameInput = document.getElementById("name");
-const playersDiv = document.getElementById("players");
-
-// Katıl fonksiyonu
-function join(){
-  const n = nameInput.value.trim();
-  if(!n) return;
-  socket.emit("join", n);
-  joinBtn.style.display = "none";   // katıl butonu kaybolsun
-  readyBtn.style.display = "inline"; // hazır butonu görünsün
+/* LOBBY */
+#lobby{
+  position:fixed; inset:0;
+  background:#000e;
+  display:flex; flex-direction:column;
+  align-items:center; justify-content:center;
+  z-index:100
 }
 
-// Ready ve Start
-function ready(){ socket.emit("ready"); }
-function start(){ socket.emit("start"); }
-
-// Lobby güncelleme
-socket.on("lobby", data => {
-  playersDiv.innerHTML = "";
-  let everyoneReady = true;
-
-  data.players.forEach(p => {
-    playersDiv.innerHTML += `${p.name} ${p.ready?"✔️":"❌"} ${p.admin?"(Admin)":""}<br>`;
-    if(!p.ready) everyoneReady = false;
-  });
-
-  // Admin kontrolü: Eğer ben adminim ve herkes hazırsa start butonu görün
-  const me = data.players.find(p => p.id === socket.id);
-  if(me && me.admin && everyoneReady && data.players.length >= 4){
-    startBtn.style.display = "inline";
-  } else {
-    startBtn.style.display = "none";
-  }
-});
-</script>
 /* UI */
 #status{position:fixed;top:10px;left:10px;background:#000c;padding:6px 10px;border:1px solid #666;z-index:50}
 #roleBox{position:fixed;top:50px;left:10px;background:#000c;padding:6px 10px;border:1px solid #666;display:none;z-index:60}
@@ -67,10 +28,8 @@ socket.on("lobby", data => {
 #log{position:fixed;bottom:10px;right:10px;width:260px;background:rgba(0,0,0,.45);padding:8px;border-radius:8px;font-size:12px;z-index:60;pointer-events:none}
 .logItem{margin-bottom:4px;opacity:1;transition:opacity 1s}
 
-/* KILL */
+/* KILL / REPORT / REPAIR */
 #killBtn{position:fixed;bottom:120px;right:20px;width:80px;height:80px;border-radius:50%;background:#a00;color:#fff;border:none;display:none;z-index:80}
-
-/* REPORT / REPAIR */
 #reportBtn{position:fixed;bottom:210px;right:20px;width:80px;height:40px;background:#ff0;color:#000;border:none;display:none;z-index:80}
 #repairBtn{position:fixed;bottom:260px;right:20px;width:80px;height:40px;background:#0f0;color:#000;border:none;display:none;z-index:80}
 
@@ -81,14 +40,16 @@ socket.on("lobby", data => {
 </head>
 <body>
 
+<!-- LOBBY -->
 <div id="lobby">
   <input id="name" placeholder="İsmin">
-  <button onclick="join()">Katıl</button>
+  <button id="joinBtn" onclick="join()">Katıl</button>
   <button id="readyBtn" onclick="ready()" style="display:none">Hazır</button>
   <button id="startBtn" onclick="start()" style="display:none">Başlat</button>
   <div id="players"></div>
 </div>
 
+<!-- OYUN UI -->
 <div id="status">Canlı: <span id="alive">0</span></div>
 <div id="roleBox">ROL: <span id="roleText"></span></div>
 <button id="killBtn" onclick="kill()">ÖLDÜR</button>
@@ -97,7 +58,6 @@ socket.on("lobby", data => {
 
 <canvas id="game"></canvas>
 <canvas id="miniMap"></canvas>
-
 <div id="joy"><div id="stick"></div></div>
 <div id="log"></div>
 
@@ -107,6 +67,7 @@ const socket = io();
 
 /* DOM */
 const nameInput=document.getElementById("name");
+const joinBtn=document.getElementById("joinBtn");
 const readyBtn=document.getElementById("readyBtn");
 const startBtn=document.getElementById("startBtn");
 const playersDiv=document.getElementById("players");
@@ -144,26 +105,37 @@ function log(msg){
 socket.on("log",log);
 
 /* LOBBY */
-function join(){const n=nameInput.value.trim();if(!n)return;socket.emit("join",n);readyBtn.style.display="inline";}
+function join(){
+  const n=nameInput.value.trim();
+  if(!n) return;
+  socket.emit("join",n);
+  joinBtn.style.display="none"; // katıl butonu kaybolsun
+  readyBtn.style.display="inline"; // hazır butonu görünür
+}
 function ready(){socket.emit("ready");}
 function start(){socket.emit("start");}
 
 socket.on("lobby",d=>{
   playersDiv.innerHTML="";
+  let everyoneReady = true;
   d.players.forEach(p=>{
     playersDiv.innerHTML+=`${p.name} ${p.ready?"✔️":"❌"} ${p.admin?"(Admin)":""}<br>`;
-    if(p.id===socket.id && p.admin) startBtn.style.display=d.canStart?"inline":"none";
+    if(!p.ready) everyoneReady=false;
   });
+  const me = d.players.find(p=>p.id===socket.id);
+  if(me && me.admin && everyoneReady && d.players.length >= 4) startBtn.style.display="inline";
+  else startBtn.style.display="none";
 });
 
 /* GAME */
 socket.on("gameStarted",()=>lobby.style.display="none");
-socket.on("role",r=>{role=r;roleBox.style.display="block";roleText.textContent=r;killBtn.style.display=r==="Hain"?"block":"none";});
+socket.on("role",r=>{role=r;roleBox.style.display="block";roleText.textContent=r;killBtn.style.display=r==="Hain"?"inline":"none";});
 socket.on("state",s=>{
-  players=s.players; machines=s.machines;
+  players=s.players;
+  machines=s.machines;
   aliveSpan.textContent=players.filter(p=>p.alive).length;
 
-  // check near machine for repair button
+  // Check near machine for repair button
   nearMachine=null;
   if(role==="Operatör" && players.find(p=>p.id===selfId)){
     const self=players.find(p=>p.id===selfId);
@@ -179,19 +151,15 @@ function draw(){
   ctx.clearRect(0,0,canvas.width,canvas.height);
   players.forEach(p=>{
     if(!p.alive) return;
-    ctx.fillStyle=p.role==="Hain"?"#a00":p.role==="Operatör"?"#0af":"#555";
+    ctx.fillStyle=p.role==="Hain"?"#a00":"#0af";
     ctx.beginPath();
-    ctx.arc(p.x,p.y,15,0,Math.PI*2);
-    ctx.fill();
-    ctx.fillStyle="#fff";
-    ctx.fillText(p.name,p.x-15,p.y-20);
+    ctx.arc(p.x,p.y,15,0,Math.PI*2); ctx.fill();
+    ctx.fillStyle="#fff"; ctx.fillText(p.name,p.x-15,p.y-20);
   });
-
   machines.forEach(m=>{
     ctx.fillStyle=m.broken?"#f00":"#0f0";
     ctx.beginPath();ctx.arc(m.x,m.y,12,0,Math.PI*2);ctx.fill();
   });
-
   requestAnimationFrame(draw);
 }
 draw();
@@ -199,8 +167,8 @@ draw();
 /* MINI MAP */
 function drawMini(){
   mctx.clearRect(0,0,miniMap.width,miniMap.height);
-  if(!players.find(p=>p.id===selfId)) return;
   const self=players.find(p=>p.id===selfId);
+  if(!self) return;
 
   players.forEach(p=>{
     const dx=p.x-self.x,dy=p.y-self.y;
@@ -233,8 +201,7 @@ joy.addEventListener("touchmove",e=>{
   const r=60;
   const t=e.touches[0];
   const rect=joy.getBoundingClientRect();
-  let x=t.clientX-rect.left-r;
-  let y=t.clientY-rect.top-r;
+  let x=t.clientX-rect.left-r, y=t.clientY-rect.top-r;
   const d=Math.hypot(x,y); if(d>r){x*=r/d;y*=r/d;}
   stick.style.left=40+x+"px"; stick.style.top=40+y+"px";
   socket.emit("move",{dx:x/30,dy:y/30});
