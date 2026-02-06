@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="tr">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -7,9 +7,130 @@
   <script src="https://cdn.jsdelivr.net/npm/phaser@3.55.2/dist/phaser.js"></script>
   <script src="/socket.io/socket.io.js"></script>
   <style>
-    body { margin: 0; overflow: hidden; }
-    #log { position: absolute; bottom: 0; right: 0; width: 200px; max-height: 200px; overflow: hidden; background: rgba(0,0,0,0.5); color: white; font-size: 14px; }
-    #lobby { position:absolute; top:0; left:0; background:white; padding:10px; display:flex; flex-direction:column; }
+    /* Genel body ayarları */
+    body {
+      margin: 0;
+      padding: 0;
+      overflow: hidden;
+      font-family: 'Arial', sans-serif;
+      background: linear-gradient(135deg, #0f2027, #203a43, #2c5364);
+      color: #fff;
+    }
+
+    /* Lobby paneli */
+    #lobby {
+      position: absolute;
+      top: 10px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(30,30,30,0.95);
+      color: #fff;
+      padding: 20px;
+      border-radius: 15px;
+      box-shadow: 0 8px 20px rgba(0,0,0,0.6);
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      min-width: 280px;
+      max-width: 95%;
+      z-index: 10;
+      border: 2px solid #00ffe7;
+    }
+
+    /* Giriş kutusu */
+    #lobby input[type="text"] {
+      padding: 12px;
+      font-size: 16px;
+      border-radius: 10px;
+      border: 2px solid #00ffe7;
+      outline: none;
+      width: 100%;
+      box-sizing: border-box;
+      background: rgba(0,0,0,0.3);
+      color: #fff;
+      transition: border 0.3s, background 0.3s;
+    }
+
+    #lobby input[type="text"]:focus {
+      border-color: #ff00ff;
+      background: rgba(0,0,0,0.5);
+    }
+
+    /* Butonlar */
+    #lobby button {
+      padding: 12px;
+      font-size: 16px;
+      border-radius: 12px;
+      border: none;
+      background: linear-gradient(45deg, #ff416c, #ff4b2b);
+      color: white;
+      cursor: pointer;
+      transition: transform 0.2s, box-shadow 0.2s, background 0.4s;
+    }
+
+    #lobby button:hover {
+      transform: scale(1.05);
+      box-shadow: 0 4px 15px rgba(255,75,43,0.6);
+      background: linear-gradient(45deg, #ff4b2b, #ff416c);
+    }
+
+    #lobby button:disabled {
+      background: #555;
+      cursor: not-allowed;
+      box-shadow: none;
+    }
+
+    /* Oyuncu listesi */
+    #playersList {
+      max-height: 180px;
+      overflow-y: auto;
+      border-radius: 10px;
+      padding: 8px;
+      background: rgba(255,255,255,0.1);
+      border: 1px solid #00ffe7;
+      color: #fff;
+      font-size: 14px;
+    }
+
+    /* Log paneli */
+    #log {
+      position: absolute;
+      bottom: 10px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 90%;
+      max-height: 200px;
+      overflow-y: auto;
+      background: rgba(0,0,0,0.7);
+      color: #00ffe7;
+      font-size: 14px;
+      padding: 12px;
+      border-radius: 12px;
+      box-shadow: 0 0 15px rgba(0,255,231,0.7);
+      z-index: 10;
+      border: 1px solid #00ffe7;
+    }
+
+    /* Responsive düzenlemeler */
+    @media (max-width: 480px) {
+      #lobby {
+        padding: 15px;
+      }
+
+      #lobby input[type="text"], #lobby button {
+        font-size: 14px;
+        padding: 10px;
+      }
+
+      #playersList {
+        font-size: 12px;
+      }
+
+      #log {
+        font-size: 12px;
+        padding: 8px;
+      }
+    }
   </style>
 </head>
 <body>
