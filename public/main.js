@@ -19,7 +19,9 @@ socket.on("lobbyUpdate", (lobby) => {
     list.innerHTML += `<div>${p.name} ${ready}</div>`;
     if (!lobby.ready[p.id]) allReady = false;
   });
-  document.getElementById("startBtn").style.display = (allReady && lobby.players[0].id===socket.id) ? "block" : "none";
+  document.getElementById("startBtn").style.display = (allReady && lobby.players[0]?.id === socket.id) ? "block" : "none";
+  // Güncelleme oyuncu verilerini clienta kaydet
+  lobby.players.forEach(p => players[p.id] = p);
 });
 
 // Oyun başlat
@@ -36,20 +38,15 @@ socket.on("machineBroken", ({ machineName }) => { machines[machineName] = "bozuk
 socket.on("voteStart", ({ players: alivePlayers }) => showVoteUI(alivePlayers));
 socket.on("playerEliminated", ({ targetId }) => addLog(`${players[targetId].name} oy ile elendi!`));
 socket.on("gameOver", ({ winner }) => addLog(`Oyun bitti! Kazanan: ${winner}`));
+
 socket.on("updatePlayerPosition", ({ id, x, y }) => {
-  if(!playerSprites[id]) return;
-  playerSprites[id].setPosition(x, y);
-  nameTexts[id].setPosition(x, y-30);
-  if(id===selfId) playerCircle.setPosition(x, y); // kendini de server’dan güncelle
-});
-socket.on("enableMeeting", () => {
-  if(document.getElementById("voteBtn")) return;
-  const btn=document.createElement("button");
-  btn.innerText="Toplantı Başlat"; btn.id="voteBtn";
-  btn.style.position="absolute"; btn.style.bottom="200px"; btn.style.left="50%";
-  btn.style.transform="translateX(-50%)";
-  btn.onclick=()=>{ socket.emit("startVote",{lobbyId}); btn.remove(); };
-  document.body.appendChild(btn);
+  if(!players[id]) players[id] = { x, y };
+  else { players[id].x = x; players[id].y = y; }
+
+  if(id !== selfId && playerSprites[id]){
+    playerSprites[id].setPosition(x, y);
+    nameTexts[id].setPosition(x, y-30);
+  }
 });
 
 // Log
@@ -86,6 +83,7 @@ function preload(){}
 
 function create(){
   phaserScene = this;
+
   this.physics.world.setBounds(0,0,1200,1000);
 
   // Oyuncu
@@ -145,12 +143,15 @@ function create(){
   this.killBtn.on("pointerdown",()=>{
     for(const id in playerSprites){
       const p = playerSprites[id];
-      socket.emit("killPlayer",{lobbyId,targetId:id});
+      const dist = Phaser.Math.Distance.Between(playerCircle.x,playerCircle.y,p.x,p.y);
+      if(dist<50 && !deadBodies.includes(id)) socket.emit("killPlayer",{lobbyId,targetId:id});
     }
   });
   this.repairBtn.on("pointerdown",()=>{
     for(const name in machineSprites){
-      socket.emit("repairMachine",{lobbyId,machineName:name});
+      const m = machineSprites[name];
+      const dist = Phaser.Math.Distance.Between(playerCircle.x,playerCircle.y,m.x,m.y);
+      if(dist<50 && machines[name]==="bozuk") socket.emit("repairMachine",{lobbyId,machineName:name});
     }
   });
 
@@ -170,7 +171,7 @@ function showVoteUI(alivePlayers){
   container.style.padding="20px"; container.id="voteUI";
   alivePlayers.forEach(p=>{
     const btn=document.createElement("button"); btn.innerText=p.name; btn.style.margin="5px";
-    btn.onclick=()=>{ socket.emit("vote",{lobbyId,targetId:p.id}); container.remove(); };
+    btn.onclick=()=>{ socket.emit("vote",{lobbyId,targetId:p.id}); document.body.removeChild(container); };
     container.appendChild(btn);
   });
   document.body.appendChild(container);
@@ -178,33 +179,55 @@ function showVoteUI(alivePlayers){
 }
 
 function update(){
-  if(!phaserScene || deadBodies.includes(selfId)) return;
+  if(!phaserScene) return;
 
-  // input gönder
-  if(joystick.dirX!==0 || joystick.dirY!==0){
+  // --- Server-authoritative hareket ---
+  if(playerRole && joystick.dirX!==0 || joystick.dirY!==0){
     socket.emit("playerInput", { lobbyId, dirX: joystick.dirX, dirY: joystick.dirY });
   }
 
-  // Buton görünürlüğü client sadece render için
+  if(players[selfId]){
+    const p = players[selfId];
+    playerCircle.setPosition(p.x, p.y);
+    phaserScene.selfNameText.setPosition(p.x, p.y-30);
+  }
+
+  for(const id in playerSprites){
+    const pSprite = playerSprites[id];
+    const t = nameTexts[id];
+    const pData = players[id];
+    if(pData){
+      pSprite.setPosition(pData.x, pData.y);
+      t.setPosition(pData.x, pData.y-30);
+    }
+  }
+
+  machineNames.forEach(name=>{
+    const m = machineSprites[name];
+    if(m) m.nameText.setPosition(m.x, m.y-30);
+  });
+
+  // Kill / Repair buton görünürlüğü ve infoText
+  let aliveCount = Object.values(players).filter(p=>p.alive).length;
+  phaserScene.infoText.setText(`Rol: ${playerRole}\nKalan: ${aliveCount}`);
+
   if(playerRole==="hain"){
     let visible=false;
     for(const id in playerSprites){
-      if(!deadBodies.includes(id)){
-        visible=true; break;
-      }
+      const p = playerSprites[id];
+      const dist = Phaser.Math.Distance.Between(playerCircle.x,playerCircle.y,p.x,p.y);
+      if(dist<50 && !deadBodies.includes(id)) visible=true;
     }
     phaserScene.killBtn.setVisible(visible);
   } else if(playerRole==="operatör"){
     let repairVisible=false;
     for(const name in machineSprites){
-      if(machines[name]==="bozuk") repairVisible=true; break;
+      const m = machineSprites[name];
+      const dist = Phaser.Math.Distance.Between(playerCircle.x,playerCircle.y,m.x,m.y);
+      if(dist<50 && machines[name]==="bozuk") repairVisible=true;
     }
     phaserScene.repairBtn.setVisible(repairVisible);
   }
-
-  // infoText
-  const aliveCount=Object.keys(players).length-deadBodies.length;
-  phaserScene.infoText.setText(`Rol: ${playerRole}\nKalan: ${aliveCount}`);
 
   // Mini harita
   const mm=phaserScene.minimap;
@@ -212,9 +235,7 @@ function update(){
   mm.fillStyle(0x000000,0.3); mm.fillRect(window.innerWidth-150,10,140,140);
   mm.fillStyle(0x00ff00,1);
   for(const id in playerSprites){
-    const p = playerSprites[id]; 
-    const color = deadBodies.includes(id) ? 0x888888 : 0x00ff00;
-    mm.fillStyle(color,1); mm.fillRect(window.innerWidth-150+p.x*0.1,10+p.y*0.1,5,5);
+    const p = playerSprites[id]; mm.fillRect(window.innerWidth-150+p.x*0.1,10+p.y*0.1,5,5);
   }
   mm.fillStyle(0xffff00,1); mm.fillRect(window.innerWidth-150+playerCircle.x*0.1,10+playerCircle.y*0.1,5,5);
   machineNames.forEach(name=>{
