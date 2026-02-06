@@ -19,7 +19,6 @@ const PLAYER_SPEED = 150; // px/s
 
 io.on("connection", socket => {
 
-  // --- Lobby join ---
   socket.on("joinLobby", ({ lobbyId, name }) => {
     if(!lobbies[lobbyId]){
       lobbies[lobbyId] = { players: {}, ready: {}, machines: {}, roles: {}, gameStarted: false, inputs: {} };
@@ -35,7 +34,6 @@ io.on("connection", socket => {
     io.to(lobbyId).emit("lobbyUpdate", getLobbyInfo(lobbyId));
   });
 
-  // --- Ready ---
   socket.on("setReady", ({ lobbyId }) => {
     if(lobbies[lobbyId]){
       lobbies[lobbyId].ready[socket.id] = true;
@@ -43,72 +41,71 @@ io.on("connection", socket => {
     }
   });
 
-  // --- Start Game ---
   socket.on("startGame", ({ lobbyId }) => {
     const lobby = lobbies[lobbyId];
     if(!lobby || lobby.gameStarted) return;
 
     const allReady = Object.values(lobby.ready).every(r=>r===true);
-    if(!allReady){ socket.emit("errorMessage",{msg:"Herkes hazır değil!"}); return; }
+    if(!allReady){
+      socket.emit("errorMessage",{msg:"Herkes hazır değil!"});
+      return;
+    }
 
     const playerIds = Object.keys(lobby.players);
     const hainIndex = Math.floor(Math.random()*playerIds.length);
-    playerIds.forEach((id, idx) => { lobby.roles[id] = (idx===hainIndex)?"hain":"operatör"; });
+    playerIds.forEach((id, idx) => {
+      lobby.roles[id] = (idx===hainIndex)?"hain":"operatör";
+    });
 
     lobby.gameStarted = true;
     io.to(lobbyId).emit("gameStart",{ roles:lobby.roles, machines:lobby.machines, players:lobby.players });
   });
 
-  // --- Player Input ---
   socket.on("playerInput", ({ lobbyId, dirX, dirY }) => {
     const lobby = lobbies[lobbyId];
     if(!lobby || !lobby.players[socket.id]) return;
     lobby.inputs[socket.id] = { dirX, dirY };
   });
 
-  // --- Kill ---
-socket.on("killPlayer", ({ lobbyId, targetId }) => {
-  const lobby = lobbies[lobbyId];
-  if(!lobby) return;
+  // --- KILL (DEĞİŞMEDİ, ZATEN DOĞRUYDU) ---
+  socket.on("killPlayer", ({ lobbyId, targetId }) => {
+    const lobby = lobbies[lobbyId];
+    if(!lobby) return;
 
-  // Rol kontrolü
-  if(lobby.roles[socket.id] !== "hain"){
-    socket.emit("killFailed",{ reason:"Hain değilsin" });
-    return;
-  }
+    if(lobby.roles[socket.id] !== "hain"){
+      socket.emit("killFailed",{ reason:"Hain değilsin" });
+      return;
+    }
 
-  const killer = lobby.players[socket.id];
-  const target = lobby.players[targetId];
+    const killer = lobby.players[socket.id];
+    const target = lobby.players[targetId];
 
-  if(!killer || !target){
-    socket.emit("killFailed",{ reason:"Oyuncu bulunamadı" });
-    return;
-  }
+    if(!killer || !target){
+      socket.emit("killFailed",{ reason:"Oyuncu bulunamadı" });
+      return;
+    }
 
-  if(!target.alive){
-    socket.emit("killFailed",{ reason:"Oyuncu zaten ölü" });
-    return;
-  }
+    if(!target.alive){
+      socket.emit("killFailed",{ reason:"Oyuncu zaten ölü" });
+      return;
+    }
 
-  // 🔥 MESAFE KONTROLÜ (KRİTİK)
-  const dx = killer.x - target.x;
-  const dy = killer.y - target.y;
-  const dist = Math.sqrt(dx*dx + dy*dy);
+    const dx = killer.x - target.x;
+    const dy = killer.y - target.y;
+    const dist = Math.sqrt(dx*dx + dy*dy);
 
-  if(dist > 80){
-    socket.emit("killFailed",{ reason:"Çok uzaktasın" });
-    return;
-  }
+    if(dist > 80){
+      socket.emit("killFailed",{ reason:"Çok uzaktasın" });
+      return;
+    }
 
-  // KILL
-  target.alive = false;
-  io.to(lobbyId).emit("playerKilled",{ targetId });
-  io.to(lobbyId).emit("log",{ text: `${target.name} öldürüldü!` });
+    target.alive = false;
+    io.to(lobbyId).emit("playerKilled",{ targetId });
+    io.to(lobbyId).emit("log",{ text: `${target.name} öldürüldü!` });
 
-  checkGameEnd(lobbyId);
-});
+    checkGameEnd(lobbyId);
+  });
 
-  // --- Repair ---
   socket.on("repairMachine", ({ lobbyId, machineName }) => {
     const lobby = lobbies[lobbyId];
     if(!lobby || lobby.roles[socket.id]!=="operatör") return;
@@ -117,11 +114,16 @@ socket.on("killPlayer", ({ lobbyId, targetId }) => {
     io.to(lobbyId).emit("machineRepaired",{ machineName });
   });
 
-  // --- Vote ---
   socket.on("startVote", ({ lobbyId }) => {
-    const lobby = lobbies[lobbyId]; if(!lobby) return;
-    const alivePlayers = Object.entries(lobby.players).filter(([id,p])=>p.alive).map(([id,p])=>({id,name:p.name}));
+    const lobby = lobbies[lobbyId];
+    if(!lobby) return;
+
+    const alivePlayers = Object.entries(lobby.players)
+      .filter(([id,p])=>p.alive)
+      .map(([id,p])=>({id,name:p.name}));
+
     io.to(lobbyId).emit("voteStart",{ players: alivePlayers });
+
     setTimeout(()=>{
       if(alivePlayers.length===0) return;
       const randomIndex = Math.floor(Math.random()*alivePlayers.length);
@@ -132,7 +134,6 @@ socket.on("killPlayer", ({ lobbyId, targetId }) => {
     },20000);
   });
 
-  // --- Disconnect ---
   socket.on("disconnect", ()=>{
     Object.keys(lobbies).forEach(lobbyId=>{
       const lobby = lobbies[lobbyId];
@@ -151,19 +152,29 @@ function getLobbyInfo(lobbyId){
   const lobby = lobbies[lobbyId];
   if(!lobby) return { players: [], ready:{} };
   return {
-    players: Object.entries(lobby.players).map(([id,p])=>({ id, name:p.name, alive:p.alive, x:p.x, y:p.y })),
+    players: Object.entries(lobby.players)
+      .map(([id,p])=>({ id, name:p.name, alive:p.alive, x:p.x, y:p.y })),
     ready: lobby.ready
   };
 }
 
 // --- Game End ---
 function checkGameEnd(lobbyId){
-  const lobby = lobbies[lobbyId]; if(!lobby) return;
+  const lobby = lobbies[lobbyId];
+  if(!lobby) return;
+
   const alivePlayers = Object.entries(lobby.players).filter(([id,p])=>p.alive);
-  const aliveHains = alivePlayers.filter(([id,p])=>lobby.roles[id]==="hain");
-  const aliveOps = alivePlayers.filter(([id,p])=>lobby.roles[id]==="operatör");
-  if(aliveHains.length===0){ io.to(lobbyId).emit("gameOver",{winner:"Operatörler"}); lobby.gameStarted=false; }
-  else if(aliveHains.length>=aliveOps.length){ io.to(lobbyId).emit("gameOver",{winner:"Hain"}); lobby.gameStarted=false; }
+  const aliveHains = alivePlayers.filter(([id])=>lobby.roles[id]==="hain");
+  const aliveOps = alivePlayers.filter(([id])=>lobby.roles[id]==="operatör");
+
+  if(aliveHains.length===0){
+    io.to(lobbyId).emit("gameOver",{winner:"Operatörler"});
+    lobby.gameStarted=false;
+  }
+  else if(aliveHains.length>=aliveOps.length){
+    io.to(lobbyId).emit("gameOver",{winner:"Hain"});
+    lobby.gameStarted=false;
+  }
 }
 
 // --- Random Machine Break ---
@@ -171,31 +182,41 @@ setInterval(()=>{
   Object.keys(lobbies).forEach(lobbyId=>{
     const lobby = lobbies[lobbyId];
     if(!lobby.gameStarted) return;
-    const healthyMachines = Object.keys(lobby.machines).filter(m=>lobby.machines[m]==="ok");
+
+    const healthyMachines = Object.keys(lobby.machines)
+      .filter(m=>lobby.machines[m]==="ok");
+
     if(healthyMachines.length===0) return;
+
     const randomMachine = healthyMachines[Math.floor(Math.random()*healthyMachines.length)];
     lobby.machines[randomMachine]="bozuk";
     io.to(lobbyId).emit("machineBroken",{ machineName: randomMachine });
   });
 },30000);
 
-// --- Player Movement Tick (Server authoritative) ---
+// --- Player Movement Tick (FIXLİ HAL) ---
 setInterval(()=>{
   const delta = 1/60;
+
   Object.entries(lobbies).forEach(([lobbyId, lobby])=>{
     if(!lobby.gameStarted) return;
+
     Object.entries(lobby.players).forEach(([id, player])=>{
       if(!player.alive) return;
+
       const input = lobby.inputs[id] || { dirX:0, dirY:0 };
+
       player.x += input.dirX * PLAYER_SPEED * delta;
       player.y += input.dirY * PLAYER_SPEED * delta;
-// ⬇⬇⬇ KRİTİK: SERVER POZİSYONU GÜNCEL TUT
-lobby.players[id].x = player.x;
-lobby.players[id].y = player.y;
-      // Boundaries
+
+      // ✅ ÖNCE SINIRLA
       player.x = Math.max(20, Math.min(1180, player.x));
       player.y = Math.max(20, Math.min(980, player.y));
-      // Update clients
+
+      // ✅ SONRA SERVER STATE'E YAZ
+      lobby.players[id].x = player.x;
+      lobby.players[id].y = player.y;
+
       io.to(lobbyId).emit("updatePlayerPosition",{ id, x:player.x, y:player.y });
     });
   });
