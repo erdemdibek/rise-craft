@@ -8,10 +8,54 @@
 html,body{margin:0;padding:0;width:100%;height:100%;background:#111;color:#fff;overflow:hidden;font-family:sans-serif}
 canvas{position:absolute;top:0;left:0}
 
-/* LOBBY */
-#lobby{position:fixed;inset:0;background:#000e;display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:100}
-#players{margin-top:10px}
+<!-- LOBBY -->
+<div id="lobby">
+  <input id="name" placeholder="İsmin">
+  <button id="joinBtn" onclick="join()">Katıl</button>
+  <button id="readyBtn" onclick="ready()" style="display:none">Hazır</button>
+  <button id="startBtn" onclick="start()" style="display:none">Başlat</button>
+  <div id="players"></div>
+</div>
 
+<script>
+const joinBtn = document.getElementById("joinBtn");
+const readyBtn = document.getElementById("readyBtn");
+const startBtn = document.getElementById("startBtn");
+const nameInput = document.getElementById("name");
+const playersDiv = document.getElementById("players");
+
+// Katıl fonksiyonu
+function join(){
+  const n = nameInput.value.trim();
+  if(!n) return;
+  socket.emit("join", n);
+  joinBtn.style.display = "none";   // katıl butonu kaybolsun
+  readyBtn.style.display = "inline"; // hazır butonu görünsün
+}
+
+// Ready ve Start
+function ready(){ socket.emit("ready"); }
+function start(){ socket.emit("start"); }
+
+// Lobby güncelleme
+socket.on("lobby", data => {
+  playersDiv.innerHTML = "";
+  let everyoneReady = true;
+
+  data.players.forEach(p => {
+    playersDiv.innerHTML += `${p.name} ${p.ready?"✔️":"❌"} ${p.admin?"(Admin)":""}<br>`;
+    if(!p.ready) everyoneReady = false;
+  });
+
+  // Admin kontrolü: Eğer ben adminim ve herkes hazırsa start butonu görün
+  const me = data.players.find(p => p.id === socket.id);
+  if(me && me.admin && everyoneReady && data.players.length >= 4){
+    startBtn.style.display = "inline";
+  } else {
+    startBtn.style.display = "none";
+  }
+});
+</script>
 /* UI */
 #status{position:fixed;top:10px;left:10px;background:#000c;padding:6px 10px;border:1px solid #666;z-index:50}
 #roleBox{position:fixed;top:50px;left:10px;background:#000c;padding:6px 10px;border:1px solid #666;display:none;z-index:60}
