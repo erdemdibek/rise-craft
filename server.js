@@ -189,6 +189,9 @@ setInterval(()=>{
       const input = lobby.inputs[id] || { dirX:0, dirY:0 };
       player.x += input.dirX * PLAYER_SPEED * delta;
       player.y += input.dirY * PLAYER_SPEED * delta;
+// ⬇⬇⬇ KRİTİK: SERVER POZİSYONU GÜNCEL TUT
+lobby.players[id].x = player.x;
+lobby.players[id].y = player.y;
       // Boundaries
       player.x = Math.max(20, Math.min(1180, player.x));
       player.y = Math.max(20, Math.min(980, player.y));
