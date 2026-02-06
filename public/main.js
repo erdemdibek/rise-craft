@@ -63,10 +63,15 @@ function startPhaserGame() {
   };
   const game = new Phaser.Game(config);
 
-  let playerCircle, playerSprites = {}, machineSprites = {}, nameTexts = {}, joystick = { x: 0, y: 0, pointer: null };
+  let playerCircle, playerSprites = {}, machineSprites = {}, nameTexts = {}, joystick = { x: 0, y: 0, dirX: 0, dirY: 0 };
   let machineNames = Object.keys(machines);
   const playerSpeed = 150;
-  const deadSprites = {};
+
+  // Sabit makine pozisyonları (5 üst, 5 alt)
+  const machinePositions = [
+    {x:200,y:200},{x:400,y:200},{x:600,y:200},{x:800,y:200},{x:1000,y:200},
+    {x:200,y:800},{x:400,y:800},{x:600,y:800},{x:800,y:800},{x:1000,y:800}
+  ];
 
   function preload() {}
 
@@ -74,13 +79,12 @@ function startPhaserGame() {
     const self = this;
 
     // World sınırları
-    this.physics.world.setBounds(0, 0, 2000, 2000);
+    this.physics.world.setBounds(0, 0, 1200, 1000);
 
-    // Kendin
-    playerCircle = this.add.circle(400, 300, 20, 0x00ff00).setDepth(1);
-    playerCircle.setPosition(400, 300);
+    // Kamera oyuncuyu takip ediyor
+    playerCircle = this.add.circle(400, 500, 20, 0x00ff00).setDepth(1);
     this.cameras.main.startFollow(playerCircle, true, 0.1, 0.1);
-    this.cameras.main.setBounds(0, 0, 2000, 2000);
+    this.cameras.main.setBounds(0, 0, 1200, 1000);
 
     // Kendin üstüne isim
     const selfNameText = this.add.text(playerCircle.x, playerCircle.y - 30, playerName, { fontSize: '16px', color: '#ffffff' }).setOrigin(0.5);
@@ -88,8 +92,8 @@ function startPhaserGame() {
     // Diğer oyuncular
     for (const id in players) {
       if (id !== selfId) {
-        const x = Phaser.Math.Between(100, 700);
-        const y = Phaser.Math.Between(100, 500);
+        const x = Phaser.Math.Between(100, 1100);
+        const y = Phaser.Math.Between(100, 900);
         const circle = this.add.circle(x, y, 20, 0x00ff00);
         playerSprites[id] = circle;
         const nameText = this.add.text(x, y - 30, id, { fontSize: '16px', color: '#ffffff' }).setOrigin(0.5);
@@ -97,35 +101,49 @@ function startPhaserGame() {
       }
     }
 
-    // Makineler
-    machineNames.forEach(name => {
-      const x = Phaser.Math.Between(100, 700);
-      const y = Phaser.Math.Between(100, 500);
+    // Makineler (sabit)
+    machinePositions.forEach((pos, idx) => {
+      const name = machineNames[idx];
       const color = machines[name] === "ok" ? 0x00ff00 : 0xff0000;
-      const m = this.add.rectangle(x, y, 40, 40, color);
+      const m = this.add.rectangle(pos.x, pos.y, 40, 40, color);
       m.name = name;
       machineSprites[name] = m;
-      const text = this.add.text(x, y - 30, name, { fontSize: '14px', color: '#ffffff' }).setOrigin(0.5);
+      const text = this.add.text(pos.x, pos.y - 30, name, { fontSize: '14px', color: '#ffffff' }).setOrigin(0.5);
       m.nameText = text;
     });
 
-    // Joystick
-    this.input.on("pointerdown", pointer => { joystick.pointer = pointer; joystick.x = pointer.x; joystick.y = pointer.y; });
-    this.input.on("pointerup", pointer => { joystick.pointer = null; });
-    this.input.on("pointermove", pointer => { if (joystick.pointer && pointer.id === joystick.pointer.id) { joystick.x = pointer.x; joystick.y = pointer.y; } });
+    // Joystick (sol alt köşe)
+    const joystickBase = this.add.circle(100, window.innerHeight - 100, 50, 0x888888, 0.5).setScrollFactor(0);
+    const joystickThumb = this.add.circle(100, window.innerHeight - 100, 25, 0xcccccc, 0.8).setScrollFactor(0);
+    joystick.thumb = joystickThumb;
+    joystick.base = joystickBase;
 
-    // Öldür / tamir butonları (yakınlık ile gösterilecek)
-    this.killBtn = this.add.text(50, window.innerHeight - 100, "Öldür", { backgroundColor: "#ff0000", padding: { x: 10, y: 5 } }).setInteractive().setVisible(false);
-    this.repairBtn = this.add.text(150, window.innerHeight - 100, "Tamir Et", { backgroundColor: "#0000ff", padding: { x: 10, y: 5 } }).setInteractive().setVisible(false);
+    this.input.on('pointerdown', pointer => {
+      const dist = Phaser.Math.Distance.Between(pointer.x, pointer.y, joystickBase.x, joystickBase.y);
+      if(dist < 60) { joystick.active = true; }
+    });
+    this.input.on('pointerup', pointer => { joystick.active = false; joystick.thumb.setPosition(joystick.base.x, joystick.base.y); joystick.dirX=0; joystick.dirY=0; });
+    this.input.on('pointermove', pointer => {
+      if(joystick.active){
+        const dx = pointer.x - joystick.base.x;
+        const dy = pointer.y - joystick.base.y;
+        const dist = Math.min(Math.sqrt(dx*dx+dy*dy), 50);
+        const angle = Math.atan2(dy, dx);
+        joystick.thumb.setPosition(joystick.base.x + dist * Math.cos(angle), joystick.base.y + dist * Math.sin(angle));
+        joystick.dirX = Math.cos(angle) * (dist/50);
+        joystick.dirY = Math.sin(angle) * (dist/50);
+      }
+    });
+
+    // Öldür / Tamir butonları (yakınlık)
+    this.killBtn = this.add.text(50, window.innerHeight - 200, "Öldür", { backgroundColor: "#ff0000", padding: {x:10,y:5} }).setInteractive().setScrollFactor(0).setVisible(false);
+    this.repairBtn = this.add.text(150, window.innerHeight - 200, "Tamir Et", { backgroundColor: "#0000ff", padding: {x:10,y:5} }).setInteractive().setScrollFactor(0).setVisible(false);
 
     this.killBtn.on("pointerdown", () => {
       for (const id in playerSprites) {
         const p = playerSprites[id];
         const dist = Phaser.Math.Distance.Between(playerCircle.x, playerCircle.y, p.x, p.y);
-        if (dist < 50) {
-          socket.emit("killPlayer", { lobbyId, targetId: id });
-          addLog(`${id} öldürüldü!`);
-        }
+        if(dist<50) socket.emit("killPlayer",{lobbyId,targetId:id});
       }
     });
 
@@ -133,29 +151,27 @@ function startPhaserGame() {
       for (const name in machineSprites) {
         const m = machineSprites[name];
         const dist = Phaser.Math.Distance.Between(playerCircle.x, playerCircle.y, m.x, m.y);
-        if (dist < 50 && machines[name] === "bozuk") {
-          socket.emit("repairMachine", { lobbyId, machineName: name });
-          machines[name] = "ok"; m.fillColor = 0x00ff00;
-        }
+        if(dist<50 && machines[name]==="bozuk") socket.emit("repairMachine",{lobbyId,machineName:name});
       }
     });
 
-    // Mini harita
-    this.minimap = this.add.graphics();
+    // Mini harita (sabit sağ üst)
+    this.minimap = this.add.graphics().setScrollFactor(0);
+    this.minimap.setDepth(1000);
   }
 
   function updateMachineSprite(name) {
-    const m = machineSprites[name]; if (!m) return;
-    m.fillColor = machines[name] === "ok" ? 0x00ff00 : 0xff0000;
+    const m = machineSprites[name]; if(!m) return;
+    m.fillColor = machines[name]==="ok"?0x00ff00:0xff0000;
   }
 
   function showVoteUI(alivePlayers) {
-    const container = document.createElement("div"); container.style.position = "absolute";
-    container.style.top = "50%"; container.style.left = "50%"; container.style.transform = "translate(-50%,-50%)";
-    container.style.background = "rgba(0,0,0,0.7)"; container.style.padding = "20px"; container.id = "voteUI";
+    const container = document.createElement("div"); container.style.position="absolute";
+    container.style.top="50%"; container.style.left="50%"; container.style.transform="translate(-50%,-50%)";
+    container.style.background="rgba(0,0,0,0.7)"; container.style.padding="20px"; container.id="voteUI";
     alivePlayers.forEach(p => {
-      const btn = document.createElement("button"); btn.innerText = p.name; btn.style.margin = "5px";
-      btn.onclick = () => { socket.emit("vote", { lobbyId, targetId: p.id }); document.body.removeChild(container); };
+      const btn = document.createElement("button"); btn.innerText=p.name; btn.style.margin="5px";
+      btn.onclick = ()=>{ socket.emit("vote",{lobbyId,targetId:p.id}); document.body.removeChild(container); };
       container.appendChild(btn);
     });
     document.body.appendChild(container);
@@ -164,75 +180,72 @@ function startPhaserGame() {
 
   function update() {
     // Hareket
-    let vx = 0, vy = 0;
-    if (joystick.pointer) { vx = joystick.x - playerCircle.x; vy = joystick.y - playerCircle.y;
-      const len = Math.sqrt(vx*vx + vy*vy); if (len > 0) { vx = (vx/len)*playerSpeed; vy = (vy/len)*playerSpeed; } }
-    playerCircle.x += vx * (1/60); playerCircle.y += vy * (1/60);
+    playerCircle.x += joystick.dirX * playerSpeed * (1/60);
+    playerCircle.y += joystick.dirY * playerSpeed * (1/60);
 
     // Sınırlar
-    playerCircle.x = Phaser.Math.Clamp(playerCircle.x, 20, 1980);
-    playerCircle.y = Phaser.Math.Clamp(playerCircle.y, 20, 1980);
+    playerCircle.x = Phaser.Math.Clamp(playerCircle.x, 20, 1180);
+    playerCircle.y = Phaser.Math.Clamp(playerCircle.y, 20, 980);
 
     // Kendin üstüne isim
-    // Kendin için text yoksa oluştur
-    if (this.selfNameText) { this.selfNameText.setPosition(playerCircle.x, playerCircle.y - 30); }
-    else { this.selfNameText = this.add.text(playerCircle.x, playerCircle.y - 30, playerName, { fontSize: '16px', color: '#ffffff' }).setOrigin(0.5); }
+    if(this.selfNameText){ this.selfNameText.setPosition(playerCircle.x, playerCircle.y-30); }
+    else{ this.selfNameText = this.add.text(playerCircle.x, playerCircle.y-30, playerName, { fontSize:'16px', color:'#fff' }).setOrigin(0.5); }
 
-    // Diğer oyuncular ve isimler
-    for (const id in playerSprites) {
-      const p = playerSprites[id];
-      const t = nameTexts[id];
-      t.setPosition(p.x, p.y - 30);
+    // Diğer oyuncular
+    for(const id in playerSprites){
+      const p = playerSprites[id]; const t=nameTexts[id];
+      t.setPosition(p.x, p.y-30);
     }
 
-    // Makineler ve isimler
-    machineNames.forEach(name => {
+    // Makineler
+    machineNames.forEach(name=>{
       const m = machineSprites[name];
-      m.nameText.setPosition(m.x, m.y - 30);
+      m.nameText.setPosition(m.x, m.y-30);
     });
 
-    // Butonların görünürlüğü (yakınlık)
-    let killVisible = false, repairVisible = false;
-    for (const id in playerSprites) {
+    // Yakınlık ile buton görünürlüğü
+    let killVisible=false, repairVisible=false;
+    for(const id in playerSprites){
       const p = playerSprites[id];
       const dist = Phaser.Math.Distance.Between(playerCircle.x, playerCircle.y, p.x, p.y);
-      if (dist < 50) killVisible = true;
+      if(dist<50) killVisible=true;
     }
-    for (const name in machineSprites) {
+    for(const name in machineSprites){
       const m = machineSprites[name];
       const dist = Phaser.Math.Distance.Between(playerCircle.x, playerCircle.y, m.x, m.y);
-      if (dist < 50 && machines[name] === "bozuk") repairVisible = true;
+      if(dist<50 && machines[name]==="bozuk") repairVisible=true;
     }
     this.killBtn.setVisible(killVisible);
     this.repairBtn.setVisible(repairVisible);
 
-    // Mini harita
+    // Mini harita (sabit sağ üst)
     const mm = this.minimap;
     mm.clear();
-    mm.fillStyle(0x000000, 0.3); mm.fillRect(window.innerWidth - 150, 10, 140, 140);
-    mm.fillStyle(0x00ff00, 1); // oyuncular
-    for (const id in playerSprites) {
-      const p = playerSprites[id];
-      mm.fillRect(window.innerWidth - 150 + p.x * 0.07, 10 + p.y * 0.07, 5, 5);
+    mm.fillStyle(0x000000,0.3); mm.fillRect(window.innerWidth-150,10,140,140);
+    mm.fillStyle(0x00ff00,1); // oyuncular
+    for(const id in playerSprites){
+      const p=playerSprites[id];
+      mm.fillRect(window.innerWidth-150+p.x*0.1,10+p.y*0.1,5,5);
     }
-    mm.fillStyle(0xffff00, 1); mm.fillRect(window.innerWidth - 150 + playerCircle.x * 0.07, 10 + playerCircle.y * 0.07, 5, 5);
-    // Makineler
-    machineNames.forEach(name => {
-      const m = machineSprites[name];
-      const color = machines[name] === "ok" ? 0x00ff00 : 0xff0000;
-      mm.fillStyle(color, 1);
-      mm.fillRect(window.innerWidth - 150 + m.x * 0.07, 10 + m.y * 0.07, 5, 5);
+    mm.fillStyle(0xffff00,1); // kendin
+    mm.fillRect(window.innerWidth-150+playerCircle.x*0.1,10+playerCircle.y*0.1,5,5);
+    // Makineler mini haritada
+    machineNames.forEach(name=>{
+      const m=machineSprites[name];
+      const color = machines[name]==="ok"?0x00ff00:0xff0000;
+      mm.fillStyle(color,1);
+      mm.fillRect(window.innerWidth-150+m.x*0.1,10+m.y*0.1,5,5);
     });
 
-    // Ceset kontrolü
-    deadBodies.forEach(id => {
-      const p = playerSprites[id] || playerCircle; // placeholder
-      const dist = Phaser.Math.Distance.Between(playerCircle.x, playerCircle.y, p.x, p.y);
-      if (dist < 50) {
-        if (!document.getElementById("voteBtn")) {
-          const btn = document.createElement("button"); btn.innerText = "Toplantı Başlat"; btn.id = "voteBtn";
-          btn.style.position = "absolute"; btn.style.bottom = "200px"; btn.style.left = "50%"; btn.style.transform = "translateX(-50%)";
-          btn.onclick = () => { socket.emit("startVote", { lobbyId }); document.body.removeChild(btn); };
+    // Ceset kontrolü ve toplantı
+    deadBodies.forEach(id=>{
+      const p = playerSprites[id] || playerCircle; 
+      const dist = Phaser.Math.Distance.Between(playerCircle.x,playerCircle.y,p.x,p.y);
+      if(dist<50){
+        if(!document.getElementById("voteBtn")){
+          const btn = document.createElement("button"); btn.innerText="Toplantı Başlat"; btn.id="voteBtn";
+          btn.style.position="absolute"; btn.style.bottom="200px"; btn.style.left="50%"; btn.style.transform="translateX(-50%)";
+          btn.onclick=()=>{ socket.emit("startVote",{lobbyId}); document.body.removeChild(btn); };
           document.body.appendChild(btn);
         }
       }
