@@ -43,13 +43,24 @@ socket.on("gameStart", ({ roles:serverRoles, machines:gm, players:pl })=>{
 
 /* ---------------- EVENTS ---------------- */
 socket.on("playerKilled", ({ targetId })=>{
+  if(!players[targetId]) return;
+
+  players[targetId].alive = false;
   deadBodies.push(targetId);
-  const p=players[targetId];
+
+  const p = players[targetId];
   addLog(`${p.name} öldürüldü!`);
 
+  if(playerSprites[targetId]){
+    playerSprites[targetId].destroy();
+    nameTexts[targetId].destroy();
+    delete playerSprites[targetId];
+    delete nameTexts[targetId];
+  }
+
   if(phaserScene){
-    corpseSprites[targetId]=phaserScene.add
-      .text(p.x,p.y,"☠️",{fontSize:"32px",color:"#ff0000"})
+    corpseSprites[targetId] = phaserScene.add
+      .text(p.x, p.y, "☠️", { fontSize:"32px", color:"#ff0000" })
       .setOrigin(0.5);
   }
 });
