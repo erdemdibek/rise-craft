@@ -55,7 +55,16 @@ canvas{position:absolute;top:0;left:0}
 <script src="/socket.io/socket.io.js"></script>
 <script>
 const socket = io();
-
+/* DOM REFERENCES */
+const name = document.getElementById("name");
+const readyBtn = document.getElementById("readyBtn");
+const startBtn = document.getElementById("startBtn");
+const playersDiv = document.getElementById("players");
+const alive = document.getElementById("alive");
+const roleBox = document.getElementById("roleBox");
+const roleText = document.getElementById("roleText");
+const killBtn = document.getElementById("killBtn");
+const lobby = document.getElementById("lobby");
 /* CANVAS */
 const canvas=document.getElementById("game");
 const ctx=canvas.getContext("2d");
