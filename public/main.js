@@ -144,17 +144,14 @@ function create(){
   this.meetingBtn=this.add.text(250,window.innerHeight-200,"Toplantı",{backgroundColor:"#0ff",padding:10})
     .setScrollFactor(0).setInteractive().setVisible(false);
 
-  // --- KILL BUTTON ---
   this.killBtn.on("pointerdown",()=>{
     for(const id in playerSprites){
       if(id===selfId) continue;
-      if(!players[id]?.alive) continue;
-      if(players[id]?.role!=="operatör") continue;
+      const p=players[id];
+      if(!p || !p.alive) continue;
+      if(p.role!=="operatör") continue;
       const d=Phaser.Math.Distance.Between(playerCircle.x,playerCircle.y,playerSprites[id].x,playerSprites[id].y);
-      if(d<60){
-        socket.emit("killPlayer",{lobbyId,targetId:id});
-        break; // sadece birini öldür
-      }
+      if(d<60) socket.emit("killPlayer",{lobbyId,targetId:id});
     }
   });
 
@@ -213,9 +210,13 @@ function update(){
   if(playerRole==="hain"){
     for(const id in playerSprites){
       if(id===selfId) continue;
-      if(!players[id]?.alive) continue;
-      if(players[id]?.role!=="operatör") continue;
-      const d=Phaser.Math.Distance.Between(playerCircle.x,playerCircle.y,playerSprites[id].x,playerSprites[id].y);
+      const p=players[id];
+      if(!p || !p.alive) continue;
+      if(p.role!=="operatör") continue;
+      const d=Phaser.Math.Distance.Between(
+        playerCircle.x, playerCircle.y,
+        playerSprites[id].x, playerSprites[id].y
+      );
       if(d<60){ canKill=true; break; }
     }
   }
@@ -227,18 +228,16 @@ function update(){
       const d=Phaser.Math.Distance.Between(playerCircle.x,playerCircle.y,m.x,m.y);
       if(d<50 && machines[n]==="bozuk") canRepair=true;
     }
-
     for(const id of deadBodies){
       const c=corpseSprites[id];
-      if(c && Phaser.Math.Distance.Between(playerCircle.x,playerCircle.y,c.x,c.y)<50)
-        canMeet=true;
+      if(c && Phaser.Math.Distance.Between(playerCircle.x,playerCircle.y,c.x,c.y)<50) canMeet=true;
     }
   }
 
   // SET BUTTONS
-  phaserScene.killBtn.setVisible(canKill && playerRole==="hain");
-  phaserScene.repairBtn.setVisible(canRepair && playerRole==="operatör");
-  phaserScene.meetingBtn.setVisible(canMeet && playerRole==="operatör");
+  phaserScene.killBtn.setVisible(playerRole==="hain" && canKill);
+  phaserScene.repairBtn.setVisible(playerRole==="operatör" && canRepair);
+  phaserScene.meetingBtn.setVisible(playerRole==="operatör" && canMeet);
 
   // INFO
   phaserScene.infoText.setText(
