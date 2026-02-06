@@ -266,3 +266,35 @@ function update(){
         const d=Math.hypot(px-p.x,py-p.y);
         if(d<80){
           killButton.style.left=(p.x-30)+"px";
+          killButton.style.top=(p.y-70)+"px";
+          killButton.style.display="block";
+        }
+      }
+    }
+  }
+}
+
+/* ---------------- UI ---------------- */
+function showVote(list){
+  if(isGhost)return;
+  const d=document.createElement("div");
+  d.className="vote";
+  list.forEach(p=>{
+    const b=document.createElement("button");
+    b.innerText=p.name;
+    b.onclick=()=>{
+      socket.emit("castVote",{lobbyId,targetId:p.id});
+      d.remove();
+    };
+    d.appendChild(b);
+  });
+  document.body.appendChild(d);
+}
+
+function addLog(t){
+  const l=document.getElementById("log");
+  const e=document.createElement("div");
+  e.innerText=t;
+  l.appendChild(e);
+  setTimeout(()=>e.remove(),10000);
+}
