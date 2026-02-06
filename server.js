@@ -24,7 +24,7 @@ io.on("connection", socket => {
       machineNames.forEach(m => lobbies[lobbyId].machines[m]="ok");
     }
 
-    lobbies[lobbyId].players[socket.id] = { name, alive: true, x: 100, y: 100 }; // başlangıç pozisyonu
+    lobbies[lobbyId].players[socket.id] = { name, alive: true, x: 100, y: 100 };
     lobbies[lobbyId].ready[socket.id] = false;
     socket.join(lobbyId);
 
@@ -44,6 +44,12 @@ io.on("connection", socket => {
   socket.on("startGame", ({ lobbyId }) => {
     const lobby = lobbies[lobbyId];
     if(!lobby || lobby.gameStarted) return;
+
+    const allReady = Object.values(lobby.ready).every(r => r===true);
+    if(!allReady){
+      socket.emit("errorMessage", { msg: "Herkes hazır değil!" });
+      return;
+    }
 
     const playerIds = Object.keys(lobby.players);
     const hainIndex = Math.floor(Math.random()*playerIds.length);
@@ -97,7 +103,7 @@ io.on("connection", socket => {
     lobby.players[socket.id].x = x;
     lobby.players[socket.id].y = y;
 
-    io.to(lobbyId).emit("updatePlayerPosition", { id: socket.id, x, y });
+    socket.to(lobbyId).emit("updatePlayerPosition", { id: socket.id, x, y });
   });
 
   // --- Toplantı / oylama ---
