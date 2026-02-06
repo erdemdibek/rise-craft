@@ -1,4 +1,5 @@
 const socket = io();
+let roles = {};
 let lobbyId="default", playerName="", playerRole="", machines={}, players={}, selfId=null;
 let deadBodies=[], phaserScene, playerCircle;
 let playerSprites={}, machineSprites={}, nameTexts={}, corpseSprites={};
@@ -30,11 +31,12 @@ socket.on("lobbyUpdate", lobby=>{
 });
 
 /* ---------------- GAME START ---------------- */
-socket.on("gameStart", ({ roles, machines:gm, players:pl })=>{
-  playerRole=roles[socket.id];
-  selfId=socket.id;
-  machines=gm;
-  players=pl;
+socket.on("gameStart", ({ roles:serverRoles, machines:gm, players:pl })=>{
+  roles = serverRoles;          // 🔥 KRİTİK SATIR
+  playerRole = roles[socket.id];
+  selfId = socket.id;
+  machines = gm;
+  players = pl;
   document.getElementById("lobby").style.display="none";
   startPhaserGame();
 });
