@@ -42,6 +42,8 @@ socket.on("gameStart", ({ roles, machines:gm, players:pl })=>{
 socket.on("playerKilled", ({ targetId })=>{
   deadBodies.push(targetId);
   const p=players[targetId];
+  addLog(`${p.name} öldürüldü!`);
+
   if(phaserScene){
     corpseSprites[targetId]=phaserScene.add
       .text(p.x,p.y,"☠️",{fontSize:"32px",color:"#ff0000"})
@@ -52,10 +54,12 @@ socket.on("playerKilled", ({ targetId })=>{
 socket.on("machineBroken",({machineName})=>{
   machines[machineName]="bozuk";
   updateMachineSprite(machineName);
+  addLog(`${machineName} bozuldu!`);
 });
 socket.on("machineRepaired",({machineName})=>{
   machines[machineName]="ok";
   updateMachineSprite(machineName);
+  addLog(`${machineName} tamir edildi!`);
 });
 
 socket.on("voteStart",({players})=>showVoteUI(players));
@@ -69,6 +73,16 @@ socket.on("updatePlayerPosition",({id,x,y})=>{
     nameTexts[id].setPosition(x,y-30);
   }
 });
+
+/* ---------------- LOG ---------------- */
+function addLog(text){
+  const log=document.getElementById("log");
+  const entry=document.createElement("div");
+  entry.innerText=text;
+  log.appendChild(entry);
+  log.scrollTop = log.scrollHeight; // otomatik scroll
+  setTimeout(()=>entry.remove(),10000);
+}
 
 /* ---------------- PHASER ---------------- */
 function startPhaserGame(){
@@ -134,10 +148,7 @@ function create(){
     for(const id in playerSprites){
       if(!players[id].alive) continue;
       if(players[id].role!=="operatör") continue;
-      const d=Phaser.Math.Distance.Between(
-        playerCircle.x,playerCircle.y,
-        playerSprites[id].x,playerSprites[id].y
-      );
+      const d=Phaser.Math.Distance.Between(playerCircle.x,playerCircle.y,playerSprites[id].x,playerSprites[id].y);
       if(d<60) socket.emit("killPlayer",{lobbyId,targetId:id});
     }
   });
@@ -156,7 +167,7 @@ function create(){
     this.meetingBtn.setVisible(false);
   });
 
-  // ---------- JOYSTICK ----------
+  // JOYSTICK
   const base=this.add.circle(100,window.innerHeight-100,50,0x888888,0.5).setScrollFactor(0);
   const thumb=this.add.circle(100,window.innerHeight-100,25,0xcccccc,0.8).setScrollFactor(0);
   joystick.base=base; joystick.thumb=thumb;
@@ -198,10 +209,7 @@ function update(){
     for(const id in playerSprites){
       if(!players[id].alive) continue;
       if(players[id].role!=="operatör") continue;
-      const d=Phaser.Math.Distance.Between(
-        playerCircle.x,playerCircle.y,
-        playerSprites[id].x,playerSprites[id].y
-      );
+      const d=Phaser.Math.Distance.Between(playerCircle.x,playerCircle.y,playerSprites[id].x,playerSprites[id].y);
       if(d<60){ canKill=true; break; }
     }
   }
@@ -210,9 +218,8 @@ function update(){
   if(playerRole==="operatör"){
     for(const n in machineSprites){
       const m=machineSprites[n];
-      if(Phaser.Math.Distance.Between(
-        playerCircle.x,playerCircle.y,m.x,m.y)<50 && machines[n]==="bozuk")
-        canRepair=true;
+      const d=Phaser.Math.Distance.Between(playerCircle.x,playerCircle.y,m.x,m.y);
+      if(d<50 && machines[n]==="bozuk") canRepair=true;
     }
 
     for(const id of deadBodies){
@@ -222,6 +229,7 @@ function update(){
     }
   }
 
+  // SET BUTTONS
   phaserScene.killBtn.setVisible(canKill && playerRole==="hain");
   phaserScene.repairBtn.setVisible(canRepair && playerRole==="operatör");
   phaserScene.meetingBtn.setVisible(canMeet && playerRole==="operatör");
@@ -238,4 +246,30 @@ function update(){
   // Update machine names
   for(const n in machineSprites)
     machineSprites[n].nameText.setPosition(machineSprites[n].x,machineSprites[n].y-30);
+}
+
+/* ---------------- OYLAMA ---------------- */
+function showVoteUI(alivePlayers){
+  const container=document.createElement("div");
+  container.style.position="absolute";
+  container.style.top="50%";
+  container.style.left="50%";
+  container.style.transform="translate(-50%,-50%)";
+  container.style.background="rgba(0,0,0,0.7)";
+  container.style.padding="20px";
+  container.id="voteUI";
+
+  alivePlayers.forEach(p=>{
+    const btn=document.createElement("button");
+    btn.innerText=p.name;
+    btn.style.margin="5px";
+    btn.onclick=()=>{
+      socket.emit("vote",{lobbyId,targetId:p.id});
+      document.body.removeChild(container);
+    };
+    container.appendChild(btn);
+  });
+
+  document.body.appendChild(container);
+  addLog("Oylama başladı! 20 saniye içinde oy verin.");
 }
