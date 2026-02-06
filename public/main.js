@@ -4,6 +4,7 @@ let deadBodies=[], phaserScene, playerCircle;
 let playerSprites={}, machineSprites={}, nameTexts={}, corpseSprites={};
 let joystick={dirX:0, dirY:0};
 let machineNames=[];
+let killCooldown=false; // Öldür tuşu cooldown durumu
 
 /* ---------------- LOBBY ---------------- */
 document.getElementById("joinBtn").onclick = () => {
@@ -80,7 +81,7 @@ function addLog(text){
   const entry=document.createElement("div");
   entry.innerText=text;
   log.appendChild(entry);
-  log.scrollTop = log.scrollHeight; // otomatik scroll
+  log.scrollTop = log.scrollHeight;
   setTimeout(()=>entry.remove(),10000);
 }
 
@@ -137,23 +138,46 @@ function create(){
   });
 
   // BUTTONS
-  this.killBtn=this.add.text(50,window.innerHeight-200,"Öldür",{backgroundColor:"#f00",padding:10})
-    .setScrollFactor(0).setInteractive().setVisible(false);
   this.repairBtn=this.add.text(150,window.innerHeight-200,"Tamir",{backgroundColor:"#00f",padding:10})
     .setScrollFactor(0).setInteractive().setVisible(false);
   this.meetingBtn=this.add.text(250,window.innerHeight-200,"Toplantı",{backgroundColor:"#0ff",padding:10})
     .setScrollFactor(0).setInteractive().setVisible(false);
 
-  this.killBtn.on("pointerdown",()=>{
-    for(const id in playerSprites){
-      if(id===selfId) continue;
-      const p=players[id];
-      if(!p || !p.alive) continue;
-      if(p.role!=="operatör") continue;
-      const d=Phaser.Math.Distance.Between(playerCircle.x,playerCircle.y,playerSprites[id].x,playerSprites[id].y);
-      if(d<60) socket.emit("killPlayer",{lobbyId,targetId:id});
-    }
-  });
+  // HAIN ÖLDÜR BUTONU - joystick yanında daimi
+  if(playerRole==="hain"){
+    this.killBtn=this.add.circle(200,window.innerHeight-100,40,0xff0000,0.7)
+      .setScrollFactor(0)
+      .setInteractive();
+
+    const killText=this.add.text(this.killBtn.x,this.killBtn.y,"ÖLDÜR",{color:"#fff",fontSize:"16px"})
+      .setOrigin(0.5)
+      .setScrollFactor(0);
+
+    this.killBtn.on("pointerdown",()=>{
+      if(killCooldown) return;
+      // En yakın operatörü öldür
+      let closestId=null, closestDist=Infinity;
+      for(const id in playerSprites){
+        if(id===selfId) continue;
+        const p=players[id];
+        if(!p || !p.alive || p.role!=="operatör") continue;
+        const d=Phaser.Math.Distance.Between(playerCircle.x,playerCircle.y,playerSprites[id].x,playerSprites[id].y);
+        if(d<closestDist){
+          closestDist=d;
+          closestId=id;
+        }
+      }
+      if(closestId){
+        socket.emit("killPlayer",{lobbyId,targetId:closestId});
+        killCooldown=true;
+        this.killBtn.setFillStyle(0x555555,0.7);
+        setTimeout(()=>{ 
+          killCooldown=false; 
+          this.killBtn.setFillStyle(0xff0000,0.7);
+        },10000); // 10 saniye cooldown
+      }
+    });
+  }
 
   this.repairBtn.on("pointerdown",()=>{
     for(const n in machineSprites){
@@ -204,24 +228,8 @@ function updateMachineSprite(name){
 
 /* ---------------- UPDATE ---------------- */
 function update(){
-  let canKill=false, canRepair=false, canMeet=false;
-
-  // HAIN
-  if(playerRole==="hain"){
-    for(const id in playerSprites){
-      if(id===selfId) continue;
-      const p=players[id];
-      if(!p || !p.alive) continue;
-      if(p.role!=="operatör") continue;
-      const d=Phaser.Math.Distance.Between(
-        playerCircle.x, playerCircle.y,
-        playerSprites[id].x, playerSprites[id].y
-      );
-      if(d<60){ canKill=true; break; }
-    }
-  }
-
   // OPERATÖR
+  let canRepair=false, canMeet=false;
   if(playerRole==="operatör"){
     for(const n in machineSprites){
       const m=machineSprites[n];
@@ -234,21 +242,15 @@ function update(){
     }
   }
 
-  // SET BUTTONS
-  phaserScene.killBtn.setVisible(playerRole==="hain" && canKill);
   phaserScene.repairBtn.setVisible(playerRole==="operatör" && canRepair);
   phaserScene.meetingBtn.setVisible(playerRole==="operatör" && canMeet);
 
-  // INFO
   phaserScene.infoText.setText(
     `Rol: ${playerRole}\nKalan: ${Object.values(players).filter(p=>p.alive).length}`
   );
 
-  // Update player names
   for(const id in playerSprites)
     nameTexts[id].setPosition(playerSprites[id].x,playerSprites[id].y-30);
-
-  // Update machine names
   for(const n in machineSprites)
     machineSprites[n].nameText.setPosition(machineSprites[n].x,machineSprites[n].y-30);
 }
