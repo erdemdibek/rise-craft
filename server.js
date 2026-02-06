@@ -59,7 +59,7 @@ io.on("connection", socket => {
     io.to(lobbyId).emit("gameStart",{ roles:lobby.roles, machines:lobby.machines, players:lobby.players });
   });
 
-  // --- Player Input (joystick) ---
+  // --- Player Input ---
   socket.on("playerInput", ({ lobbyId, dirX, dirY }) => {
     const lobby = lobbies[lobbyId];
     if(!lobby || !lobby.players[socket.id]) return;
@@ -147,23 +147,23 @@ setInterval(()=>{
   });
 },30000);
 
-// --- Player Movement Tick (Server-authoritative) ---
+// --- Player Movement Tick (Server authoritative) ---
 setInterval(()=>{
-  const delta = 1/60; // saniye
-  Object.values(lobbies).forEach(lobby=>{
+  const delta = 1/60;
+  Object.entries(lobbies).forEach(([lobbyId, lobby])=>{
     if(!lobby.gameStarted) return;
-    for(const id in lobby.players){
-      if(!lobby.players[id].alive) continue;
+    Object.entries(lobby.players).forEach(([id, player])=>{
+      if(!player.alive) return;
       const input = lobby.inputs[id] || { dirX:0, dirY:0 };
-      lobby.players[id].x += input.dirX * PLAYER_SPEED * delta;
-      lobby.players[id].y += input.dirY * PLAYER_SPEED * delta;
+      player.x += input.dirX * PLAYER_SPEED * delta;
+      player.y += input.dirY * PLAYER_SPEED * delta;
       // Boundaries
-      lobby.players[id].x = Math.max(20, Math.min(1180, lobby.players[id].x));
-      lobby.players[id].y = Math.max(20, Math.min(980, lobby.players[id].y));
-      // Update client
-      io.to(lobbyId).emit("updatePlayerPosition",{ id, x:lobby.players[id].x, y:lobby.players[id].y });
-    }
+      player.x = Math.max(20, Math.min(1180, player.x));
+      player.y = Math.max(20, Math.min(980, player.y));
+      // Update clients
+      io.to(lobbyId).emit("updatePlayerPosition",{ id, x:player.x, y:player.y });
+    });
   });
-}, 1000/60); // 60 FPS
+},1000/60);
 
 server.listen(PORT,()=>console.log(`Server running on port ${PORT}`));
