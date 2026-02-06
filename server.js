@@ -3,7 +3,7 @@ const http = require("http");
 const { Server } = require("socket.io");
 
 const app = express();
-app.use(express.static("public")); // client dosyaları
+app.use(express.static("public"));
 const server = http.createServer(app);
 const io = new Server(server, { cors: { origin: "*" } });
 
@@ -95,15 +95,26 @@ io.on("connection", socket => {
     });
   }, 30000);
 
-  // --- Player hareketi ---
-  socket.on("movePlayer", ({ lobbyId, x, y }) => {
+  // --- Player input (server authoritative movement) ---
+  socket.on("playerInput", ({ lobbyId, dirX, dirY }) => {
     const lobby = lobbies[lobbyId];
-    if(!lobby || !lobby.players[socket.id]) return;
+    if (!lobby || !lobby.players[socket.id] || !lobby.players[socket.id].alive) return;
 
-    lobby.players[socket.id].x = x;
-    lobby.players[socket.id].y = y;
+    const speed = 150;
+    const delta = 1/60;
 
-    socket.to(lobbyId).emit("updatePlayerPosition", { id: socket.id, x, y });
+    lobby.players[socket.id].x += dirX * speed * delta;
+    lobby.players[socket.id].y += dirY * speed * delta;
+
+    // sınır kontrolü
+    lobby.players[socket.id].x = Math.max(20, Math.min(1180, lobby.players[socket.id].x));
+    lobby.players[socket.id].y = Math.max(20, Math.min(980, lobby.players[socket.id].y));
+
+    socket.to(lobbyId).emit("updatePlayerPosition", { 
+      id: socket.id, 
+      x: lobby.players[socket.id].x, 
+      y: lobby.players[socket.id].y 
+    });
   });
 
   // --- Toplantı / oylama ---
