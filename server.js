@@ -150,7 +150,7 @@ io.on("connection", socket => {
         else if(c===max){tie=true;}
       });
 
-      if(!elim||tie)return;
+      if(!elim||tie) return;
 
       l.players[elim].alive=false;
 
@@ -193,7 +193,7 @@ function checkGameEnd(id){
 }
 
 setInterval(()=>{
-  Object.values(lobbies).forEach(l=>{
+  Object.entries(lobbies).forEach(([lobbyId,l])=>{
     if(!l.gameStarted)return;
 
     Object.entries(l.players).forEach(([id,p])=>{
@@ -201,19 +201,19 @@ setInterval(()=>{
       const i=l.inputs[id];
       p.x+=i.dirX*PLAYER_SPEED/60;
       p.y+=i.dirY*PLAYER_SPEED/60;
-      io.emit("updatePlayerPosition",{id,x:p.x,y:p.y});
+      io.to(lobbyId).emit("updatePlayerPosition",{id,x:p.x,y:p.y});
     });
   });
 },1000/60);
 
 setInterval(()=>{
-  Object.values(lobbies).forEach(l=>{
+  Object.entries(lobbies).forEach(([lobbyId,l])=>{
     if(!l.gameStarted)return;
     const ok=Object.keys(l.machines).filter(m=>l.machines[m].state==="ok");
     if(!ok.length)return;
     const m=ok[Math.floor(Math.random()*ok.length)];
     l.machines[m].state="bozuk";
-    io.emit("machineBroken",{name:m});
+    io.to(lobbyId).emit("machineBroken",{name:m});
   });
 },30000);
 
