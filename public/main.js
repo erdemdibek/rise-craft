@@ -160,7 +160,7 @@ function create(){
       for(const id in playerSprites){
         if(id===selfId) continue;
         const p=players[id];
-        if(!p || !p.alive || p.role!=="operatör") continue;
+        if(!p || !p.alive || roles[id]!=="operatör") continue;
         const d=Phaser.Math.Distance.Between(playerCircle.x,playerCircle.y,playerSprites[id].x,playerSprites[id].y);
         if(d<closestDist){
           closestDist=d;
