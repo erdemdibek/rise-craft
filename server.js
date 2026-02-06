@@ -100,7 +100,12 @@ io.on("connection", socket => {
     }
 
     target.alive = false;
-    io.to(lobbyId).emit("playerKilled",{ targetId });
+
+io.to(lobbyId).emit("playerKilled",{
+  targetId,
+  x: target.x,
+  y: target.y
+});
     io.to(lobbyId).emit("log",{ text: `${target.name} öldürüldü!` });
 
     checkGameEnd(lobbyId);
