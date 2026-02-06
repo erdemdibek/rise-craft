@@ -212,4 +212,30 @@ function update(){
   // Update names
   for(const id in playerSprites){ nameTexts[id].setPosition(playerSprites[id].x,playerSprites[id].y-30); }
   for(const name of Object.keys(machineSprites)){ machineSprites[name].nameText.setPosition(machineSprites[name].x,machineSprites[name].y-30); }
+
+// --- ÖLDÜR BUTONU MESAFE KONTROLÜ ---
+if (playerRole === "hain") {
+  let canKill = false;
+
+  for (const id in playerSprites) {
+    if (id === selfId) continue;
+    if (!players[id].alive) continue;
+
+    const p = playerSprites[id];
+    const dist = Phaser.Math.Distance.Between(
+      playerCircle.x,
+      playerCircle.y,
+      p.x,
+      p.y
+    );
+
+    if (dist < 60) {
+      canKill = true;
+      break;
+    }
+  }
+
+  phaserScene.killBtn.setVisible(canKill);
 }
+}
+
