@@ -122,7 +122,13 @@ io.on("connection", socket => {
   socket.on("repairMachine",({lobbyId,name})=>{
     const l=lobbies[lobbyId];
     if(!l||l.roles[socket.id]!=="operatör")return;
-    l.machines[name].state="ok";
+
+    const p=l.players[socket.id];
+    const m=l.machines[name];
+    const dist = Math.hypot(p.x-m.x, p.y-m.y);
+    if(dist>80 || m.state==="ok") return; // sadece yakın ve bozuk makineler
+
+    m.state="ok";
     io.to(lobbyId).emit("machineRepaired",{name});
   });
 
