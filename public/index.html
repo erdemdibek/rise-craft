@@ -8,44 +8,76 @@
 <style>
 html,body{
   margin:0;padding:0;width:100%;height:100%;
-  background:#111;color:#fff;overflow:hidden;font-family:sans-serif
+  background:#111;color:#fff;overflow:hidden;
+  font-family:sans-serif
 }
 canvas{position:absolute;top:0;left:0}
 
-/* UI */
+/* LOBBY */
 #lobby{
-  position:fixed;inset:0;background:#000e;
+  position:fixed;inset:0;
+  background:#000e;
   display:flex;flex-direction:column;
   align-items:center;justify-content:center;
   z-index:100
 }
-#status{
-  position:fixed;top:10px;left:10px;
-  background:#000c;padding:6px 10px;
-  border:1px solid #666;z-index:50
-}
+
+/* UI */
+#status{position:fixed;top:10px;left:10px;background:#000c;padding:6px 10px;border:1px solid #666;z-index:50}
+#roleBox{position:fixed;top:50px;left:10px;background:#000c;padding:6px 10px;border:1px solid #666;display:none;z-index:60}
+
+/* MINI MAP */
 #miniMap{
-  position:fixed;top:10px;right:10px;
+  position:fixed;
+  top:10px;right:10px;
   width:200px;height:120px;
-  background:#0009;border:1px solid #555;z-index:50
+  background:#0009;
+  border:1px solid #555;
+  z-index:50
 }
+
+/* LOG */
 #log{
-  position:fixed;bottom:10px;right:10px;
-  width:260px;background:rgba(0,0,0,.45);
-  padding:8px;border-radius:8px;
-  font-size:12px;z-index:60;pointer-events:none
+  position:fixed;
+  bottom:10px;right:10px;
+  width:260px;
+  background:rgba(0,0,0,.45);
+  padding:8px;
+  border-radius:8px;
+  font-size:12px;
+  z-index:60;
+  pointer-events:none
 }
-.logItem{opacity:1;transition:opacity 1s;margin-bottom:4px}
-#roleBox{
-  position:fixed;top:50px;left:10px;
-  background:#000c;padding:6px 10px;
-  border:1px solid #666;z-index:60;display:none
-}
+.logItem{margin-bottom:4px;opacity:1;transition:opacity 1s}
+
+/* KILL */
 #killBtn{
-  position:fixed;bottom:20px;right:20px;
-  width:80px;height:80px;border-radius:50%;
-  background:#a00;color:#fff;border:none;
-  display:none;z-index:80
+  position:fixed;
+  bottom:120px;right:20px;
+  width:80px;height:80px;
+  border-radius:50%;
+  background:#a00;color:#fff;
+  border:none;
+  display:none;
+  z-index:80
+}
+
+/* JOYSTICK */
+#joy{
+  position:fixed;
+  bottom:20px;left:20px;
+  width:120px;height:120px;
+  border-radius:50%;
+  background:rgba(255,255,255,.1);
+  z-index:90;
+  touch-action:none
+}
+#stick{
+  position:absolute;
+  left:40px;top:40px;
+  width:40px;height:40px;
+  border-radius:50%;
+  background:#fff
 }
 </style>
 </head>
@@ -55,46 +87,31 @@ canvas{position:absolute;top:0;left:0}
 <!-- LOBBY -->
 <div id="lobby">
   <input id="name" placeholder="İsmin">
-  <button id="joinBtn">Katıl</button>
-  <button id="readyBtn" style="display:none">Hazır</button>
-  <button id="startBtn" style="display:none">Başlat</button>
+  <button onclick="join()">Katıl</button>
+  <button id="readyBtn" onclick="ready()" style="display:none">Hazır</button>
+  <button id="startBtn" onclick="start()" style="display:none">Başlat</button>
   <div id="players"></div>
 </div>
 
 <!-- UI -->
 <div id="status">Canlı: <span id="alive">0</span></div>
 <div id="roleBox">ROL: <span id="roleText"></span></div>
-<button id="killBtn">ÖLDÜR</button>
+<button id="killBtn" onclick="kill()">ÖLDÜR</button>
 
+<!-- GAME -->
 <canvas id="game"></canvas>
 <canvas id="miniMap"></canvas>
+
+<!-- JOYSTICK -->
+<div id="joy">
+  <div id="stick"></div>
+</div>
+
+<!-- LOG -->
 <div id="log"></div>
 
 <script src="/socket.io/socket.io.js"></script>
 <script>
-/* DOM */
-const lobby = document.getElementById("lobby");
-const joinBtn = document.getElementById("joinBtn");
-const readyBtn = document.getElementById("readyBtn");
-const startBtn = document.getElementById("startBtn");
-const playersDiv = document.getElementById("players");
-const nameInput = document.getElementById("name");
-const aliveSpan = document.getElementById("alive");
-const roleBox = document.getElementById("roleBox");
-const roleText = document.getElementById("roleText");
-const killBtn = document.getElementById("killBtn");
-
-const game = document.getElementById("game");
-const g = game.getContext("2d");
-
-const mini = document.getElementById("miniMap");
-const m = mini.getContext("2d");
-
-/* STATE */
-let players = [];
-let me = null;
-
-/* SOCKET */
 const socket = io();
 
 /* LOG */
@@ -109,99 +126,67 @@ function log(msg){
 }
 socket.on("log",log);
 
-/* LOBBY EVENTS */
-joinBtn.onclick = ()=>{
-  const n=nameInput.value.trim();
+/* LOBBY */
+function join(){
+  const n=document.getElementById("name").value.trim();
   if(!n) return;
   socket.emit("join",n);
-};
+  document.getElementById("readyBtn").style.display="inline";
+}
+function ready(){socket.emit("ready")}
+function start(){socket.emit("start")}
 
-readyBtn.onclick = ()=> socket.emit("ready");
-startBtn.onclick = ()=> socket.emit("start");
-
-/* SERVER ONAY */
-socket.on("joined",()=>{
-  joinBtn.style.display="none";
-  readyBtn.style.display="inline";
-});
-
-/* LOBBY UPDATE */
-socket.on("lobby",data=>{
-  playersDiv.innerHTML="";
-  data.players.forEach(p=>{
-    playersDiv.innerHTML +=
-      `${p.name} ${p.ready?"✔️":"❌"} ${p.admin?"(Admin)":""}<br>`;
+socket.on("lobby",d=>{
+  const div=document.getElementById("players");
+  div.innerHTML="";
+  d.players.forEach(p=>{
+    div.innerHTML+=`${p.name} ${p.ready?"✔️":"❌"} ${p.admin?"(Admin)":""}<br>`;
     if(p.id===socket.id && p.admin)
-      startBtn.style.display = data.canStart?"inline":"none";
+      document.getElementById("startBtn").style.display=d.canStart?"inline":"none";
   });
 });
 
 /* GAME */
 socket.on("gameStarted",()=>{
-  lobby.style.display="none";
-  log("🎮 Oyun başladı");
+  document.getElementById("lobby").style.display="none";
 });
-
 socket.on("role",r=>{
-  roleBox.style.display="block";
-  roleText.textContent=r;
-  killBtn.style.display = r==="Hain"?"block":"none";
+  document.getElementById("roleBox").style.display="block";
+  document.getElementById("roleText").textContent=r;
+  document.getElementById("killBtn").style.display = r==="Hain"?"block":"none";
+});
+socket.on("state",s=>{
+  document.getElementById("alive").textContent=s.players.filter(p=>p.alive).length;
 });
 
-/* STATE */
-socket.on("state",s=>{
-  players = s.players;
-  me = players.find(p=>p.id===socket.id);
-  aliveSpan.textContent = players.filter(p=>p.alive).length;
-  draw();
+/* JOYSTICK */
+const joy=document.getElementById("joy");
+const stick=document.getElementById("stick");
+let dragging=false;
+
+joy.addEventListener("touchstart",()=>dragging=true);
+joy.addEventListener("touchend",()=>{
+  dragging=false;
+  stick.style.left="40px";stick.style.top="40px";
+});
+joy.addEventListener("touchmove",e=>{
+  if(!dragging) return;
+  const r=60;
+  const t=e.touches[0];
+  const rect=joy.getBoundingClientRect();
+  let x=t.clientX-rect.left-r;
+  let y=t.clientY-rect.top-r;
+  const d=Math.hypot(x,y);
+  if(d>r){x*=r/d;y*=r/d}
+  stick.style.left=40+x+"px";
+  stick.style.top=40+y+"px";
+  socket.emit("move",{dx:x/30,dy:y/30});
 });
 
 /* KILL */
-killBtn.onclick = ()=>{
-  if(!me) return;
-  const target = players.find(p=>p.alive && p.id!==me.id &&
-    Math.hypot(p.x-me.x,p.y-me.y)<60);
-  if(target) socket.emit("kill",target.id);
-};
-
-/* DRAW */
-function draw(){
-  game.width=innerWidth;
-  game.height=innerHeight;
-  g.clearRect(0,0,game.width,game.height);
-
-  if(!me) return;
-
-  players.forEach(p=>{
-    if(!p.alive) return;
-    g.fillStyle=p.color;
-    g.beginPath();
-    g.arc(
-      game.width/2+(p.x-me.x),
-      game.height/2+(p.y-me.y),
-      10,0,Math.PI*2
-    );
-    g.fill();
-  });
-
-  /* MINI MAP */
-  m.clearRect(0,0,mini.width,mini.height);
-  players.forEach(p=>{
-    if(!p.alive) return;
-    m.fillStyle=p.color;
-    m.fillRect(p.x/10,p.y/10,4,4);
-  });
+function kill(){
+  socket.emit("kill",null);
 }
-
-/* MOVE */
-document.addEventListener("keydown",e=>{
-  let dx=0,dy=0;
-  if(e.key==="w") dy=-1;
-  if(e.key==="s") dy=1;
-  if(e.key==="a") dx=-1;
-  if(e.key==="d") dx=1;
-  if(dx||dy) socket.emit("move",{dx,dy});
-});
 </script>
 </body>
 </html>
