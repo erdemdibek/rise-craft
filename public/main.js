@@ -46,11 +46,19 @@ startBtn.onclick = () => socket.emit("startGame",{lobbyId});
 socket.on("lobbyUpdate", l => {
   playersListEl.innerHTML = "";
   let allReady = true;
-  l.players.forEach(p=>{
-    playersListEl.innerHTML += `<div>${p.name} ${l.ready[p.id]?"✔":"❌"}</div>`;
-    if(!l.ready[p.id]) allReady=false;
+
+  l.players.forEach(p => {
+    const readyStatus = l.ready[p.id] === true;
+    playersListEl.innerHTML += `<div>${p.name} ${readyStatus ? "✔" : "❌"}</div>`;
+    if(!readyStatus) allReady = false;
   });
-  startBtn.style.display = (allReady && l.hostId===socket.id) ? "block" : "none";
+
+  // Sadece host ise ve herkes hazırsa göster
+  if(l.hostId === socket.id && allReady) {
+    startBtn.style.display = "block";
+  } else {
+    startBtn.style.display = "none";
+  }
 });
 
 /* ---------------- GAME START ---------------- */
