@@ -24,42 +24,6 @@ const machinePositions = [
 
 let lobbies = {};
 
-/* ---------------- HELPER: LOBBY START COUNTDOWN ---------------- */
-function tryStartCountdown(lobbyId){
-  const l = lobbies[lobbyId];
-  if(!l || l.gameStarted) return;
-
-  const allReady = Object.values(l.ready).every(r=>r);
-  if(!allReady) return;
-
-  if(l.countdownInterval) clearInterval(l.countdownInterval);
-  let timer = 10;
-  l.countdown = timer;
-
-  io.to(lobbyId).emit("countdownUpdate", timer);
-
-  l.countdownInterval = setInterval(()=>{
-    timer--;
-    l.countdown = timer;
-    io.to(lobbyId).emit("countdownUpdate", timer);
-
-    // Eğer yeni biri gelirse / herkes hazır değilse sayımı durdur
-    const stillAllReady = Object.values(l.ready).every(r=>r);
-    if(!stillAllReady){
-      clearInterval(l.countdownInterval);
-      l.countdownInterval = null;
-      io.to(lobbyId).emit("countdownUpdate", null);
-      return;
-    }
-
-    if(timer <= 0){
-      clearInterval(l.countdownInterval);
-      l.countdownInterval = null;
-      startGame(lobbyId);
-    }
-  },1000);
-}
-
 /* ---------------- START GAME ---------------- */
 function startGame(lobbyId){
   const l = lobbies[lobbyId];
@@ -89,9 +53,7 @@ io.on("connection", socket => {
         roles: {},
         inputs: {},
         votes: {},
-        gameStarted: false,
-        countdown: null,
-        countdownInterval: null
+        gameStarted: false
       };
 
       machineNames.forEach((m,i)=>{
@@ -115,14 +77,6 @@ io.on("connection", socket => {
 
     socket.join(lobbyId);
     io.to(lobbyId).emit("lobbyUpdate", getLobbyInfo(lobbyId));
-
-    // Yeni oyuncu gelirse geri sayımı sıfırla
-    const l = lobbies[lobbyId];
-    if(l.countdownInterval){
-      clearInterval(l.countdownInterval);
-      l.countdownInterval = null;
-      io.to(lobbyId).emit("countdownUpdate", null);
-    }
   });
 
   socket.on("setReady", ({ lobbyId }) => {
@@ -130,7 +84,10 @@ io.on("connection", socket => {
     l.ready[socket.id] = true;
     io.to(lobbyId).emit("lobbyUpdate", getLobbyInfo(lobbyId));
 
-    tryStartCountdown(lobbyId);
+    // Eğer herkes hazırsa oyunu başlat
+    if(Object.values(l.ready).every(r=>r) && Object.keys(l.players).length>0){
+      startGame(lobbyId);
+    }
   });
 
   /* ---------------- OYUN EVENTLERİ ---------------- */
@@ -152,7 +109,8 @@ io.on("connection", socket => {
   });
 
   socket.on("repairMachine", ({ lobbyId, name }) => {
-    const l = lobbies[lobbyId]; if(!l||l.roles[socket.id]!=="operatör"||!l.players[socket.id].alive) return;
+    const l = lobbies[lobbyId]; 
+    if(!l||l.roles[socket.id]!=="operatör"||!l.players[socket.id].alive) return;
     const p=l.players[socket.id]; const m=l.machines[name];
     if(Math.hypot(p.x-m.x,p.y-m.y)>80 || m.state==="ok") return;
 
@@ -185,13 +143,6 @@ io.on("connection", socket => {
 
       io.to(lobbyId).emit("playerDisconnected",{id:socket.id});
       io.to(lobbyId).emit("lobbyUpdate", getLobbyInfo(lobbyId));
-
-      // Yeni oyuncu gelirse countdown sıfırlanır
-      if(l.countdownInterval){
-        clearInterval(l.countdownInterval);
-        l.countdownInterval = null;
-        io.to(lobbyId).emit("countdownUpdate", null);
-      }
     }
   });
 
