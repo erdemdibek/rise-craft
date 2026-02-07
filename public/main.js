@@ -10,7 +10,6 @@ let joystick={dirX:0,dirY:0};
 
 // Geri sayım
 let countdown = null;
-let countdownValue = 10;
 let countdownDisplay = document.getElementById("countdown");
 
 // OYLAMA
@@ -57,7 +56,6 @@ socket.on("lobbyUpdate", l => {
     if(!readyStatus) allReady=false;
   });
 
-  // Start button görünürlüğü
   startBtn.style.display="none";
 });
 
@@ -177,10 +175,14 @@ function create(){
     }
   }
 
+  // ----- Makineleri Odalara Göre Oluştur -----
   for(const n in machines){
     const m = machines[n];
-    m.sprite=this.add.rectangle(m.x,m.y,40,40,m.state==="ok"?0x00ff00:0xff0000);
-    m.text=this.add.text(m.x,m.y-30,n,{color:"#fff"}).setOrigin(0.5);
+    m.sprite=this.add.rectangle(m.x,m.y,60,60,m.state==="ok"?0x00ff00:0xff0000);
+    m.text=this.add.text(m.x,m.y-40,n,{color:"#fff"}).setOrigin(0.5);
+
+    // Oda kapısını temsil eden küçük bir kutu (opsiyonel görsel)
+    m.door=this.add.rectangle(m.x,m.y-60,40,10,0xaaaaaa);
   }
 
   // PHASER UI BUTTONS
@@ -313,7 +315,6 @@ function showVoteScreen(playersList){
     startY += buttonHeight + gap;
   });
 
-  // Timer artık sadece görsel amaçlı, server sonucu direkt gönderiyor
   voteTimerText = phaserScene.add.text(w/2,h*0.85,"10",{fontSize:"28px",color:"#fff"})
     .setOrigin(0.5).setScrollFactor(0).setDepth(201);
 }
