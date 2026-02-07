@@ -54,7 +54,7 @@ function tryStartCountdown(lobbyId){
     if(timer <= 0){
       clearInterval(l.countdownInterval);
       l.countdownInterval = null;
-      startGame(lobbyId);
+      startGame(lobbyId); // oyun burada başlar
     }
   },1000);
 }
