@@ -25,7 +25,7 @@ function addLog(text){
   logBar.appendChild(div);
   logBar.scrollTop = logBar.scrollHeight;
 
-  setTimeout(() => { div.remove(); }, 10000); // 10 saniye sonra sil
+  setTimeout(() => { div.remove(); }, 10000);
 }
 
 /* ---------------- LOBBY ---------------- */
@@ -105,6 +105,14 @@ socket.on("voteStart", ({players}) => {
   showVoteScreen(players);
 });
 
+// OYLAMA SONUÇ EVENTİ
+socket.on("voteResult", ({eliminatedId}) => {
+  if(eliminatedId && players[eliminatedId]){
+    handlePlayerDeath(eliminatedId, players[eliminatedId].x, players[eliminatedId].y);
+    addLog(`${players[eliminatedId].name} en çok oyu alarak elendi!`);
+  }
+});
+
 socket.on("addLog", t => addLog(t));
 
 function handlePlayerDeath(targetId,x,y){
@@ -115,7 +123,10 @@ function handlePlayerDeath(targetId,x,y){
   }
   corpseSprites[targetId] = phaserScene.add.text(x,y,"☠️",{fontSize:"32px"}).setOrigin(0.5);
   addLog(`${players[targetId]?.name || "Bir oyuncu"} öldü`);
-  if(targetId===selfId){ isGhost=true; playerCircle.setAlpha(0.3); }
+  if(targetId===selfId){
+    isGhost=true;
+    playerCircle.setAlpha(0.3);
+  }
 }
 
 /* ---------------- PHASER ---------------- */
@@ -203,11 +214,20 @@ function create(){
     joystick.dirX=Math.cos(a); joystick.dirY=Math.sin(a);
     this.joyThumb.setPosition(this.joyBase.x+joystick.dirX*40,this.joyBase.y+joystick.dirY*40);
   });
-  this.input.on("pointerup", ()=>{ this.joyActive=false; joystick.dirX=0; joystick.dirY=0; this.joyThumb.setPosition(this.joyBase.x,this.joyBase.y); });
+  this.input.on("pointerup", ()=>{
+    this.joyActive=false; joystick.dirX=0; joystick.dirY=0;
+    this.joyThumb.setPosition(this.joyBase.x,this.joyBase.y);
+  });
 }
 
 /* ---------------- UPDATE ---------------- */
 function update(){
+  // Ghost hareketini destekle
+  if(playerCircle && isGhost){
+    playerCircle.x += joystick.dirX*2;
+    playerCircle.y += joystick.dirY*2;
+  }
+
   socket.emit("playerInput",{lobbyId,dirX:joystick.dirX,dirY:joystick.dirY});
   this.infoText.setText(`Rol: ${playerRole}${isGhost?" 👻":""}\nKalan: ${Object.values(players).filter(p=>p.alive).length}`);
 
@@ -284,7 +304,11 @@ function showVoteScreen(playersList){
     timer--;
     if(!voteActive){ clearInterval(timerInterval); return; }
     voteTimerText.setText(timer);
-    if(timer<=0){ hideVoteScreen(); clearInterval(timerInterval); }
+    if(timer<=0){
+      hideVoteScreen();
+      clearInterval(timerInterval);
+      socket.emit("endVote",{lobbyId}); // Server’a oylama bittiğini bildir
+    }
   },1000);
 }
 
