@@ -127,7 +127,7 @@ function handlePlayerDeath(targetId,x,y){
 
   corpseSprites[targetId] = phaserScene.add.text(x,y,"☠️",{fontSize:"32px"}).setOrigin(0.5);
 
-  // Log: Hainin ismi gizli
+  // Hainin ismi görünmesin, tek log
   addLog(`Bir oyuncu öldü`);
 
   if(targetId===selfId){
@@ -207,7 +207,15 @@ function create(){
     .setOrigin(0.5).setScrollFactor(0).setDepth(101).setVisible(false);
   meetingBtnBg.setInteractive().on("pointerdown",()=>{
     socket.emit("startVote",{lobbyId});
-    meetingBtnBg.setVisible(false); meetingBtnText.setVisible(false);
+
+    // Haritada cesetleri sil
+    for(const id in corpseSprites){
+      corpseSprites[id].destroy();
+    }
+    corpseSprites = {};
+
+    meetingBtnBg.setVisible(false); 
+    meetingBtnText.setVisible(false);
   });
 
   // JOYSTICK
@@ -288,7 +296,9 @@ function showVoteScreen(playersList){
   let startY = h*0.3;
   for(const id in playersList){
     const p = playersList[id];
-    if(id === selfId) continue;
+
+    // Ölü oyuncular ve kendine oy verme
+    if(id === selfId || !players[id].alive) continue;
 
     const btnBg = phaserScene.add.rectangle(w/2, startY, 200, buttonHeight, 0x0077ff)
       .setOrigin(0.5).setScrollFactor(0).setDepth(201).setInteractive();
