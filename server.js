@@ -149,8 +149,30 @@ function checkGameEnd(id){
   const alive = Object.entries(l.players).filter(([_,p])=>p.alive);
   const h = alive.filter(([id])=>l.roles[id]==="hain");
   const o = alive.filter(([id])=>l.roles[id]==="operatör");
-  if(h.length===0) io.to(id).emit("gameOver",{winner:"Kazanan işçi sınıfı!"});
-  else if(h.length>=o.length) io.to(id).emit("gameOver",{winner:"Hain kazandı"});
+
+  let gameOver = false;
+  let winner = "";
+
+  if(h.length===0){
+    winner = "Kazanan işçi sınıfı!";
+    gameOver = true;
+  }
+  else if(h.length >= o.length){
+    winner = "Hain kazandı";
+    gameOver = true;
+  }
+
+  if(gameOver){
+    io.to(id).emit("gameOver",{winner});
+
+    // Lobiye dönüldüğünde start butonunun çıkması için
+    for(const pid in l.ready) l.ready[pid] = false;       // Hazır durumları sıfırla
+    for(const pid in l.players) l.players[pid].alive = true; // Oyuncuları yeniden canlandır
+
+    io.to(id).emit("lobbyUpdate", getLobbyInfo(id)); // Lobby güncellemesi gönder
+
+    l.gameStarted = false; // Oyunu durdur
+  }
 }
 
 setInterval(()=>{
