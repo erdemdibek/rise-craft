@@ -313,22 +313,10 @@ function showVoteScreen(playersList){
     startY += buttonHeight + gap;
   });
 
+  // Timer artık sadece görsel amaçlı, server sonucu direkt gönderiyor
   voteTimerText = phaserScene.add.text(w/2,h*0.85,"10",{fontSize:"28px",color:"#fff"})
     .setOrigin(0.5).setScrollFactor(0).setDepth(201);
-
-  let timer = 10;
-  const timerInterval = setInterval(()=>{
-    timer--;
-    if(!voteActive){ clearInterval(timerInterval); return; }
-    voteTimerText.setText(timer);
-    if(timer<=0){
-      hideVoteScreen();
-      clearInterval(timerInterval);
-      socket.emit("startVote",{lobbyId}); // server'a oylama bitiş
-    }
-  },1000);
 }
-
 function castVote(targetId){
   socket.emit("castVote",{lobbyId,targetId});
 }
