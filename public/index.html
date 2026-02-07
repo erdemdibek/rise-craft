@@ -26,6 +26,11 @@
     max-height:150px; overflow-y:auto; width:200px; text-align:center;
   }
 
+  #countdown {
+    position:absolute; top:20px; left:50%; transform:translateX(-50%);
+    font-size:48px; color:#ffdd00; font-weight:bold; display:none; z-index:101;
+  }
+
   #logBar {
     position:absolute; bottom:0; left:0; width:100%; max-height:150px;
     overflow-y:auto; background:rgba(0,0,0,0.6); color:#fff;
@@ -45,6 +50,7 @@
   <div id="playersList"></div>
 </div>
 
+<div id="countdown"></div>
 <div id="logBar"></div>
 
 <script src="/socket.io/socket.io.js"></script>
