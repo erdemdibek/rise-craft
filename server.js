@@ -11,7 +11,7 @@ const io = new Server(server, { cors:{origin:"*"} });
 const PORT = 3000;
 const PLAYER_SPEED = 150;
 
-const machineNames = ["Fette 1200","Fette 2200","Fette 3200","Fette Fe55","Korsch XT600","Korsch XL400","Bosch GKF701","Kilian KTP720","Sejong","Fette 2100"];
+const machineNames = ["Fette 1200","Fette 2200","Fette 3200","Fette 3200","Fette Fe55","Korsch XT600","Korsch XL400","Bosch GKF701","Kilian KTP720","Sejong","Fette 2100"];
 const machinePositions = [
   {x:200,y:200},{x:400,y:200},{x:600,y:200},{x:800,y:200},{x:1000,y:200},
   {x:200,y:800},{x:400,y:800},{x:600,y:800},{x:800,y:800},{x:1000,y:800}
@@ -131,8 +131,18 @@ io.on("connection", socket => {
     for(const lobbyId in lobbies){
       const l = lobbies[lobbyId];
       if(l.players[socket.id]){
-        delete l.players[socket.id]; delete l.ready[socket.id]; delete l.inputs[socket.id];
+        delete l.players[socket.id]; 
+        delete l.ready[socket.id]; 
+        delete l.inputs[socket.id];
+
+        // Eğer host gidiyorsa yeni host ata
+        if(l.hostId === socket.id){
+          const remaining = Object.keys(l.players);
+          l.hostId = remaining.length ? remaining[0] : null;
+        }
+
         io.to(lobbyId).emit("playerDisconnected",{id: socket.id});
+        io.to(lobbyId).emit("lobbyUpdate", getLobbyInfo(lobbyId)); // Yeni hostu gönder
       }
     }
   });
