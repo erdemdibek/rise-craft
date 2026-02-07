@@ -117,12 +117,19 @@ socket.on("addLog", t => addLog(t));
 
 function handlePlayerDeath(targetId,x,y){
   if(players[targetId]) players[targetId].alive=false;
+
   if(playerSprites[targetId]){
-    playerSprites[targetId].destroy(); nameTexts[targetId].destroy();
-    delete playerSprites[targetId]; delete nameTexts[targetId];
+    playerSprites[targetId].destroy();
+    nameTexts[targetId].destroy();
+    delete playerSprites[targetId];
+    delete nameTexts[targetId];
   }
+
   corpseSprites[targetId] = phaserScene.add.text(x,y,"☠️",{fontSize:"32px"}).setOrigin(0.5);
-  addLog(`${players[targetId]?.name || "Bir oyuncu"} öldü`);
+
+  // Log: Hainin ismi gizli
+  addLog(`Bir oyuncu öldü`);
+
   if(targetId===selfId){
     isGhost=true;
     playerCircle.setAlpha(0.3);
