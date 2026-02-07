@@ -29,6 +29,13 @@ function addLog(text){
 }
 
 /* ---------------- LOBBY ---------------- */
+const joinBtn = document.getElementById("joinBtn");
+const readyBtn = document.getElementById("readyBtn");
+const startBtn = document.getElementById("startBtn");
+const nameInput = document.getElementById("nameInput");
+const playersListEl = document.getElementById("playersList");
+const lobby = document.getElementById("lobby");
+
 joinBtn.onclick = () => {
   playerName = nameInput.value || "Player";
   socket.emit("joinLobby",{lobbyId,name:playerName});
@@ -37,13 +44,13 @@ readyBtn.onclick = () => socket.emit("setReady",{lobbyId});
 startBtn.onclick = () => socket.emit("startGame",{lobbyId});
 
 socket.on("lobbyUpdate", l => {
-  playersList.innerHTML = "";
+  playersListEl.innerHTML = "";
   let allReady = true;
   l.players.forEach(p=>{
-    playersList.innerHTML += `<div>${p.name} ${l.ready[p.id]?"✔":"❌"}</div>`;
+    playersListEl.innerHTML += `<div>${p.name} ${l.ready[p.id]?"✔":"❌"}</div>`;
     if(!l.ready[p.id]) allReady=false;
   });
-  startBtn.style.display = (allReady && l.hostId===socket.id)?"block":"none";
+  startBtn.style.display = (allReady && l.hostId===socket.id) ? "block" : "none";
 });
 
 /* ---------------- GAME START ---------------- */
@@ -80,8 +87,8 @@ socket.on("machineRepaired", ({name}) => {
   }
 });
 
-socket.on("playerKilled", ({targetId,x,y}) => { handlePlayerDeath(targetId,x,y); });
-socket.on("playerEliminated", ({targetId,x,y}) => { handlePlayerDeath(targetId,x,y); });
+socket.on("playerKilled", ({targetId,x,y}) => handlePlayerDeath(targetId,x,y));
+socket.on("playerEliminated", ({targetId,x,y}) => handlePlayerDeath(targetId,x,y));
 
 socket.on("gameOver", ({winner}) => { alert(winner); location.reload(); });
 socket.on("playerDisconnected", ({id}) => {
@@ -92,6 +99,7 @@ socket.on("playerDisconnected", ({id}) => {
   }
 });
 
+// OYLAMA EVENT
 socket.on("voteStart", ({players}) => {
   voteActive = true;
   showVoteScreen(players);
@@ -147,11 +155,11 @@ function create(){
     m.text=this.add.text(m.x,m.y-30,n,{color:"#fff"}).setOrigin(0.5);
   }
 
-  /* ---------- PHASER UI BUTTONS ---------- */
+  // PHASER UI BUTTONS
   repairBtnBg=this.add.rectangle(this.scale.width-120,this.scale.height-180,160,50,0x00aa00)
     .setScrollFactor(0).setDepth(100).setVisible(false);
-  repairBtnText=this.add.text(this.scale.width-120,this.scale.height-180,"TAMİR ET",
-    {fontSize:"18px",color:"#fff"}).setOrigin(0.5).setScrollFactor(0).setDepth(101).setVisible(false);
+  repairBtnText=this.add.text(this.scale.width-120,this.scale.height-180,"TAMİR ET",{fontSize:"18px",color:"#fff"})
+    .setOrigin(0.5).setScrollFactor(0).setDepth(101).setVisible(false);
   repairBtnBg.setInteractive().on("pointerdown",()=>{
     for(const n in machines){
       const m=machines[n];
@@ -163,8 +171,8 @@ function create(){
 
   killBtnBg=this.add.rectangle(this.scale.width-120,this.scale.height-120,160,50,0xaa0000)
     .setScrollFactor(0).setDepth(100).setVisible(false);
-  killBtnText=this.add.text(this.scale.width-120,this.scale.height-120,"ÖLDÜR",
-    {fontSize:"18px",color:"#fff"}).setOrigin(0.5).setScrollFactor(0).setDepth(101).setVisible(false);
+  killBtnText=this.add.text(this.scale.width-120,this.scale.height-120,"ÖLDÜR",{fontSize:"18px",color:"#fff"})
+    .setOrigin(0.5).setScrollFactor(0).setDepth(101).setVisible(false);
   killBtnBg.setInteractive().on("pointerdown",()=>{
     for(const id in players){
       const p=players[id];
@@ -177,14 +185,14 @@ function create(){
 
   meetingBtnBg=this.add.rectangle(this.scale.width-120,this.scale.height-60,160,50,0x0000aa)
     .setScrollFactor(0).setDepth(100).setVisible(false);
-  meetingBtnText=this.add.text(this.scale.width-120,this.scale.height-60,"TOPLANTI",
-    {fontSize:"18px",color:"#fff"}).setOrigin(0.5).setScrollFactor(0).setDepth(101).setVisible(false);
+  meetingBtnText=this.add.text(this.scale.width-120,this.scale.height-60,"TOPLANTI",{fontSize:"18px",color:"#fff"})
+    .setOrigin(0.5).setScrollFactor(0).setDepth(101).setVisible(false);
   meetingBtnBg.setInteractive().on("pointerdown",()=>{
     socket.emit("startVote",{lobbyId});
     meetingBtnBg.setVisible(false); meetingBtnText.setVisible(false);
   });
 
-  /* ---------- JOYSTICK ---------- */
+  // JOYSTICK
   const h = this.scale.height;
   this.joyBase=this.add.circle(90,h-90,55,0x000000,0.4).setScrollFactor(0);
   this.joyThumb=this.add.circle(90,h-90,25,0xffffff,0.8).setScrollFactor(0);
@@ -207,7 +215,7 @@ function update(){
   killBtnBg.setVisible(false); killBtnText.setVisible(false);
   meetingBtnBg.setVisible(false); meetingBtnText.setVisible(false);
 
-  // repair button
+  // repair
   if(!isGhost && playerRole==="operatör"){
     for(const n in machines){
       const m=machines[n];
@@ -217,7 +225,7 @@ function update(){
     }
   }
 
-  // kill button
+  // kill
   if(!isGhost && playerRole==="hain"){
     for(const id in players){
       const p=players[id];
@@ -228,7 +236,7 @@ function update(){
     }
   }
 
-  // meeting button
+  // meeting
   if(!isGhost && playerRole==="operatör"){
     for(const id in corpseSprites){
       const c = corpseSprites[id];
@@ -239,23 +247,17 @@ function update(){
   }
 }
 
-/* ---------------- OYLAMA FONKSİYONLARI ---------------- */
+/* ---------------- OYLAMA ---------------- */
 function showVoteScreen(playersList){
   const w = phaserScene.scale.width;
   const h = phaserScene.scale.height;
 
-  // ARKA PLAN
   voteSceneBg = phaserScene.add.rectangle(w/2, h/2, w*0.9, h*0.8, 0x000000, 0.8)
     .setScrollFactor(0).setDepth(200);
+  voteSceneTitle = phaserScene.add.text(w/2, h*0.15, "OY VER", { fontSize:"32px", color:"#fff", fontStyle:"bold" })
+    .setOrigin(0.5).setScrollFactor(0).setDepth(201);
 
-  // BAŞLIK
-  voteSceneTitle = phaserScene.add.text(w/2, h*0.15, "OY VER", {
-    fontSize: "32px", color:"#fff", fontStyle:"bold"
-  }).setOrigin(0.5).setScrollFactor(0).setDepth(201);
-
-  // OY BUTONLARI
-  const buttonHeight = 50;
-  const gap = 20;
+  const buttonHeight = 50, gap = 20;
   let startY = h*0.3;
   for(const id in playersList){
     const p = playersList[id];
@@ -263,37 +265,27 @@ function showVoteScreen(playersList){
 
     const btnBg = phaserScene.add.rectangle(w/2, startY, 200, buttonHeight, 0x0077ff)
       .setOrigin(0.5).setScrollFactor(0).setDepth(201).setInteractive();
-    const btnText = phaserScene.add.text(w/2, startY, p.name, {
-      fontSize:"20px", color:"#fff"
-    }).setOrigin(0.5).setScrollFactor(0).setDepth(202);
+    const btnText = phaserScene.add.text(w/2, startY, p.name, {fontSize:"20px", color:"#fff"})
+      .setOrigin(0.5).setScrollFactor(0).setDepth(202);
 
-    btnBg.on("pointerdown", () => {
-      castVote(id);
-      hideVoteScreen();
+    btnBg.on("pointerdown", ()=>{
+      castVote(id); hideVoteScreen();
     });
 
     voteButtons[id] = {btnBg, btnText};
     startY += buttonHeight + gap;
   }
 
-  // SAYAC
-  voteTimerText = phaserScene.add.text(w/2, h*0.85, "10", {
-    fontSize:"28px", color:"#fff"
-  }).setOrigin(0.5).setScrollFactor(0).setDepth(201);
+  voteTimerText = phaserScene.add.text(w/2, h*0.85, "10", {fontSize:"28px", color:"#fff"})
+    .setOrigin(0.5).setScrollFactor(0).setDepth(201);
 
   let timer = 10;
   const timerInterval = setInterval(()=>{
     timer--;
-    if(!voteActive){
-      clearInterval(timerInterval);
-      return;
-    }
+    if(!voteActive){ clearInterval(timerInterval); return; }
     voteTimerText.setText(timer);
-    if(timer<=0){
-      hideVoteScreen();
-      clearInterval(timerInterval);
-    }
-  }, 1000);
+    if(timer<=0){ hideVoteScreen(); clearInterval(timerInterval); }
+  },1000);
 }
 
 function castVote(targetId){
@@ -301,7 +293,7 @@ function castVote(targetId){
 }
 
 function hideVoteScreen(){
-  voteActive = false;
+  voteActive=false;
   if(voteSceneBg) voteSceneBg.destroy();
   if(voteSceneTitle) voteSceneTitle.destroy();
   if(voteTimerText) voteTimerText.destroy();
