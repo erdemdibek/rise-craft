@@ -20,6 +20,8 @@ function addLog(text){
   div.innerText = text;
   logBar.appendChild(div);
   logBar.scrollTop = logBar.scrollHeight;
+
+  setTimeout(() => { div.remove(); }, 10000); // 10 saniye sonra sil
 }
 
 /* ---------------- LOBBY ---------------- */
