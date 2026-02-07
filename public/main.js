@@ -20,11 +20,21 @@ joinBtn.onclick=()=>{
 readyBtn.onclick=()=>socket.emit("setReady",{lobbyId});
 startBtn.onclick=()=>socket.emit("startGame",{lobbyId});
 
+socket.on("lobbyUpdate",l=>{
+  playersList.innerHTML="";
+  let allReady=true;
+  l.players.forEach(p=>{
+    playersList.innerHTML+=`<div>${p.name} ${l.ready[p.id]?"✔":"❌"}</div>`;
+    if(!l.ready[p.id]) allReady=false;
+  });
+  startBtn.style.display = (allReady && l.hostId===socket.id)?"block":"none";
+});
+
 /* ---------------- GAME START ---------------- */
 socket.on("gameStart",d=>{
   roles=d.roles;
   players=d.players;
-  machines=d.machines; // Server'dan gelen koordinatları kullanıyoruz
+  machines=d.machines;
   selfId=socket.id;
   playerRole=roles[selfId];
   lobby.style.display="none";
@@ -35,9 +45,8 @@ socket.on("gameStart",d=>{
 socket.on("updatePlayerPosition",({id,x,y})=>{
   if(players[id]){
     players[id].x=x; players[id].y=y;
-    if(id===selfId){
-      playerCircle.setPosition(x,y);
-    }else if(playerSprites[id]){
+    if(id===selfId) playerCircle.setPosition(x,y);
+    else if(playerSprites[id]){
       playerSprites[id].setPosition(x,y);
       nameTexts[id].setPosition(x,y-30);
     }
@@ -59,33 +68,11 @@ socket.on("machineRepaired",({name})=>{
 });
 
 socket.on("playerKilled",({targetId,x,y})=>{
-  if(players[targetId]) players[targetId].alive=false;
-  if(playerSprites[targetId]){
-    playerSprites[targetId].destroy();
-    nameTexts[targetId].destroy();
-    delete playerSprites[targetId];
-    delete nameTexts[targetId];
-  }
-  corpseSprites[targetId]=phaserScene.add.text(x,y,"☠️",{fontSize:"32px"}).setOrigin(0.5);
-  if(targetId===selfId){
-    isGhost=true;
-    playerCircle.setAlpha(0.3);
-  }
+  handlePlayerDeath(targetId,x,y);
 });
 
 socket.on("playerEliminated",({targetId,x,y})=>{
-  if(players[targetId]) players[targetId].alive=false;
-  if(playerSprites[targetId]){
-    playerSprites[targetId].destroy();
-    nameTexts[targetId].destroy();
-    delete playerSprites[targetId];
-    delete nameTexts[targetId];
-  }
-  corpseSprites[targetId]=phaserScene.add.text(x,y,"☠️",{fontSize:"32px"}).setOrigin(0.5);
-  if(targetId===selfId){
-    isGhost=true;
-    playerCircle.setAlpha(0.3);
-  }
+  handlePlayerDeath(targetId,x,y);
 });
 
 socket.on("gameOver",({winner})=>{
@@ -97,11 +84,24 @@ socket.on("playerDisconnected",({id})=>{
   if(players[id]){
     if(playerSprites[id]) playerSprites[id].destroy();
     if(nameTexts[id]) nameTexts[id].destroy();
-    delete players[id];
-    delete playerSprites[id];
-    delete nameTexts[id];
+    delete players[id]; delete playerSprites[id]; delete nameTexts[id];
   }
 });
+
+function handlePlayerDeath(targetId,x,y){
+  if(players[targetId]) players[targetId].alive=false;
+  if(playerSprites[targetId]){
+    playerSprites[targetId].destroy();
+    nameTexts[targetId].destroy();
+    delete playerSprites[targetId];
+    delete nameTexts[targetId];
+  }
+  corpseSprites[targetId]=phaserScene.add.text(x,y,"☠️",{fontSize:"32px"}).setOrigin(0.5);
+  if(targetId===selfId){
+    isGhost=true;
+    playerCircle.setAlpha(0.3);
+  }
+}
 
 /* ---------------- PHASER ---------------- */
 function startGame(){
@@ -150,8 +150,7 @@ function create(){
   repairBtnBg.setInteractive().on("pointerdown",()=>{
     for(const n in machines){
       const m=machines[n];
-      if(m.state==="bozuk" &&
-        Phaser.Math.Distance.Between(playerCircle.x,playerCircle.y,m.x,m.y)<80){
+      if(m.state==="bozuk" && Phaser.Math.Distance.Between(playerCircle.x,playerCircle.y,m.x,m.y)<80){
         socket.emit("repairMachine",{lobbyId,name:n});
         break;
       }
@@ -166,8 +165,7 @@ function create(){
   killBtnBg.setInteractive().on("pointerdown",()=>{
     for(const id in players){
       const p=players[id];
-      if(p.alive && roles[id]==="operatör" &&
-        Phaser.Math.Distance.Between(playerCircle.x,playerCircle.y,p.x,p.y)<80){
+      if(p.alive && roles[id]==="operatör" && Phaser.Math.Distance.Between(playerCircle.x,playerCircle.y,p.x,p.y)<80){
         socket.emit("killPlayer",{lobbyId,targetId:id});
         break;
       }
@@ -187,8 +185,7 @@ function create(){
   this.input.on("pointermove",p=>{
     if(!this.joyActive)return;
     const a=Math.atan2(p.y-this.joyBase.y,p.x-this.joyBase.x);
-    joystick.dirX=Math.cos(a);
-    joystick.dirY=Math.sin(a);
+    joystick.dirX=Math.cos(a); joystick.dirY=Math.sin(a);
     this.joyThumb.setPosition(this.joyBase.x+joystick.dirX*40,this.joyBase.y+joystick.dirY*40);
   });
 
@@ -201,7 +198,6 @@ function create(){
 
 function update(){
   socket.emit("playerInput",{lobbyId,dirX:joystick.dirX,dirY:joystick.dirY});
-
   this.infoText.setText(`Rol: ${playerRole}${isGhost?" 👻":""}\nKalan: ${Object.values(players).filter(p=>p.alive).length}`);
 
   repairBtnBg.setVisible(false); repairBtnText.setVisible(false);
@@ -210,11 +206,8 @@ function update(){
   if(!isGhost && playerRole==="operatör"){
     for(const n in machines){
       const m=machines[n];
-      if(m.state==="bozuk" &&
-        Phaser.Math.Distance.Between(playerCircle.x,playerCircle.y,m.x,m.y)<80){
-        repairBtnBg.setVisible(true);
-        repairBtnText.setVisible(true);
-        break;
+      if(m.state==="bozuk" && Phaser.Math.Distance.Between(playerCircle.x,playerCircle.y,m.x,m.y)<80){
+        repairBtnBg.setVisible(true); repairBtnText.setVisible(true); break;
       }
     }
   }
@@ -222,37 +215,9 @@ function update(){
   if(!isGhost && playerRole==="hain"){
     for(const id in players){
       const p=players[id];
-      if(p.alive && roles[id]==="operatör" &&
-        Phaser.Math.Distance.Between(playerCircle.x,playerCircle.y,p.x,p.y)<80){
-        killBtnBg.setVisible(true);
-        killBtnText.setVisible(true);
-        break;
+      if(p.alive && roles[id]==="operatör" && Phaser.Math.Distance.Between(playerCircle.x,playerCircle.y,p.x,p.y)<80){
+        killBtnBg.setVisible(true); killBtnText.setVisible(true); break;
       }
     }
   }
-}
-
-/* ---------------- UI ---------------- */
-function showVote(list){
-  if(isGhost)return;
-  const d=document.createElement("div");
-  d.className="vote";
-  list.forEach(p=>{
-    const b=document.createElement("button");
-    b.innerText=p.name;
-    b.onclick=()=>{
-      socket.emit("castVote",{lobbyId,targetId:p.id});
-      d.remove();
-    };
-    d.appendChild(b);
-  });
-  document.body.appendChild(d);
-}
-
-function addLog(t){
-  const l=document.getElementById("log");
-  const e=document.createElement("div");
-  e.innerText=t;
-  l.appendChild(e);
-  setTimeout(()=>e.remove(),10000);
 }
