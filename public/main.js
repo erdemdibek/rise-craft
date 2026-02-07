@@ -8,6 +8,11 @@ let phaserScene, playerCircle;
 let playerSprites={}, corpseSprites={}, nameTexts={};
 let joystick={dirX:0,dirY:0};
 
+// Geri sayım için
+let countdown = null;
+let countdownValue = 10;
+let countdownDisplay = document.getElementById("countdown"); // Lobby HTML içinde bir <div id="countdown"></div> olmalı
+
 // OYLAMA İÇİN GLOBAL DEĞİŞKENLER
 let voteSceneBg, voteSceneTitle, voteButtons = {}, voteTimerText;
 let voteActive = false;
@@ -53,12 +58,33 @@ socket.on("lobbyUpdate", l => {
     if(!readyStatus) allReady = false;
   });
 
-  // Sadece host ise ve herkes hazırsa göster
-  if(l.hostId === socket.id && allReady) {
-    startBtn.style.display = "block";
+  // Sayım mantığı
+  if(allReady && l.players.length > 0){
+    if(countdown === null){
+      countdownValue = 10;
+      countdownDisplay.style.display = "block";
+      countdownDisplay.innerText = countdownValue;
+      countdown = setInterval(()=>{
+        countdownValue--;
+        countdownDisplay.innerText = countdownValue;
+        if(countdownValue <= 0){
+          clearInterval(countdown);
+          countdown = null;
+          countdownDisplay.style.display = "none";
+          socket.emit("startGame",{lobbyId}); // otomatik başlat
+        }
+      },1000);
+    }
   } else {
-    startBtn.style.display = "none";
+    if(countdown !== null){
+      clearInterval(countdown);
+      countdown = null;
+      countdownDisplay.style.display = "none";
+    }
   }
+
+  // Sadece host gösterimi kaldırılacak, startBtn artık ihtiyaca göre gizle/göster olabilir
+  startBtn.style.display = "none";
 });
 
 /* ---------------- GAME START ---------------- */
@@ -66,6 +92,7 @@ socket.on("gameStart", d=>{
   roles = d.roles; players = d.players; machines = d.machines;
   selfId = socket.id; playerRole = roles[selfId];
   lobby.style.display="none";
+  countdownDisplay.style.display = "none"; // gizle
   startGame();
 });
 
