@@ -142,16 +142,24 @@ io.on("connection", socket => {
   });
 
   socket.on("killPlayer", ({ lobbyId, targetId }) => {
-    const l = lobbies[lobbyId]; if(!l || l.roles[socket.id]!=="hain") return;
-    const killer = l.players[socket.id]; const target = l.players[targetId];
-    if(!killer || !target || !target.alive) return;
-    if(Math.hypot(killer.x-target.x,killer.y-target.y)>80) return;
+  const l = lobbies[lobbyId]; if(!l || l.roles[socket.id]!=="hain") return;
 
-    target.alive = false;
-    io.to(lobbyId).emit("playerKilled",{targetId,x:target.x,y:target.y});
-    io.to(lobbyId).emit("addLog","Bir oyuncu öldü");
-    checkGameEnd(lobbyId);
-  });
+  // Hain cooldown kontrolü
+  if(!l.hainCooldown) l.hainCooldown = {};
+  const lastKill = l.hainCooldown[socket.id] || 0;
+  const now = Date.now();
+  if(now - lastKill < 10000) return; // 10 saniye cooldown
+  l.hainCooldown[socket.id] = now;
+
+  const killer = l.players[socket.id]; const target = l.players[targetId];
+  if(!killer || !target || !target.alive) return;
+  if(Math.hypot(killer.x-target.x,killer.y-target.y)>80) return;
+
+  target.alive = false;
+  io.to(lobbyId).emit("playerKilled",{targetId,x:target.x,y:target.y});
+  io.to(lobbyId).emit("addLog","Bir oyuncu öldü");
+  checkGameEnd(lobbyId);
+});
 
   socket.on("repairMachine", ({ lobbyId, name }) => {
     const l = lobbies[lobbyId]; if(!l||l.roles[socket.id]!=="operatör"||!l.players[socket.id].alive) return;
@@ -236,7 +244,26 @@ function checkGameEnd(id){
     io.to(id).emit("lobbyUpdate",getLobbyInfo(id));
   }
 }
+// ---------------- Makineleri Rastgele Bozma ----------------
+setInterval(() => {
+  for(const lobbyId in lobbies){
+    const l = lobbies[lobbyId];
+    if(!l.gameStarted) continue;
 
+    const machineNames = Object.keys(l.machines);
+    if(machineNames.length === 0) continue;
+
+    // Rastgele bir makineyi seç
+    const mName = machineNames[Math.floor(Math.random() * machineNames.length)];
+    const m = l.machines[mName];
+
+    if(m.state === "ok"){
+      m.state = "bozuk";
+      io.to(lobbyId).emit("machineBroken", { name: mName });
+      io.to(lobbyId).emit("addLog", `${mName} bozuldu!`);
+    }
+  }
+}, 15000); // Her 15 saniyede bir kontrol
 /* ---------------- TICK ---------------- */
 setInterval(()=>{
   for(const id in lobbies){
