@@ -8,16 +8,16 @@ let phaserScene, playerCircle;
 let playerSprites={}, corpseSprites={}, nameTexts={};
 let joystick={dirX:0,dirY:0};
 
-// Geri sayım için
+// Geri sayım
 let countdown = null;
 let countdownValue = 10;
-let countdownDisplay = document.getElementById("countdown"); // Lobby HTML içinde bir <div id="countdown"></div> olmalı
+let countdownDisplay = document.getElementById("countdown");
 
-// OYLAMA İÇİN GLOBAL DEĞİŞKENLER
+// OYLAMA
 let voteSceneBg, voteSceneTitle, voteButtons = {}, voteTimerText;
 let voteActive = false;
 
-// Phaser UI Buttons
+// PHASER UI Buttons
 let repairBtnBg, repairBtnText;
 let killBtnBg, killBtnText;
 let meetingBtnBg, meetingBtnText;
@@ -29,8 +29,7 @@ function addLog(text){
   div.innerText = text;
   logBar.appendChild(div);
   logBar.scrollTop = logBar.scrollHeight;
-
-  setTimeout(() => { div.remove(); }, 10000);
+  setTimeout(()=>div.remove(),10000);
 }
 
 /* ---------------- LOBBY ---------------- */
@@ -46,7 +45,7 @@ joinBtn.onclick = () => {
   socket.emit("joinLobby",{lobbyId,name:playerName});
 };
 readyBtn.onclick = () => socket.emit("setReady",{lobbyId});
-startBtn.onclick = () => socket.emit("startGame",{lobbyId});
+startBtn.onclick = () => socket.emit("startVote",{lobbyId});
 
 socket.on("lobbyUpdate", l => {
   playersListEl.innerHTML = "";
@@ -54,45 +53,44 @@ socket.on("lobbyUpdate", l => {
 
   l.players.forEach(p => {
     const readyStatus = l.ready[p.id] === true;
-    playersListEl.innerHTML += `<div>${p.name} ${readyStatus ? "✔" : "❌"}</div>`;
-    if(!readyStatus) allReady = false;
+    playersListEl.innerHTML += `<div>${p.name} ${readyStatus?"✔":"❌"}</div>`;
+    if(!readyStatus) allReady=false;
   });
 
-  // Sayım mantığı
-  if(allReady && l.players.length > 0){
-    if(countdown === null){
-      countdownValue = 10;
-      countdownDisplay.style.display = "block";
-      countdownDisplay.innerText = countdownValue;
+  // Otomatik sayım
+  if(allReady && l.players.length>0){
+    if(countdown===null){
+      countdownValue=10;
+      countdownDisplay.style.display="block";
+      countdownDisplay.innerText=countdownValue;
       countdown = setInterval(()=>{
         countdownValue--;
         countdownDisplay.innerText = countdownValue;
         if(countdownValue <= 0){
           clearInterval(countdown);
-          countdown = null;
-          countdownDisplay.style.display = "none";
-          socket.emit("startGame",{lobbyId}); // otomatik başlat
+          countdown=null;
+          countdownDisplay.style.display="none";
+          socket.emit("startGame",{lobbyId});
         }
       },1000);
     }
   } else {
-    if(countdown !== null){
+    if(countdown!==null){
       clearInterval(countdown);
-      countdown = null;
-      countdownDisplay.style.display = "none";
+      countdown=null;
+      countdownDisplay.style.display="none";
     }
   }
 
-  // Sadece host gösterimi kaldırılacak, startBtn artık ihtiyaca göre gizle/göster olabilir
-  startBtn.style.display = "none";
+  startBtn.style.display="none";
 });
 
 /* ---------------- GAME START ---------------- */
 socket.on("gameStart", d=>{
-  roles = d.roles; players = d.players; machines = d.machines;
+  roles=d.roles; players=d.players; machines=d.machines;
   selfId = socket.id; playerRole = roles[selfId];
   lobby.style.display="none";
-  countdownDisplay.style.display = "none"; // gizle
+  countdownDisplay.style.display="none";
   startGame();
 });
 
@@ -108,25 +106,23 @@ socket.on("updatePlayerPosition", ({id,x,y})=>{
   }
 });
 
-socket.on("machineBroken", ({name}) => {
+socket.on("machineBroken", ({name})=>{
   if(machines[name]){
     machines[name].state="bozuk";
     machines[name].sprite.setFillStyle(0xff0000);
   }
 });
-
-socket.on("machineRepaired", ({name}) => {
+socket.on("machineRepaired", ({name})=>{
   if(machines[name]){
     machines[name].state="ok";
     machines[name].sprite.setFillStyle(0x00ff00);
   }
 });
 
-socket.on("playerKilled", ({targetId,x,y}) => handlePlayerDeath(targetId,x,y));
-socket.on("playerEliminated", ({targetId,x,y}) => handlePlayerDeath(targetId,x,y));
-
-socket.on("gameOver", ({winner}) => { alert(winner); location.reload(); });
-socket.on("playerDisconnected", ({id}) => {
+socket.on("playerKilled", ({targetId,x,y})=>handlePlayerDeath(targetId,x,y));
+socket.on("playerEliminated", ({targetId,x,y})=>handlePlayerDeath(targetId,x,y));
+socket.on("gameOver", ({winner})=>{ alert(winner); location.reload(); });
+socket.on("playerDisconnected", ({id})=>{
   if(players[id]){
     if(playerSprites[id]) playerSprites[id].destroy();
     if(nameTexts[id]) nameTexts[id].destroy();
@@ -134,21 +130,19 @@ socket.on("playerDisconnected", ({id}) => {
   }
 });
 
-// OYLAMA EVENT
-socket.on("voteStart", ({players}) => {
-  voteActive = true;
+socket.on("voteStart", ({players})=>{
+  voteActive=true;
   showVoteScreen(players);
 });
 
-// OYLAMA SONUÇ EVENTİ
-socket.on("voteResult", ({eliminatedId}) => {
+socket.on("voteResult", ({eliminatedId})=>{
   if(eliminatedId && players[eliminatedId]){
     handlePlayerDeath(eliminatedId, players[eliminatedId].x, players[eliminatedId].y);
     addLog(`${players[eliminatedId].name} en çok oyu alarak elendi!`);
   }
 });
 
-socket.on("addLog", t => addLog(t));
+socket.on("addLog", t=>addLog(t));
 
 function handlePlayerDeath(targetId,x,y){
   if(players[targetId]) players[targetId].alive=false;
@@ -161,8 +155,6 @@ function handlePlayerDeath(targetId,x,y){
   }
 
   corpseSprites[targetId] = phaserScene.add.text(x,y,"☠️",{fontSize:"32px"}).setOrigin(0.5);
-
-  // Hainin ismi görünmesin, tek log
   addLog(`Bir oyuncu öldü`);
 
   if(targetId===selfId){
@@ -182,17 +174,15 @@ function startGame(){
 }
 
 function create(){
-  phaserScene=this; this.cameras.main.setBackgroundColor("#2b2b2b");
+  phaserScene=this;
+  this.cameras.main.setBackgroundColor("#2b2b2b");
 
-  // INFO TEXT
   this.infoText=this.add.text(10,10,"",{fontSize:"16px",color:"#fff"}).setScrollFactor(0);
 
-  // PLAYER
   const me=players[selfId];
   playerCircle=this.add.circle(me.x,me.y,20,0x00ff00);
   this.cameras.main.startFollow(playerCircle);
 
-  // OTHER PLAYERS
   for(const id in players){
     if(id!==selfId && players[id].alive){
       const p = players[id];
@@ -201,7 +191,6 @@ function create(){
     }
   }
 
-  // MACHINES
   for(const n in machines){
     const m = machines[n];
     m.sprite=this.add.rectangle(m.x,m.y,40,40,m.state==="ok"?0x00ff00:0xff0000);
@@ -242,14 +231,9 @@ function create(){
     .setOrigin(0.5).setScrollFactor(0).setDepth(101).setVisible(false);
   meetingBtnBg.setInteractive().on("pointerdown",()=>{
     socket.emit("startVote",{lobbyId});
-
-    // Haritada cesetleri sil
-    for(const id in corpseSprites){
-      corpseSprites[id].destroy();
-    }
+    for(const id in corpseSprites) corpseSprites[id].destroy();
     corpseSprites = {};
-
-    meetingBtnBg.setVisible(false); 
+    meetingBtnBg.setVisible(false);
     meetingBtnText.setVisible(false);
   });
 
@@ -272,7 +256,6 @@ function create(){
 
 /* ---------------- UPDATE ---------------- */
 function update(){
-  // Ghost hareketini destekle
   if(playerCircle && isGhost){
     playerCircle.x += joystick.dirX*2;
     playerCircle.y += joystick.dirY*2;
@@ -285,7 +268,6 @@ function update(){
   killBtnBg.setVisible(false); killBtnText.setVisible(false);
   meetingBtnBg.setVisible(false); meetingBtnText.setVisible(false);
 
-  // repair
   if(!isGhost && playerRole==="operatör"){
     for(const n in machines){
       const m=machines[n];
@@ -295,7 +277,6 @@ function update(){
     }
   }
 
-  // kill
   if(!isGhost && playerRole==="hain"){
     for(const id in players){
       const p=players[id];
@@ -306,10 +287,9 @@ function update(){
     }
   }
 
-  // meeting
   if(!isGhost && playerRole==="operatör"){
     for(const id in corpseSprites){
-      const c = corpseSprites[id];
+      const c=corpseSprites[id];
       if(Phaser.Math.Distance.Between(playerCircle.x,playerCircle.y,c.x,c.y)<80){
         meetingBtnBg.setVisible(true); meetingBtnText.setVisible(true); break;
       }
@@ -327,27 +307,27 @@ function showVoteScreen(playersList){
   voteSceneTitle = phaserScene.add.text(w/2, h*0.15, "OY VER", { fontSize:"32px", color:"#fff", fontStyle:"bold" })
     .setOrigin(0.5).setScrollFactor(0).setDepth(201);
 
-  const buttonHeight = 50, gap = 20;
+  const buttonHeight = 50, gap=20;
   let startY = h*0.3;
 
-  // playersList artık array
-  playersList.forEach(p => {
-    if(p.id === selfId) return;
+  playersList.forEach(p=>{
+    if(p.id===selfId) return;
 
-    const btnBg = phaserScene.add.rectangle(w/2, startY, 200, buttonHeight, 0x0077ff)
+    const btnBg = phaserScene.add.rectangle(w/2,startY,200,buttonHeight,0x0077ff)
       .setOrigin(0.5).setScrollFactor(0).setDepth(201).setInteractive();
-    const btnText = phaserScene.add.text(w/2, startY, p.name, {fontSize:"20px", color:"#fff"})
+    const btnText = phaserScene.add.text(w/2,startY,p.name,{fontSize:"20px",color:"#fff"})
       .setOrigin(0.5).setScrollFactor(0).setDepth(202);
 
     btnBg.on("pointerdown", ()=>{
-      castVote(p.id); hideVoteScreen();
+      castVote(p.id);
+      hideVoteScreen();
     });
 
-    voteButtons[p.id] = {btnBg, btnText};
+    voteButtons[p.id]={btnBg, btnText};
     startY += buttonHeight + gap;
   });
 
-  voteTimerText = phaserScene.add.text(w/2, h*0.85, "10", {fontSize:"28px", color:"#fff"})
+  voteTimerText = phaserScene.add.text(w/2,h*0.85,"10",{fontSize:"28px",color:"#fff"})
     .setOrigin(0.5).setScrollFactor(0).setDepth(201);
 
   let timer = 10;
@@ -358,13 +338,13 @@ function showVoteScreen(playersList){
     if(timer<=0){
       hideVoteScreen();
       clearInterval(timerInterval);
-      socket.emit("endVote",{lobbyId}); // Server’a oylama bittiğini bildir
+      socket.emit("startVote",{lobbyId}); // server'a oylama bitiş
     }
   },1000);
 }
 
 function castVote(targetId){
-  socket.emit("castVote",{targetId, lobbyId});
+  socket.emit("castVote",{lobbyId,targetId});
 }
 
 function hideVoteScreen(){
@@ -376,5 +356,5 @@ function hideVoteScreen(){
     voteButtons[id].btnBg.destroy();
     voteButtons[id].btnText.destroy();
   }
-  voteButtons = {};
+  voteButtons={};
 }
