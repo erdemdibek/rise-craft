@@ -54,7 +54,7 @@ io.on("connection", socket => {
   });
 
   socket.on("playerInput", ({ lobbyId, dirX, dirY }) => {
-    const l = lobbies[lobbyId]; if(!l||!l.players[socket.id]) return;
+    const l = lobbies[lobbyId]; if(!l||!l.players[socket.id] || !l.players[socket.id].alive) return;
     l.inputs[socket.id] = { dirX, dirY };
   });
 
@@ -67,13 +67,15 @@ io.on("connection", socket => {
 
     target.alive = false;
     io.to(lobbyId).emit("playerKilled",{ targetId, x: target.x, y: target.y });
-    io.to(lobbyId).emit("addLog",`${killer.name} ${target.name}'i öldürdü`);
+
+    // Hainin ismi loga yazılmaz
+    io.to(lobbyId).emit("addLog","Bir oyuncu öldü");
 
     checkGameEnd(lobbyId);
   });
 
   socket.on("repairMachine", ({ lobbyId, name }) => {
-    const l = lobbies[lobbyId]; if(!l||l.roles[socket.id]!=="operatör") return;
+    const l = lobbies[lobbyId]; if(!l||l.roles[socket.id]!=="operatör" || !l.players[socket.id].alive) return;
     const p = l.players[socket.id]; const m = l.machines[name];
     const dist = Math.hypot(p.x - m.x, p.y - m.y); if(dist>80 || m.state==="ok") return;
 
@@ -103,13 +105,16 @@ io.on("connection", socket => {
         else if(c===max){ tie=true; }
       });
 
-      if(!elim || tie) return;
+      if(!elim || tie){
+        io.to(lobbyId).emit("voteResult", { eliminatedId: null });
+        return;
+      }
 
       const target = l.players[elim];
       if(target){
         target.alive = false;
         io.to(lobbyId).emit("playerEliminated", { targetId: elim, x: target.x, y: target.y });
-        io.to(lobbyId).emit("addLog",`${target.name} oylandı ve elendi!`);
+        io.to(lobbyId).emit("voteResult", { eliminatedId: elim });
       }
 
       checkGameEnd(lobbyId);
@@ -118,7 +123,7 @@ io.on("connection", socket => {
 
   socket.on("castVote", ({ lobbyId, targetId }) => {
     const l = lobbies[lobbyId];
-    if(!l||!l.players[socket.id]?.alive) return;
+    if(!l||!l.players[socket.id]?.alive) return; // Ölüler oy kullanamaz
     l.votes[socket.id] = targetId;
   });
 
@@ -136,7 +141,7 @@ io.on("connection", socket => {
 
 function getLobbyInfo(id){
   const l = lobbies[id];
-  return { hostId: l.hostId, players: Object.entries(l.players).map(([id,p])=>({id,name:p.name})), ready: l.ready };
+  return { hostId: l.hostId, players: Object.entries(l.players).map(([id,p])=>({id,name:p.name, alive: p.alive})), ready: l.ready };
 }
 
 function checkGameEnd(id){
