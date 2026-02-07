@@ -57,32 +57,18 @@ socket.on("lobbyUpdate", l => {
     if(!readyStatus) allReady=false;
   });
 
-  // Otomatik sayım
-  if(allReady && l.players.length>0){
-    if(countdown===null){
-      countdownValue=10;
-      countdownDisplay.style.display="block";
-      countdownDisplay.innerText=countdownValue;
-      countdown = setInterval(()=>{
-        countdownValue--;
-        countdownDisplay.innerText = countdownValue;
-        if(countdownValue <= 0){
-          clearInterval(countdown);
-          countdown=null;
-          countdownDisplay.style.display="none";
-          socket.emit("startGame",{lobbyId});
-        }
-      },1000);
-    }
-  } else {
-    if(countdown!==null){
-      clearInterval(countdown);
-      countdown=null;
-      countdownDisplay.style.display="none";
-    }
-  }
-
+  // Start button görünürlüğü
   startBtn.style.display="none";
+});
+
+/* ---------------- SERVER COUNTDOWN ---------------- */
+socket.on("countdownUpdate", value => {
+  if(value === null){
+    countdownDisplay.style.display = "none";
+  } else {
+    countdownDisplay.style.display = "block";
+    countdownDisplay.innerText = value;
+  }
 });
 
 /* ---------------- GAME START ---------------- */
