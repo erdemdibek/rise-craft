@@ -17,9 +17,18 @@ const machineNames = [
   "Kilian KTP720","Sejong","Fette 2100"
 ];
 
-const machinePositions = [
-  {x:200,y:200},{x:400,y:200},{x:600,y:200},{x:800,y:200},{x:1000,y:200},
-  {x:200,y:800},{x:400,y:800},{x:600,y:800},{x:800,y:800},{x:1000,y:800}
+// ----- Odalar -----
+const rooms = [
+  {id:"room1", x:200, y:200},
+  {id:"room2", x:400, y:200},
+  {id:"room3", x:600, y:200},
+  {id:"room4", x:800, y:200},
+  {id:"room5", x:1000, y:200},
+  {id:"room6", x:200, y:800},
+  {id:"room7", x:400, y:800},
+  {id:"room8", x:600, y:800},
+  {id:"room9", x:800, y:800},
+  {id:"room10", x:1000, y:800},
 ];
 
 let lobbies = {};
@@ -54,7 +63,7 @@ function tryStartCountdown(lobbyId){
     if(timer <= 0){
       clearInterval(l.countdownInterval);
       l.countdownInterval = null;
-      startGame(lobbyId); // oyun burada başlar
+      startGame(lobbyId);
     }
   },1000);
 }
@@ -93,11 +102,13 @@ io.on("connection", socket => {
         countdownInterval: null
       };
 
+      // ----- Makineleri Odalara Yerleştirme -----
       machineNames.forEach((m,i)=>{
         lobbies[lobbyId].machines[m] = {
           state:"ok",
-          x: machinePositions[i].x,
-          y: machinePositions[i].y
+          x: rooms[i].x,
+          y: rooms[i].y,
+          room: rooms[i].id
         };
       });
     }
@@ -130,10 +141,7 @@ io.on("connection", socket => {
     tryStartCountdown(lobbyId);
   });
 
-  // SERVER TARAFINDAN STARTGAME EVENTİ
-  socket.on("startGame", ({ lobbyId }) => {
-    startGame(lobbyId);
-  });
+  socket.on("startGame", ({ lobbyId }) => startGame(lobbyId));
 
   /* ---------------- OYUN EVENTLERİ ---------------- */
   socket.on("playerInput", ({ lobbyId, dirX, dirY }) => {
@@ -142,24 +150,22 @@ io.on("connection", socket => {
   });
 
   socket.on("killPlayer", ({ lobbyId, targetId }) => {
-  const l = lobbies[lobbyId]; if(!l || l.roles[socket.id]!=="hain") return;
+    const l = lobbies[lobbyId]; if(!l || l.roles[socket.id]!=="hain") return;
+    if(!l.hainCooldown) l.hainCooldown = {};
+    const lastKill = l.hainCooldown[socket.id] || 0;
+    const now = Date.now();
+    if(now - lastKill < 10000) return;
+    l.hainCooldown[socket.id] = now;
 
-  // Hain cooldown kontrolü
-  if(!l.hainCooldown) l.hainCooldown = {};
-  const lastKill = l.hainCooldown[socket.id] || 0;
-  const now = Date.now();
-  if(now - lastKill < 10000) return; // 10 saniye cooldown
-  l.hainCooldown[socket.id] = now;
+    const killer = l.players[socket.id]; const target = l.players[targetId];
+    if(!killer || !target || !target.alive) return;
+    if(Math.hypot(killer.x-target.x,killer.y-target.y)>80) return;
 
-  const killer = l.players[socket.id]; const target = l.players[targetId];
-  if(!killer || !target || !target.alive) return;
-  if(Math.hypot(killer.x-target.x,killer.y-target.y)>80) return;
-
-  target.alive = false;
-  io.to(lobbyId).emit("playerKilled",{targetId,x:target.x,y:target.y});
-  io.to(lobbyId).emit("addLog","Bir oyuncu öldü");
-  checkGameEnd(lobbyId);
-});
+    target.alive = false;
+    io.to(lobbyId).emit("playerKilled",{targetId,x:target.x,y:target.y});
+    io.to(lobbyId).emit("addLog","Bir oyuncu öldü");
+    checkGameEnd(lobbyId);
+  });
 
   socket.on("repairMachine", ({ lobbyId, name }) => {
     const l = lobbies[lobbyId]; if(!l||l.roles[socket.id]!=="operatör"||!l.players[socket.id].alive) return;
@@ -244,6 +250,7 @@ function checkGameEnd(id){
     io.to(id).emit("lobbyUpdate",getLobbyInfo(id));
   }
 }
+
 // ---------------- Makineleri Rastgele Bozma ----------------
 setInterval(() => {
   for(const lobbyId in lobbies){
@@ -253,7 +260,6 @@ setInterval(() => {
     const machineNames = Object.keys(l.machines);
     if(machineNames.length === 0) continue;
 
-    // Rastgele bir makineyi seç
     const mName = machineNames[Math.floor(Math.random() * machineNames.length)];
     const m = l.machines[mName];
 
@@ -263,8 +269,8 @@ setInterval(() => {
       io.to(lobbyId).emit("addLog", `${mName} bozuldu!`);
     }
   }
-}, 15000); // Her 15 saniyede bir kontrol
-/* ---------------- TICK ---------------- */
+}, 15000);
+
 setInterval(()=>{
   for(const id in lobbies){
     const l=lobbies[id]; if(!l.gameStarted) continue;
