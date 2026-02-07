@@ -294,11 +294,10 @@ function showVoteScreen(playersList){
 
   const buttonHeight = 50, gap = 20;
   let startY = h*0.3;
-  for(const id in playersList){
-    const p = playersList[id];
 
-    // Ölü oyuncular ve kendine oy verme
-    if(id === selfId || !players[id].alive) continue;
+  // playersList artık array
+  playersList.forEach(p => {
+    if(p.id === selfId) return;
 
     const btnBg = phaserScene.add.rectangle(w/2, startY, 200, buttonHeight, 0x0077ff)
       .setOrigin(0.5).setScrollFactor(0).setDepth(201).setInteractive();
@@ -306,12 +305,12 @@ function showVoteScreen(playersList){
       .setOrigin(0.5).setScrollFactor(0).setDepth(202);
 
     btnBg.on("pointerdown", ()=>{
-      castVote(id); hideVoteScreen();
+      castVote(p.id); hideVoteScreen();
     });
 
-    voteButtons[id] = {btnBg, btnText};
+    voteButtons[p.id] = {btnBg, btnText};
     startY += buttonHeight + gap;
-  }
+  });
 
   voteTimerText = phaserScene.add.text(w/2, h*0.85, "10", {fontSize:"28px", color:"#fff"})
     .setOrigin(0.5).setScrollFactor(0).setDepth(201);
