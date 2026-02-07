@@ -8,6 +8,10 @@ let phaserScene, playerCircle;
 let playerSprites={}, corpseSprites={}, nameTexts={};
 let joystick={dirX:0,dirY:0};
 
+// OYLAMA İÇİN GLOBAL DEĞİŞKENLER
+let voteSceneBg, voteSceneTitle, voteButtons = {}, voteTimerText;
+let voteActive = false;
+
 // Phaser UI Buttons
 let repairBtnBg, repairBtnText;
 let killBtnBg, killBtnText;
@@ -89,8 +93,8 @@ socket.on("playerDisconnected", ({id}) => {
 });
 
 socket.on("voteStart", ({players}) => {
-  meetingBtnBg.setVisible(false); meetingBtnText.setVisible(false);
-  alert("Toplantı başladı! Oy kullanabilirsiniz.");
+  voteActive = true;
+  showVoteScreen(players);
 });
 
 socket.on("addLog", t => addLog(t));
@@ -194,6 +198,7 @@ function create(){
   this.input.on("pointerup", ()=>{ this.joyActive=false; joystick.dirX=0; joystick.dirY=0; this.joyThumb.setPosition(this.joyBase.x,this.joyBase.y); });
 }
 
+/* ---------------- UPDATE ---------------- */
 function update(){
   socket.emit("playerInput",{lobbyId,dirX:joystick.dirX,dirY:joystick.dirY});
   this.infoText.setText(`Rol: ${playerRole}${isGhost?" 👻":""}\nKalan: ${Object.values(players).filter(p=>p.alive).length}`);
@@ -232,4 +237,77 @@ function update(){
       }
     }
   }
+}
+
+/* ---------------- OYLAMA FONKSİYONLARI ---------------- */
+function showVoteScreen(playersList){
+  const w = phaserScene.scale.width;
+  const h = phaserScene.scale.height;
+
+  // ARKA PLAN
+  voteSceneBg = phaserScene.add.rectangle(w/2, h/2, w*0.9, h*0.8, 0x000000, 0.8)
+    .setScrollFactor(0).setDepth(200);
+
+  // BAŞLIK
+  voteSceneTitle = phaserScene.add.text(w/2, h*0.15, "OY VER", {
+    fontSize: "32px", color:"#fff", fontStyle:"bold"
+  }).setOrigin(0.5).setScrollFactor(0).setDepth(201);
+
+  // OY BUTONLARI
+  const buttonHeight = 50;
+  const gap = 20;
+  let startY = h*0.3;
+  for(const id in playersList){
+    const p = playersList[id];
+    if(id === selfId) continue;
+
+    const btnBg = phaserScene.add.rectangle(w/2, startY, 200, buttonHeight, 0x0077ff)
+      .setOrigin(0.5).setScrollFactor(0).setDepth(201).setInteractive();
+    const btnText = phaserScene.add.text(w/2, startY, p.name, {
+      fontSize:"20px", color:"#fff"
+    }).setOrigin(0.5).setScrollFactor(0).setDepth(202);
+
+    btnBg.on("pointerdown", () => {
+      castVote(id);
+      hideVoteScreen();
+    });
+
+    voteButtons[id] = {btnBg, btnText};
+    startY += buttonHeight + gap;
+  }
+
+  // SAYAC
+  voteTimerText = phaserScene.add.text(w/2, h*0.85, "10", {
+    fontSize:"28px", color:"#fff"
+  }).setOrigin(0.5).setScrollFactor(0).setDepth(201);
+
+  let timer = 10;
+  const timerInterval = setInterval(()=>{
+    timer--;
+    if(!voteActive){
+      clearInterval(timerInterval);
+      return;
+    }
+    voteTimerText.setText(timer);
+    if(timer<=0){
+      hideVoteScreen();
+      clearInterval(timerInterval);
+    }
+  }, 1000);
+}
+
+function castVote(targetId){
+  socket.emit("castVote",{targetId, lobbyId});
+}
+
+function hideVoteScreen(){
+  voteActive = false;
+  if(voteSceneBg) voteSceneBg.destroy();
+  if(voteSceneTitle) voteSceneTitle.destroy();
+  if(voteTimerText) voteTimerText.destroy();
+  for(const id in voteButtons){
+    voteButtons[id].btnBg.destroy();
+    voteButtons[id].btnText.destroy();
+  }
+  voteButtons = {};
 }
