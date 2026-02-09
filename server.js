@@ -82,57 +82,39 @@ setInterval(()=>{
       const ai = l.botAI[id];
       ai.think--;
 
-      if(ai.think <= 0){
+      if(ai.think<=0){
         ai.think = 90 + Math.random()*180;
 
-        if(Math.random() < 0.15){
-          ai.state = "idle";
-          ai.idleUntil = Date.now() + (500 + Math.random()*1200);
+        if(Math.random()<0.15){
+          ai.state="idle";
+          ai.idleUntil = Date.now()+500+Math.random()*1200;
           continue;
         }
 
-        if(Math.random() < 0.25){
-          ai.zone = BOT_ZONES[Math.floor(Math.random()*BOT_ZONES.length)];
-        }
-
-        ai.state = "wander";
-        ai.target = {
+        ai.state="wander";
+        ai.target={
           x: ai.zone.x + (Math.random()*2-1)*ai.zone.r,
           y: ai.zone.y + (Math.random()*2-1)*ai.zone.r
         };
       }
 
-      if(ai.state === "idle"){
-        if(Date.now() < ai.idleUntil){
-          l.inputs[id] = {dirX:0,dirY:0};
+      if(ai.state==="idle"){
+        if(Date.now()<ai.idleUntil){
+          l.inputs[id]={dirX:0,dirY:0};
           continue;
-        }else{
-          ai.state = "wander";
         }
-      }
-
-      const nearby = Object.values(l.players)
-        .find(p => p.alive && !p.isBot &&
-          Math.hypot(p.x-bot.x,p.y-bot.y) < 220);
-
-      if(nearby){
-        ai.target.x += (Math.random()*2-1)*120;
-        ai.target.y += (Math.random()*2-1)*120;
       }
 
       const dx = ai.target.x - bot.x;
       const dy = ai.target.y - bot.y;
       const dist = Math.hypot(dx,dy);
 
-      if(dist < 15){
-        l.inputs[id] = {dirX:0,dirY:0};
+      if(dist<15){
+        l.inputs[id]={dirX:0,dirY:0};
         continue;
       }
 
-      l.inputs[id] = {
-        dirX: dx/dist,
-        dirY: dy/dist
-      };
+      l.inputs[id]={dirX:dx/dist,dirY:dy/dist};
     }
   }
 },250);
@@ -144,41 +126,58 @@ function startGame(lobbyId){
 
   fillWithBots(l);
 
-  const ids = Object.keys(l.players).filter(id=>!l.players[id].isBot);
-  const hainId = ids[Math.floor(Math.random()*ids.length)];
+  const humans = Object.keys(l.players).filter(id=>!l.players[id].isBot);
+  const hainId = humans[Math.floor(Math.random()*humans.length)];
 
   Object.keys(l.players).forEach(id=>{
-    if(id===hainId) l.roles[id]="hain";
-    else l.roles[id]="operatör";
+    l.roles[id] = id===hainId ? "hain" : "operatör";
   });
 
   l.gameStarted=true;
-  io.to(lobbyId).emit("gameStart",{
-    roles:l.roles,
-    machines:l.machines,
-    players:l.players
+  io.to(lobbyId).emit("gameStart",{roles:l.roles,players:l.players});
+}
+
+/* ---------------- GAME END ---------------- */
+function endGame(lobbyId,winner){
+  const l = lobbies[lobbyId];
+  if(!l) return;
+
+  l.gameStarted=false;
+
+  io.to(lobbyId).emit("gameEndMessage",{
+    text: winner==="hain" ? "Hain Kazandı!" : "Kazanan işçi sınıfı!"
   });
 }
 
+/* ---------------- RESET ---------------- */
+function resetLobby(lobbyId){
+  const l=lobbies[lobbyId];
+  if(!l) return;
+
+  Object.keys(l.players).forEach(id=>{
+    if(l.players[id].isBot){
+      delete l.players[id];
+      delete l.inputs[id];
+      delete l.roles[id];
+      delete l.ready[id];
+      delete l.botAI[id];
+    }else{
+      l.players[id].alive=true;
+      l.ready[id]=false;
+    }
+  });
+
+  io.to(lobbyId).emit("lobbyUpdate",getLobbyInfo(lobbyId));
+}
+
 /* ---------------- SOCKET ---------------- */
-io.on("connection", socket=>{
+io.on("connection",socket=>{
   socket.on("joinLobby",({lobbyId,name})=>{
     if(!lobbies[lobbyId]){
-      lobbies[lobbyId]={
-        players:{},ready:{},roles:{},inputs:{},
-        machines:{},votes:{},botAI:{},
-        gameStarted:false
-      };
-      machineNames.forEach((m,i)=>{
-        lobbies[lobbyId].machines[m]={
-          state:"ok",x:rooms[i].x,y:rooms[i].y
-        };
-      });
+      lobbies[lobbyId]={players:{},ready:{},roles:{},inputs:{},botAI:{},gameStarted:false};
     }
 
-    lobbies[lobbyId].players[socket.id]={
-      name,alive:true,x:300,y:300
-    };
+    lobbies[lobbyId].players[socket.id]={name,alive:true,x:300,y:300};
     lobbies[lobbyId].ready[socket.id]=false;
     lobbies[lobbyId].inputs[socket.id]={dirX:0,dirY:0};
 
@@ -193,39 +192,21 @@ io.on("connection", socket=>{
     if(Object.values(l.ready).every(r=>r)) startGame(lobbyId);
   });
 
-  socket.on("playerInput",({lobbyId,dirX,dirY})=>{
-    const l=lobbies[lobbyId];
-    if(l.players[socket.id]?.alive)
-      l.inputs[socket.id]={dirX,dirY};
-  });
-
   socket.on("killPlayer",({lobbyId,targetId})=>{
     const l=lobbies[lobbyId];
     if(l.roles[socket.id]!=="hain") return;
 
-    const k=l.players[socket.id];
-    const t=l.players[targetId];
-    if(!k||!t||!t.alive) return;
-    if(Math.hypot(k.x-t.x,k.y-t.y)>80) return;
+    l.players[targetId].alive=false;
 
-    t.alive=false;
-    io.to(lobbyId).emit("playerKilled",{targetId,x:t.x,y:t.y});
+    const aliveH=l.players && Object.keys(l.players).filter(id=>l.players[id].alive && l.roles[id]==="hain");
+    const aliveO=Object.keys(l.players).filter(id=>l.players[id].alive && l.roles[id]==="operatör");
 
-    // ---- GAME END CHECK ----
-    const aliveHain = Object.keys(l.players)
-      .filter(id=>l.players[id].alive && l.roles[id]==="hain");
+    if(aliveH.length===0) endGame(lobbyId,"operatör");
+    if(aliveO.length===0) endGame(lobbyId,"hain");
+  });
 
-    const aliveOps = Object.keys(l.players)
-      .filter(id=>l.players[id].alive && l.roles[id]==="operatör");
-
-    if(aliveHain.length===0){
-      io.to(lobbyId).emit("gameEnd",{winner:"operatör"});
-      l.gameStarted=false;
-    }
-    if(aliveOps.length===0){
-      io.to(lobbyId).emit("gameEnd",{winner:"hain"});
-      l.gameStarted=false;
-    }
+  socket.on("confirmGameEnd",({lobbyId})=>{
+    resetLobby(lobbyId);
   });
 });
 
@@ -233,14 +214,12 @@ io.on("connection", socket=>{
 function getLobbyInfo(id){
   const l=lobbies[id];
   return {
-    players:Object.entries(l.players).map(([id,p])=>({
-      id,name:p.name,alive:p.alive
-    })),
+    players:Object.entries(l.players).map(([id,p])=>({id,name:p.name,alive:p.alive})),
     ready:l.ready
   };
 }
 
-/* ---------------- MOVE TICK ---------------- */
+/* ---------------- MOVE ---------------- */
 setInterval(()=>{
   for(const lid in lobbies){
     const l=lobbies[lid];
