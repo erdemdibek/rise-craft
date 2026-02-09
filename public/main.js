@@ -105,7 +105,17 @@ socket.on("machineRepaired", ({name})=>{
 
 socket.on("playerKilled", ({targetId,x,y})=>handlePlayerDeath(targetId,x,y));
 socket.on("playerEliminated", ({targetId,x,y})=>handlePlayerDeath(targetId,x,y));
-socket.on("gameOver", ({winner})=>{ alert(winner); location.reload(); });
+socket.on("gameEndMessage", data => {
+  // Oyun sonucu mesajı
+  alert(data.text);
+
+  // Server’a "tamam" dedik, lobby’ye dön
+  socket.emit("confirmGameEnd",{ lobbyId });
+
+  // Client tarafında state reset
+  isGhost = false;
+  playerRole = "";
+});
 socket.on("playerDisconnected", ({id})=>{
   if(players[id]){
     if(playerSprites[id]) playerSprites[id].destroy();
