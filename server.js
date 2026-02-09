@@ -10,8 +10,11 @@ const io = new Server(server, { cors:{origin:"*"} });
 
 const PORT = 3000;
 const PLAYER_SPEED = 150;
-const BOT_SPEED = 120;
+const BOT_SPEED = 90;
 const MAX_PLAYERS = 8;
+
+const MAP_W = 1400;
+const MAP_H = 900;
 
 /* ---------------- DATA ---------------- */
 const BOT_NAMES = [
@@ -19,26 +22,31 @@ const BOT_NAMES = [
   "Mert","Oğuz","Kaan","Furkan","Onur","Yusuf","Kerem"
 ];
 
-const MAP = { w:1400, h:1000 };
-
 let lobbies = {};
 
-/* ---------------- BOT HELPERS ---------------- */
+/* ---------------- BOT ---------------- */
 function createBot(lobby){
   const id = "bot_"+Math.random().toString(36).slice(2,8);
   lobby.players[id] = {
     name: BOT_NAMES[Math.floor(Math.random()*BOT_NAMES.length)],
     alive: true,
     isBot: true,
-    x: Math.random()*MAP.w,
-    y: Math.random()*MAP.h
+    x: Math.random()*MAP_W,
+    y: Math.random()*MAP_H
   };
   lobby.ready[id] = true;
   lobby.inputs[id] = { dirX:0, dirY:0 };
   lobby.roles[id] = "operatör";
   lobby.botAI[id] = {
-    target: randomPoint(),
-    think: 0
+    target: randomTarget(),
+    think: 60 + Math.random()*120
+  };
+}
+
+function randomTarget(){
+  return {
+    x: 50 + Math.random()*(MAP_W-100),
+    y: 50 + Math.random()*(MAP_H-100)
   };
 }
 
@@ -48,17 +56,10 @@ function fillWithBots(lobby){
   }
 }
 
-function randomPoint(){
-  return {
-    x: 100 + Math.random()*(MAP.w-200),
-    y: 100 + Math.random()*(MAP.h-200)
-  };
-}
-
-/* ---------------- BOT AI LOOP ---------------- */
+/* ---------------- BOT AI ---------------- */
 setInterval(()=>{
-  for(const lobbyId in lobbies){
-    const l = lobbies[lobbyId];
+  for(const lid in lobbies){
+    const l = lobbies[lid];
     if(!l.gameStarted) continue;
 
     for(const id in l.botAI){
@@ -70,30 +71,21 @@ setInterval(()=>{
 
       if(ai.think <= 0){
         ai.think = 60 + Math.random()*120;
-
-        // %30 tamamen yeni hedef (insan gibi rota değiştirir)
-        if(Math.random() < 0.3){
-          ai.target = randomPoint();
-        }
+        ai.target = randomTarget();
       }
 
       const dx = ai.target.x - bot.x;
       const dy = ai.target.y - bot.y;
       const dist = Math.hypot(dx,dy);
 
-      if(dist < 20){
-        ai.target = randomPoint();
+      if(dist < 10){
         l.inputs[id] = {dirX:0, dirY:0};
-        continue;
+      }else{
+        l.inputs[id] = {dirX:dx/dist, dirY:dy/dist};
       }
-
-      l.inputs[id] = {
-        dirX: dx / dist,
-        dirY: dy / dist
-      };
     }
   }
-},200);
+},250);
 
 /* ---------------- GAME FLOW ---------------- */
 function startGame(lobbyId){
@@ -113,7 +105,6 @@ function startGame(lobbyId){
   io.to(lobbyId).emit("gameStart",{roles:l.roles,players:l.players});
 }
 
-/* ---------------- GAME END CHECK ---------------- */
 function checkGameEnd(lobbyId){
   const l = lobbies[lobbyId];
   if(!l || !l.gameStarted) return;
@@ -124,19 +115,15 @@ function checkGameEnd(lobbyId){
   const aliveO = Object.keys(l.players)
     .filter(id=>l.players[id].alive && l.roles[id]==="operatör");
 
-  if(aliveH.length === 0){
-    endGame(lobbyId,"operatör");
-  } else if(aliveO.length === 0){
-    endGame(lobbyId,"hain");
-  }
+  if(aliveH.length===0) endGame(lobbyId,"operatör");
+  else if(aliveO.length===0) endGame(lobbyId,"hain");
 }
 
 function endGame(lobbyId,winner){
   const l = lobbies[lobbyId];
   if(!l) return;
 
-  l.gameStarted = false;
-
+  l.gameStarted=false;
   io.to(lobbyId).emit("gameEndMessage",{
     text: winner==="hain" ? "Hain Kazandı!" : "Kazanan işçi sınıfı!"
   });
@@ -160,7 +147,7 @@ function resetLobby(lobbyId){
     }
   });
 
-  io.to(lobbyId).emit("lobbyUpdate",getLobbyInfo(lobbyId));
+  io.to(lobbyId).emit("lobbyUpdate", getLobbyInfo(lobbyId));
 }
 
 /* ---------------- SOCKET ---------------- */
@@ -185,12 +172,25 @@ io.on("connection",socket=>{
     if(Object.values(l.ready).every(r=>r)) startGame(lobbyId);
   });
 
+  socket.on("playerInput",({lobbyId,dirX,dirY})=>{
+    const l=lobbies[lobbyId];
+    if(l && l.inputs[socket.id]){
+      l.inputs[socket.id]={dirX,dirY};
+    }
+  });
+
   socket.on("killPlayer",({lobbyId,targetId})=>{
     const l=lobbies[lobbyId];
     if(!l || l.roles[socket.id]!=="hain") return;
     if(!l.players[targetId] || !l.players[targetId].alive) return;
 
-    l.players[targetId].alive = false;
+    l.players[targetId].alive=false;
+    io.to(lobbyId).emit("playerKilled",{
+      targetId,
+      x:l.players[targetId].x,
+      y:l.players[targetId].y
+    });
+
     checkGameEnd(lobbyId);
   });
 
@@ -208,7 +208,7 @@ function getLobbyInfo(id){
   };
 }
 
-/* ---------------- MOVE LOOP ---------------- */
+/* ---------------- MOVE ---------------- */
 setInterval(()=>{
   for(const lid in lobbies){
     const l=lobbies[lid];
@@ -220,9 +220,8 @@ setInterval(()=>{
       const i=l.inputs[id];
       if(!i) continue;
 
-      const speed = p.isBot ? BOT_SPEED : PLAYER_SPEED;
-      p.x += i.dirX * speed / 60;
-      p.y += i.dirY * speed / 60;
+      p.x+=i.dirX*(p.isBot?BOT_SPEED:PLAYER_SPEED)/60;
+      p.y+=i.dirY*(p.isBot?BOT_SPEED:PLAYER_SPEED)/60;
 
       io.to(lid).emit("updatePlayerPosition",{id,x:p.x,y:p.y});
     }
