@@ -30,6 +30,14 @@ const BOT_NAMES = [
   "Mert","Oğuz","Kaan","Furkan","Onur","Yusuf","Kerem"
 ];
 
+const BOT_ZONES = [
+  {x:300,y:300,r:300},
+  {x:700,y:300,r:350},
+  {x:1100,y:500,r:400},
+  {x:500,y:700,r:350},
+  {x:900,y:800,r:300}
+];
+
 let lobbies = {};
 
 /* ---------------- BOT HELPERS ---------------- */
@@ -47,8 +55,10 @@ function createBot(lobby){
   lobby.roles[id] = "operatör";
   lobby.botAI[id] = {
     state:"wander",
+    zone: BOT_ZONES[Math.floor(Math.random()*BOT_ZONES.length)],
     target:{x:lobby.players[id].x,y:lobby.players[id].y},
-    think:0
+    think: 60 + Math.random()*120,
+    idleUntil: 0
   };
 }
 
@@ -72,47 +82,60 @@ setInterval(()=>{
       const ai = l.botAI[id];
       ai.think--;
 
-      if(ai.think<=0){
-        ai.think = 60 + Math.random()*120;
+      if(ai.think <= 0){
+        ai.think = 90 + Math.random()*180;
 
-        const broken = Object.entries(l.machines)
-          .find(([_,m])=>m.state==="bozuk");
+        if(Math.random() < 0.15){
+          ai.state = "idle";
+          ai.idleUntil = Date.now() + (500 + Math.random()*1200);
+          continue;
+        }
 
-        if(broken && Math.random()<0.6){
-          ai.state="repair";
-          ai.target={x:broken[1].x,y:broken[1].y};
-        }else if(Math.random()<0.2){
-          ai.state="idle";
+        if(Math.random() < 0.25){
+          ai.zone = BOT_ZONES[Math.floor(Math.random()*BOT_ZONES.length)];
+        }
+
+        ai.state = "wander";
+        ai.target = {
+          x: ai.zone.x + (Math.random()*2-1)*ai.zone.r,
+          y: ai.zone.y + (Math.random()*2-1)*ai.zone.r
+        };
+      }
+
+      if(ai.state === "idle"){
+        if(Date.now() < ai.idleUntil){
+          l.inputs[id] = {dirX:0,dirY:0};
+          continue;
         }else{
-          ai.state="wander";
-          ai.target={
-            x:200+Math.random()*800,
-            y:200+Math.random()*600
-          };
+          ai.state = "wander";
         }
       }
 
-      if(ai.state==="idle"){
-        l.inputs[id]={dirX:0,dirY:0};
-        continue;
+      const nearby = Object.values(l.players)
+        .find(p => p.alive && !p.isBot &&
+          Math.hypot(p.x-bot.x,p.y-bot.y) < 220);
+
+      if(nearby){
+        ai.target.x += (Math.random()*2-1)*120;
+        ai.target.y += (Math.random()*2-1)*120;
       }
 
       const dx = ai.target.x - bot.x;
       const dy = ai.target.y - bot.y;
       const dist = Math.hypot(dx,dy);
 
-      if(dist<10){
-        l.inputs[id]={dirX:0,dirY:0};
+      if(dist < 15){
+        l.inputs[id] = {dirX:0,dirY:0};
         continue;
       }
 
-      l.inputs[id]={
-        dirX:dx/dist,
-        dirY:dy/dist
+      l.inputs[id] = {
+        dirX: dx/dist,
+        dirY: dy/dist
       };
     }
   }
-},1000);
+},250);
 
 /* ---------------- GAME FLOW ---------------- */
 function startGame(lobbyId){
@@ -187,6 +210,22 @@ io.on("connection", socket=>{
 
     t.alive=false;
     io.to(lobbyId).emit("playerKilled",{targetId,x:t.x,y:t.y});
+
+    // ---- GAME END CHECK ----
+    const aliveHain = Object.keys(l.players)
+      .filter(id=>l.players[id].alive && l.roles[id]==="hain");
+
+    const aliveOps = Object.keys(l.players)
+      .filter(id=>l.players[id].alive && l.roles[id]==="operatör");
+
+    if(aliveHain.length===0){
+      io.to(lobbyId).emit("gameEnd",{winner:"operatör"});
+      l.gameStarted=false;
+    }
+    if(aliveOps.length===0){
+      io.to(lobbyId).emit("gameEnd",{winner:"hain"});
+      l.gameStarted=false;
+    }
   });
 });
 
