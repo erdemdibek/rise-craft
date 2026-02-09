@@ -10,13 +10,10 @@ const io = new Server(server, { cors:{origin:"*"} });
 
 const PORT = 3000;
 const PLAYER_SPEED = 150;
+const BOT_SPEED = 90;
 const MAX_PLAYERS = 8;
 
-const BOT_NAMES = [
-  "Ahmet","Mehmet","Ali","Veli","Can","Mert","Emre","Burak",
-  "Kerem","Onur","Serkan","Oğuz","Tolga","Furkan","Umut"
-];
-
+/* ---------------- DATA ---------------- */
 const machineNames = [
   "Fette 1200","Fette 2200","Fette 3200","Fette Fe55",
   "Korsch XT600","Korsch XL400","Bosch GKF701",
@@ -24,80 +21,115 @@ const machineNames = [
 ];
 
 const rooms = [
-  {id:"room1", x:200, y:200},{id:"room2", x:400, y:200},
-  {id:"room3", x:600, y:200},{id:"room4", x:800, y:200},
-  {id:"room5", x:1000,y:200},{id:"room6", x:200, y:800},
-  {id:"room7", x:400, y:800},{id:"room8", x:600, y:800},
-  {id:"room9", x:800, y:800},{id:"room10",x:1000,y:800},
+  {x:200,y:200},{x:400,y:200},{x:600,y:200},{x:800,y:200},{x:1000,y:200},
+  {x:200,y:800},{x:400,y:800},{x:600,y:800},{x:800,y:800},{x:1000,y:800}
+];
+
+const BOT_NAMES = [
+  "AhmetSulus","Mehmet","Ali","Veli","Can","Emre","MALi","Turgay",
+  "Mert","Oğuz","Kaan","Furkan","Onur","Yusuf","Kerem"
 ];
 
 let lobbies = {};
 
 /* ---------------- BOT HELPERS ---------------- */
-function addBotsIfNeeded(lobbyId){
-  const l = lobbies[lobbyId];
-  if(!l) return;
+function createBot(lobby){
+  const id = "bot_"+Math.random().toString(36).slice(2,8);
+  lobby.players[id] = {
+    name: BOT_NAMES[Math.floor(Math.random()*BOT_NAMES.length)],
+    alive: true,
+    isBot: true,
+    x: 200 + Math.random()*800,
+    y: 200 + Math.random()*600
+  };
+  lobby.ready[id] = true;
+  lobby.inputs[id] = { dirX:0, dirY:0 };
+  lobby.roles[id] = "operatör";
+  lobby.botAI[id] = {
+    state:"wander",
+    target:{x:lobby.players[id].x,y:lobby.players[id].y},
+    think:0
+  };
+}
 
-  const current = Object.keys(l.players).length;
-  const need = MAX_PLAYERS - current;
-  if(need <= 0) return;
-
-  for(let i=0;i<need;i++){
-    const id = "bot_"+Math.random().toString(36).substr(2,9);
-    const name = BOT_NAMES[Math.floor(Math.random()*BOT_NAMES.length)];
-
-    l.players[id] = {
-      name,
-      alive:true,
-      x:200+Math.random()*800,
-      y:200+Math.random()*600,
-      isBot:true
-    };
-    l.ready[id] = true;
-    l.inputs[id] = { dirX:0, dirY:0 };
-    l.roles[id] = "operatör";
+function fillWithBots(lobby){
+  const count = Object.keys(lobby.players).length;
+  for(let i=count;i<MAX_PLAYERS;i++){
+    createBot(lobby);
   }
 }
 
-function botLogic(lobbyId){
-  const l = lobbies[lobbyId];
-  if(!l || !l.gameStarted) return;
+/* ---------------- BOT AI LOOP ---------------- */
+setInterval(()=>{
+  for(const lobbyId in lobbies){
+    const l = lobbies[lobbyId];
+    if(!l.gameStarted) continue;
 
-  for(const id in l.players){
-    const p = l.players[id];
-    if(!p.isBot || !p.alive) continue;
+    for(const id in l.botAI){
+      const bot = l.players[id];
+      if(!bot || !bot.alive) continue;
 
-    // Hareket
-    l.inputs[id].dirX = (Math.random()*2-1)*0.6;
-    l.inputs[id].dirY = (Math.random()*2-1)*0.6;
+      const ai = l.botAI[id];
+      ai.think--;
 
-    // Tamir
-    for(const mName in l.machines){
-      const m = l.machines[mName];
-      if(m.state==="bozuk" && Math.hypot(p.x-m.x,p.y-m.y)<80){
-        m.state="ok";
-        io.to(lobbyId).emit("machineRepaired",{name:mName});
-        io.to(lobbyId).emit("addLog",`${p.name} ${mName} makinesini tamir etti`);
+      if(ai.think<=0){
+        ai.think = 60 + Math.random()*120;
+
+        const broken = Object.entries(l.machines)
+          .find(([_,m])=>m.state==="bozuk");
+
+        if(broken && Math.random()<0.6){
+          ai.state="repair";
+          ai.target={x:broken[1].x,y:broken[1].y};
+        }else if(Math.random()<0.2){
+          ai.state="idle";
+        }else{
+          ai.state="wander";
+          ai.target={
+            x:200+Math.random()*800,
+            y:200+Math.random()*600
+          };
+        }
       }
+
+      if(ai.state==="idle"){
+        l.inputs[id]={dirX:0,dirY:0};
+        continue;
+      }
+
+      const dx = ai.target.x - bot.x;
+      const dy = ai.target.y - bot.y;
+      const dist = Math.hypot(dx,dy);
+
+      if(dist<10){
+        l.inputs[id]={dirX:0,dirY:0};
+        continue;
+      }
+
+      l.inputs[id]={
+        dirX:dx/dist,
+        dirY:dy/dist
+      };
     }
   }
-}
+},1000);
 
-/* ---------------- START GAME ---------------- */
+/* ---------------- GAME FLOW ---------------- */
 function startGame(lobbyId){
   const l = lobbies[lobbyId];
-  if(!l || l.gameStarted) return;
+  if(l.gameStarted) return;
 
-  addBotsIfNeeded(lobbyId);
+  fillWithBots(l);
 
-  const realPlayers = Object.keys(l.players).filter(id=>!l.players[id].isBot);
-  const hainId = realPlayers[Math.floor(Math.random()*realPlayers.length)];
+  const ids = Object.keys(l.players).filter(id=>!l.players[id].isBot);
+  const hainId = ids[Math.floor(Math.random()*ids.length)];
 
-  for(const id in l.players){
-    l.roles[id] = id===hainId ? "hain" : "operatör";
-  }
+  Object.keys(l.players).forEach(id=>{
+    if(id===hainId) l.roles[id]="hain";
+    else l.roles[id]="operatör";
+  });
 
-  l.gameStarted = true;
+  l.gameStarted=true;
   io.to(lobbyId).emit("gameStart",{
     roles:l.roles,
     machines:l.machines,
@@ -105,14 +137,14 @@ function startGame(lobbyId){
   });
 }
 
-/* ---------------- CONNECTION ---------------- */
-io.on("connection", socket => {
-
-  socket.on("joinLobby", ({ lobbyId, name }) => {
+/* ---------------- SOCKET ---------------- */
+io.on("connection", socket=>{
+  socket.on("joinLobby",({lobbyId,name})=>{
     if(!lobbies[lobbyId]){
       lobbies[lobbyId]={
-        players:{},ready:{},machines:{},roles:{},
-        inputs:{},votes:{},gameStarted:false
+        players:{},ready:{},roles:{},inputs:{},
+        machines:{},votes:{},botAI:{},
+        gameStarted:false
       };
       machineNames.forEach((m,i)=>{
         lobbies[lobbyId].machines[m]={
@@ -122,7 +154,7 @@ io.on("connection", socket => {
     }
 
     lobbies[lobbyId].players[socket.id]={
-      name,alive:true,x:200+Math.random()*800,y:200+Math.random()*600
+      name,alive:true,x:300,y:300
     };
     lobbies[lobbyId].ready[socket.id]=false;
     lobbies[lobbyId].inputs[socket.id]={dirX:0,dirY:0};
@@ -131,49 +163,60 @@ io.on("connection", socket => {
     io.to(lobbyId).emit("lobbyUpdate",getLobbyInfo(lobbyId));
   });
 
-  socket.on("setReady", ({ lobbyId }) => {
-    const l=lobbies[lobbyId]; if(!l) return;
+  socket.on("setReady",({lobbyId})=>{
+    const l=lobbies[lobbyId];
     l.ready[socket.id]=true;
     io.to(lobbyId).emit("lobbyUpdate",getLobbyInfo(lobbyId));
-    if(Object.values(l.ready).every(r=>r)) setTimeout(()=>startGame(lobbyId),1000);
+    if(Object.values(l.ready).every(r=>r)) startGame(lobbyId);
   });
 
-  socket.on("playerInput", ({ lobbyId, dirX, dirY }) => {
-    const l=lobbies[lobbyId]; if(!l||!l.players[socket.id]?.alive) return;
-    l.inputs[socket.id]={dirX,dirY};
+  socket.on("playerInput",({lobbyId,dirX,dirY})=>{
+    const l=lobbies[lobbyId];
+    if(l.players[socket.id]?.alive)
+      l.inputs[socket.id]={dirX,dirY};
   });
 
-  socket.on("castVote", ({ lobbyId, targetId }) => {
-    const l=lobbies[lobbyId]; if(!l) return;
-    l.votes[socket.id]=targetId;
-  });
+  socket.on("killPlayer",({lobbyId,targetId})=>{
+    const l=lobbies[lobbyId];
+    if(l.roles[socket.id]!=="hain") return;
 
+    const k=l.players[socket.id];
+    const t=l.players[targetId];
+    if(!k||!t||!t.alive) return;
+    if(Math.hypot(k.x-t.x,k.y-t.y)>80) return;
+
+    t.alive=false;
+    io.to(lobbyId).emit("playerKilled",{targetId,x:t.x,y:t.y});
+  });
 });
 
 /* ---------------- HELPERS ---------------- */
 function getLobbyInfo(id){
   const l=lobbies[id];
   return {
-    players:Object.entries(l.players).map(([id,p])=>({id,name:p.name,alive:p.alive})),
+    players:Object.entries(l.players).map(([id,p])=>({
+      id,name:p.name,alive:p.alive
+    })),
     ready:l.ready
   };
 }
 
-/* ---------------- GAME LOOP ---------------- */
+/* ---------------- MOVE TICK ---------------- */
 setInterval(()=>{
-  for(const id in lobbies){
-    const l=lobbies[id];
+  for(const lid in lobbies){
+    const l=lobbies[lid];
     if(!l.gameStarted) continue;
 
-    botLogic(id);
-
-    for(const pid in l.players){
-      const p=l.players[pid];
+    for(const id in l.players){
+      const p=l.players[id];
       if(!p.alive) continue;
-      const i=l.inputs[pid];
-      p.x+=i.dirX*PLAYER_SPEED/60;
-      p.y+=i.dirY*PLAYER_SPEED/60;
-      io.to(id).emit("updatePlayerPosition",{id:pid,x:p.x,y:p.y});
+      const i=l.inputs[id];
+      if(!i) continue;
+
+      p.x+=i.dirX*(p.isBot?BOT_SPEED:PLAYER_SPEED)/60;
+      p.y+=i.dirY*(p.isBot?BOT_SPEED:PLAYER_SPEED)/60;
+
+      io.to(lid).emit("updatePlayerPosition",{id,x:p.x,y:p.y});
     }
   }
 },1000/60);
