@@ -191,8 +191,16 @@ io.on("connection",socket=>{
     io.to(lobbyId).emit("lobbyUpdate",getLobbyInfo(lobbyId));
     if(Object.values(l.ready).every(r=>r)) startGame(lobbyId);
   });
+socket.on("playerInput", ({ lobbyId, dirX, dirY }) => {
+  const l = lobbies[lobbyId];
+  if (!l || !l.gameStarted) return;
 
-  socket.on("killPlayer",({lobbyId,targetId})=>{
+  if (l.players[socket.id] && l.players[socket.id].alive) {
+    l.inputs[socket.id] = { dirX, dirY };
+  }
+});
+  
+socket.on("killPlayer",({lobbyId,targetId})=>{
     const l=lobbies[lobbyId];
     if(l.roles[socket.id]!=="hain") return;
 
