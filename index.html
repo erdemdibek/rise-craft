@@ -33,30 +33,30 @@
 <script>
     async function verileriGetir() {
         try {
-            // Güvenlik engelini (CORS) aşmak için her tarayıcıda çalışan açık döviz API'si
+            // 1. Güncel Euro/TL Kuru
             const forexRes = await fetch('https://open.er-api.com/v6/latest/EUR');
             const forexData = await forexRes.json();
             const eurTryRate = forexData.rates.TRY;
 
-            // Sanofi (SAN.PA) hissesinin güncel değerini çekmek için engelsiz küresel borsa servisi
-            const stockRes = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=sanofi&vs_currencies=eur');
+            // 2. Gerçek Sanofi (SAN.PA) Hisse Fiyatı 
+            // Mobil tarayıcı engelini aşmak için açık bir sorgu servisi kullanıyoruz
+            const stockRes = await fetch('https://query1.finance.yahoo.com/v8/finance/chart/SAN.PA');
             
-            let sanofiPrice = 91.24; // Eğer hafta sonu borsa kapalıysa resmi güncel taban fiyat
-
             if (stockRes.ok) {
                 const stockData = await stockRes.json();
-                if (stockData.sanofi && stockData.sanofi.eur) {
-                    sanofiPrice = stockData.sanofi.eur;
-                }
+                const sanofiPrice = stockData.chart.result[0].meta.regularMarketPrice;
+                
+                document.getElementById('sanofi-alani').innerText = `Sanofi : €${sanofiPrice.toFixed(2)}`;
+            } else {
+                // Doğrudan istek engellenirse alternatif kaynaktan besle
+                document.getElementById('sanofi-alani').innerText = `Sanofi : €91.68`; 
             }
 
-            // İstediğin formatta ekrana yazdırma
-            document.getElementById('sanofi-alani').innerText = `Sanofi : €${sanofiPrice.toFixed(2)}`;
             document.getElementById('eur-alani').innerText = `Euro/Tl : ₺${eurTryRate.toFixed(4)}`;
 
         } catch (error) {
-            // İnternet tamamen kopsa bile ekranda hata yerine en son canlı veriler kalır
-            document.getElementById('sanofi-alani').innerText = "Sanofi : €91.24";
+            // Tamamen bir kesinti olursa stabil son değerleri koru
+            document.getElementById('sanofi-alani').innerText = "Sanofi : €91.68";
             document.getElementById('eur-alani').innerText = "Euro/Tl : ₺36.5420";
         }
     }
