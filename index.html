@@ -55,7 +55,6 @@
         }
         #eur-alani { color: #34d399; }
 
-        /* Yeni Sade Hesaplama Paneli */
         .portfolio-box {
             background: #111827;
             border-radius: 16px;
@@ -92,7 +91,7 @@
             color: #ffffff;
         }
         .total-tl {
-            color: #34d399; /* TL Toplamı dikkat çeksin diye yeşil */
+            color: #34d399;
             font-size: 1.2rem;
         }
     </style>
@@ -116,7 +115,7 @@
         
         <div class="row">
             <span class="row-label">Toplam Varlık:</span>
-            <span class="row-value">92.8769 Adet</span>
+            <span class="row-value">92.8009 Adet</span>
         </div>
         
         <div class="row">
@@ -133,6 +132,7 @@
 
 <script>
     async function verileriGetir() {
+        // Yeni güncellenen hisse adedi
         const hisseAdedi = 92.8009;
 
         try {
@@ -154,27 +154,4 @@
             const toplamEuro = hisseAdedi * sanofiPrice;
             const toplamTL = toplamEuro * eurTryRate;
 
-            // Verileri basma
-            document.getElementById('sanofi-alani').innerText = `€${sanofiPrice.toFixed(2)}`;
-            document.getElementById('eur-alani').innerText = `₺${eurTryRate.toFixed(4)}`;
-            
-            document.getElementById('total-euro').innerText = `€${toplamEuro.toFixed(2)}`;
-            document.getElementById('total-tl').innerText = `₺${toplamTL.toFixed(2)}`;
-
-        } catch (error) {
-            const yedekEuro = hisseAdedi * 75.07;
-            const yedekTL = yedekEuro * 35.2150;
-
-            document.getElementById('sanofi-alani').innerText = "€75.07";
-            document.getElementById('eur-alani').innerText = "₺35.2150";
-            
-            document.getElementById('total-euro').innerText = `€${yedekEuro.toFixed(2)}`;
-            document.getElementById('total-tl').innerText = `₺${yedekTL.toFixed(2)}`;
-        }
-    }
-
-    verileriGetir();
-</script>
-
-</body>
-</html>
+            document
