@@ -29,6 +29,44 @@
             box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.3);
             border: 1px solid #334155;
         }
+        
+        /* Logo ve Başlık Alanı */
+        .logo-area {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 24px;
+            text-align: center;
+        }
+        .logo-icon {
+            width: 48px;
+            height: 48px;
+            background: linear-gradient(135deg, #38bdf8 0%, #34d399 100%);
+            border-radius: 12px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            margin-bottom: 12px;
+            box-shadow: 0 8px 16px -4px rgba(56, 189, 248, 0.3);
+        }
+        .logo-icon svg {
+            width: 26px;
+            height: 26px;
+            fill: none;
+            stroke: #ffffff;
+            stroke-width: 2.5;
+            stroke-linecap: round;
+            stroke-linejoin: round;
+        }
+        .panel-title {
+            font-size: 0.85rem;
+            color: #94a3b8;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            font-weight: 600;
+        }
+
         .market-grid {
             display: grid;
             grid-template-columns: 1fr 1fr;
@@ -55,7 +93,6 @@
         }
         #eur-alani { color: #34d399; }
 
-        /* Yeni Sade Hesaplama Paneli */
         .portfolio-box {
             background: #111827;
             border-radius: 16px;
@@ -92,7 +129,7 @@
             color: #ffffff;
         }
         .total-tl {
-            color: #34d399; /* TL Toplamı dikkat çeksin diye yeşil */
+            color: #34d399;
             font-size: 1.2rem;
         }
     </style>
@@ -100,6 +137,18 @@
 <body>
 
 <div class="container">
+    <!-- Üst Logo Alanı -->
+    <div class="logo-area">
+        <div class="logo-icon">
+            <!-- Modern Finans/Büyüme Grafiği Logosu (SVG) -->
+            <svg viewBox="0 0 24 24">
+                <path d="M22 12h-4l-3 9L9 3l-3 9H2"></path>
+            </svg>
+        </div>
+        <div class="panel-title">ERD PORTFOLIO INSIGHTS</div>
+    </div>
+
+    <!-- Piyasalar -->
     <div class="market-grid">
         <div class="card">
             <div class="card-label">Sanofi (Hisse)</div>
@@ -111,12 +160,13 @@
         </div>
     </div>
 
+    <!-- Varlık Dökümü -->
     <div class="portfolio-box">
         <div class="welcome-title">Merhaba Yatırım Uzmanı Maaşlı Çalışan</div>
         
         <div class="row">
             <span class="row-label">Toplam Varlık:</span>
-            <span class="row-value">92.8769 Adet</span>
+            <span class="row-value">92.8009 Adet</span>
         </div>
         
         <div class="row">
@@ -133,7 +183,8 @@
 
 <script>
     async function verileriGetir() {
-        const hisseAdedi = 92.8769;
+        // Güncel adet 92.8009 olarak set edildi
+        const hisseAdedi = 92.8009;
 
         try {
             const forexRes = await fetch('https://api.exchangerate-api.com/v4/latest/EUR');
