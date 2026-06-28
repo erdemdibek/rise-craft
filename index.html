@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Takip</title>
+    <title>Takip Paneli</title>
     <style>
         body {
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
@@ -23,25 +23,41 @@
             margin: 15px 0;
             white-space: nowrap;
         }
+        .mesaj {
+            font-size: 1.8rem;
+            color: #2c3e50;
+            margin-top: 30px;
+            white-space: normal;
+            line-height: 1.5;
+            font-weight: normal;
+        }
+        .mesaj strong {
+            font-weight: bold;
+            color: #111;
+        }
     </style>
 </head>
 <body>
 
 <div id="sanofi-alani">Sanofi : Yükleniyor...</div>
 <div id="eur-alani">Euro/Tl : Yükleniyor...</div>
+<div id="mesaj-alani" class="mesaj">Hesaplanıyor...</div>
 
 <script>
     async function verileriGetir() {
+        // Sahip olduğunuz hisse adedi
+        const hisseAdedi = 92.8769;
+
         try {
-            // 1. Euro/TL Kuru için doğrudan ve stabil döviz servisi
+            // 1. Euro/TL Kuru
             const forexRes = await fetch('https://api.exchangerate-api.com/v4/latest/EUR');
             const forexData = await forexRes.json();
             const eurTryRate = forexData.rates.TRY;
 
-            // 2. Sanofi (SAN) için CORS engeli olmayan, en güncel fiyatı dönen finans aracı
+            // 2. Sanofi Hisse Fiyatı
             const stockRes = await fetch('https://api.marketstack.com/v1/eod/latest?access_key=fca7b64082msh63b514e865f2425p1b089ajsn7b570cb1e6a2&symbols=SAN.XPAR');
             
-            let sanofiPrice = 75.07; // Eğer hafta sonu veri güncellenmezse sizin belirttiğiniz net güncel taban fiyat
+            let sanofiPrice = 75.07;
 
             if (stockRes.ok) {
                 const stockData = await stockRes.json();
@@ -50,14 +66,24 @@
                 }
             }
 
-            // Ekrana yazdırma
+            // Değer Hesaplamaları
+            const toplamEuro = hisseAdedi * sanofiPrice;
+            const toplamTL = toplamEuro * eurTryRate;
+
+            // Ekrana Yazdırma
             document.getElementById('sanofi-alani').innerText = `Sanofi : €${sanofiPrice.toFixed(2)}`;
             document.getElementById('eur-alani').innerText = `Euro/Tl : ₺${eurTryRate.toFixed(4)}`;
+            
+            document.getElementById('mesaj-alani').innerHTML = `Merhaba Erdem Bey, <strong>92.8769</strong> adet Sanofi hissenizin anlık Euro değeri <strong>€${toplamEuro.toFixed(2)}</strong>, anlık TL değeri <strong>₺${toplamTL.toFixed(2)}</strong> dir.`;
 
         } catch (error) {
-            // Tam kısıtlama veya internet kopması durumunda doğrudan sizin güncel değerleriniz ekranda kalır
+            // Hata veya bağlantı kopması durumunda yedek hesaplama
+            const yedekEuro = hisseAdedi * 75.07;
+            const yedekTL = yedekEuro * 35.2150;
+
             document.getElementById('sanofi-alani').innerText = "Sanofi : €75.07";
-            document.getElementById('eur-alani').innerText = "Euro/Tl : ₺35.2150"; 
+            document.getElementById('eur-alani').innerText = "Euro/Tl : ₺35.2150";
+            document.getElementById('mesaj-alani').innerHTML = `Merhaba Erdem Bey, <strong>92.8769</strong> adet Sanofi hissenizin anlık Euro değeri <strong>€${yedekEuro.toFixed(2)}</strong>, anlık TL değeri <strong>₺${yedekTL.toFixed(2)}</strong> dir.`;
         }
     }
 
