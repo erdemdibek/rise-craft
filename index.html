@@ -15,6 +15,7 @@
             background-color: #0f172a;
             color: #f8fafc;
             display: flex;
+            flex-direction: column; /* Elemanların alt alta düzgün hizalanması için */
             justify-content: center;
             align-items: center;
             min-height: 100vh;
@@ -132,6 +133,15 @@
             color: #34d399;
             font-size: 1.2rem;
         }
+
+        /* Yeni İmza Alanı */
+        .footer {
+            margin-top: 24px;
+            font-size: 0.75rem;
+            color: #64748b;
+            letter-spacing: 0.02em;
+            text-align: center;
+        }
     </style>
 </head>
 <body>
@@ -140,12 +150,11 @@
     <!-- Üst Logo Alanı -->
     <div class="logo-area">
         <div class="logo-icon">
-            <!-- Modern Finans/Büyüme Grafiği Logosu (SVG) -->
             <svg viewBox="0 0 24 24">
                 <path d="M22 12h-4l-3 9L9 3l-3 9H2"></path>
             </svg>
         </div>
-        <div class="panel-title">GÜNCEL SANOFİ HİSSE VE EURO KURU</div>
+        <div class="panel-title">GÜNCEL SANOFI HISSE VE EURO/TL KURU</div>
     </div>
 
     <!-- Piyasalar -->
@@ -181,9 +190,13 @@
     </div>
 </div>
 
+<!-- Yeni Alt Bilgi Metni -->
+<div class="footer">
+    Bu bilgilendirme sayfası Erdem DIBEK tarafından hazırlanmıştır.
+</div>
+
 <script>
     async function verileriGetir() {
-        // Güncel adet 92.8009 olarak set edildi
         const hisseAdedi = 92.8009;
 
         try {
@@ -205,7 +218,6 @@
             const toplamEuro = hisseAdedi * sanofiPrice;
             const toplamTL = toplamEuro * eurTryRate;
 
-            // Verileri basma
             document.getElementById('sanofi-alani').innerText = `€${sanofiPrice.toFixed(2)}`;
             document.getElementById('eur-alani').innerText = `₺${eurTryRate.toFixed(4)}`;
             
