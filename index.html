@@ -12,7 +12,7 @@
         }
         body {
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-            background-color: #0f172a; /* Gece mavisi arka plan */
+            background-color: #0f172a;
             color: #f8fafc;
             display: flex;
             justify-content: center;
@@ -22,11 +22,11 @@
         }
         .container {
             width: 100%;
-            max-width: 480px;
-            background: #1e293b; /* Kart arka planı */
+            max-width: 450px;
+            background: #1e293b;
             border-radius: 24px;
-            padding: 30px 24px;
-            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.3), 0 10px 10px -5px rgba(0, 0, 0, 0.2);
+            padding: 28px 24px;
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.3);
             border: 1px solid #334155;
         }
         .market-grid {
@@ -42,42 +42,58 @@
             border: 1px solid #1f2937;
         }
         .card-label {
-            font-size: 0.85rem;
+            font-size: 0.8rem;
             color: #94a3b8;
             text-transform: uppercase;
             letter-spacing: 0.05em;
             margin-bottom: 4px;
         }
         .card-value {
-            font-size: 1.6rem;
+            font-size: 1.5rem;
             font-weight: 700;
-            color: #38bdf8; /* Açık mavi vurgu */
+            color: #38bdf8;
         }
-        #eur-alani {
-            color: #34d399; /* Euro için yeşil vurgu */
-        }
-        .welcome-box {
-            background: linear-gradient(135deg, #1e1b4b 0%, #311042 100%);
-            padding: 20px;
+        #eur-alani { color: #34d399; }
+
+        /* Yeni Sade Hesaplama Paneli */
+        .portfolio-box {
+            background: #111827;
             border-radius: 16px;
-            border: 1px solid #4338ca;
-            line-height: 1.6;
+            padding: 20px;
+            border: 1px solid #1f2937;
         }
-        .welcome-text {
-            font-size: 1.05rem;
-            color: #cbd5e1;
-            font-weight: 400;
-        }
-        .welcome-text strong {
-            color: #ffffff;
+        .welcome-title {
+            font-size: 1.1rem;
+            color: #f1f5f9;
             font-weight: 600;
+            margin-bottom: 16px;
+            border-bottom: 1px solid #334155;
+            padding-bottom: 10px;
         }
-        .value-highlight {
-            display: inline-block;
-            background: rgba(255, 255, 255, 0.1);
-            padding: 2px 6px;
-            border-radius: 6px;
+        .row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 12px;
+            font-size: 1rem;
+            color: #cbd5e1;
+        }
+        .row:last-child {
+            margin-bottom: 0;
+            margin-top: 14px;
+            border-top: 1px dashed #334155;
+            padding-top: 14px;
+        }
+        .row-label {
+            color: #94a3b8;
+        }
+        .row-value {
             font-weight: 700;
+            color: #ffffff;
+        }
+        .total-tl {
+            color: #34d399; /* TL Toplamı dikkat çeksin diye yeşil */
+            font-size: 1.2rem;
         }
     </style>
 </head>
@@ -95,8 +111,23 @@
         </div>
     </div>
 
-    <div class="welcome-box">
-        <div id="mesaj-alani" class="welcome-text">Veriler hesaplanıyor...</div>
+    <div class="portfolio-box">
+        <div class="welcome-title">Merhaba Erdem Bey</div>
+        
+        <div class="row">
+            <span class="row-label">Toplam Varlık:</span>
+            <span class="row-value">92.8769 Adet</span>
+        </div>
+        
+        <div class="row">
+            <span class="row-label">Anlık Euro Değeri:</span>
+            <span class="row-value" id="total-euro">...</span>
+        </div>
+        
+        <div class="row">
+            <span class="row-label">Anlık TL Değeri:</span>
+            <span class="row-value total-tl" id="total-tl">...</span>
+        </div>
     </div>
 </div>
 
@@ -105,12 +136,10 @@
         const hisseAdedi = 92.8769;
 
         try {
-            // 1. Euro/TL Kuru
             const forexRes = await fetch('https://api.exchangerate-api.com/v4/latest/EUR');
             const forexData = await forexRes.json();
             const eurTryRate = forexData.rates.TRY;
 
-            // 2. Sanofi Hisse Fiyatı
             const stockRes = await fetch('https://api.marketstack.com/v1/eod/latest?access_key=fca7b64082msh63b514e865f2425p1b089ajsn7b570cb1e6a2&symbols=SAN.XPAR');
             
             let sanofiPrice = 75.07;
@@ -125,20 +154,22 @@
             const toplamEuro = hisseAdedi * sanofiPrice;
             const toplamTL = toplamEuro * eurTryRate;
 
-            // Arayüzü Güncelleme
+            // Verileri basma
             document.getElementById('sanofi-alani').innerText = `€${sanofiPrice.toFixed(2)}`;
             document.getElementById('eur-alani').innerText = `₺${eurTryRate.toFixed(4)}`;
             
-            document.getElementById('mesaj-alani').innerHTML = `Merhaba Erdem Bey, <strong>92.8769</strong> adet Sanofi hissenizin anlık Euro değeri <span class="value-highlight">€${toplamEuro.toFixed(2)}</span>, anlık TL değeri ise <span class="value-highlight">₺${toplamTL.toFixed(2)}</span> dir.`;
+            document.getElementById('total-euro').innerText = `€${toplamEuro.toFixed(2)}`;
+            document.getElementById('total-tl').innerText = `₺${toplamTL.toFixed(2)}`;
 
         } catch (error) {
-            // Yedek Plan
             const yedekEuro = hisseAdedi * 75.07;
             const yedekTL = yedekEuro * 35.2150;
 
             document.getElementById('sanofi-alani').innerText = "€75.07";
             document.getElementById('eur-alani').innerText = "₺35.2150";
-            document.getElementById('mesaj-alani').innerHTML = `Merhaba Erdem Bey, <strong>92.8769</strong> adet Sanofi hissenizin anlık Euro değeri <span class="value-highlight">€${yedekEuro.toFixed(2)}</span>, anlık TL değeri ise <span class="value-highlight">₺${yedekTL.toFixed(2)}</span> dir.`;
+            
+            document.getElementById('total-euro').innerText = `€${yedekEuro.toFixed(2)}`;
+            document.getElementById('total-tl').innerText = `₺${yedekTL.toFixed(2)}`;
         }
     }
 
