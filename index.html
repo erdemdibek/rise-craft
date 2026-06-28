@@ -12,50 +12,45 @@
             display: flex;
             flex-direction: column;
             justify-content: center;
-            align-items: center;
+            align-items: flex-start; /* Sola hizalama için */
             height: 100vh;
-            font-size: 2.8rem;
+            padding-left: 10%; /* Mobilde şık durması için soldan boşluk */
+            font-size: 2.2rem;
             font-weight: bold;
             color: #111;
         }
         div {
-            margin: 12px 0;
+            margin: 15px 0;
+            white-space: nowrap;
         }
     </style>
 </head>
 <body>
 
-<div id="sanofi">Yükleniyor...</div>
-<div id="eur">Yükleniyor...</div>
+<div id="sanofi-alani">Sanofi : Yükleniyor...</div>
+<div id="eur-alani">Euro/Tl : Yükleniyor...</div>
 
 <script>
     async function verileriGetir() {
         try {
-            // Açık ve ücretsiz döviz/hisse API servisi
-            const res = await fetch('https://open.er-api.com/v6/latest/EUR');
-            const data = await res.json();
-            
-            // Euro / TL Kuru
-            const eurTry = data.rates.TRY;
-            
-            // Sanofi'nin güncel Paris fiyatı (Alternatif stabil kaynaktan anlık çekim)
-            // Eğer API gecikirse varsayılan stabil küresel piyasa verisi tetiklenir
+            // 1. Sanofi Güncel Hisse Fiyatı (Euro bazında - Paris Borsası)
             const sanofiRes = await fetch('https://query1.finance.yahoo.com/v8/finance/chart/SAN.PA');
-            let sanofiPrice = 91.20; // Varsayılan yedek fiyat (Bağlantı koparsa gelmesi için)
-            
-            if (sanofiRes.ok) {
-                const sanofiData = await sanofiRes.json();
-                sanofiPrice = sanofiData.chart.result[0].meta.regularMarketPrice;
-            }
+            const sanofiData = await sanofiRes.json();
+            const sanofiPrice = sanofiData.chart.result[0].meta.regularMarketPrice;
 
-            // Ekrana sadece temiz değerleri basıyoruz
-            document.getElementById('sanofi').innerText = `€${sanofiPrice.toFixed(2)}`;
-            document.getElementById('eur').innerText = `₺${eurTry.toFixed(4)}`;
+            // 2. Güncel Euro/TL Kuru
+            const forexRes = await fetch('https://open.er-api.com/v6/latest/EUR');
+            const forexData = await forexRes.json();
+            const eurTryRate = forexData.rates.TRY;
+
+            // Tam istediğin formatta ekrana yazdırma
+            document.getElementById('sanofi-alani').innerText = `Sanofi : €${sanofiPrice.toFixed(2)}`;
+            document.getElementById('eur-alani').innerText = `Euro/Tl : ₺${eurTryRate.toFixed(4)}`;
 
         } catch (error) {
-            // Her ihtimale karşı tarayıcı engellerse direkt yedek havuzdan göster
-            document.getElementById('sanofi').innerText = "€91.20";
-            document.getElementById('eur').innerText = "₺36.4520";
+            // Bağlantı hatası olursa veya borsa verisi anlık gecikirse tarayıcı engeline karşı yedek gösterim
+            document.getElementById('sanofi-alani').innerText = "Sanofi : Veri alınamadı";
+            document.getElementById('eur-alani').innerText = "Euro/Tl : Veri alınamadı";
         }
     }
 
