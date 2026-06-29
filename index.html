@@ -218,7 +218,6 @@
             margin-top: 2px;
         }
         
-        /* HER ZAMAN GÖRÜNÜR SEÇKİN BUTON */
         .action-menu-btn {
             background: rgba(255, 255, 255, 0.06);
             border: 1px solid rgba(255, 255, 255, 0.1);
@@ -300,9 +299,9 @@
     <div class="status-bar">
         <div class="status-dot-wrapper">
             <div class="status-dot"></div>
-            <span id="sync-text">Veri Bağlantısı Aktif</span>
+            <span id="sync-text">Yahoo Sınırsız Altyapı</span>
         </div>
-        <div class="update-time" id="last-update-time">Saat Alınıyor...</div>
+        <div class="update-time" id="last-update-time">Yükleniyor...</div>
     </div>
 
     <section class="grid-wrapper">
@@ -332,7 +331,7 @@
                 <p>Yatırım Uzmanı</p>
                 <h3>Maaşlı Çalışan</h3>
             </div>
-            <button class="action-menu-btn" onclick="v5_tetikleyiciPortfoy()">
+            <button class="action-menu-btn" onclick="v6_tetikleyiciPortfoy()">
                 <span>⚙️ Yönet</span>
             </button>
         </div>
@@ -359,17 +358,16 @@
 </div>
 
 <script>
-    // v5 İzole Finans Motoru Altyapısı
-    let v5_hisseAdedi = 92.8009;
-    let v5_sanofiFiyati = 75.07;
-    let v5_euroKuru = 53.0700;
-    let v5_trendVerisi = [74.50, 74.90, 73.80, 74.20, 75.07];
+    // v6 Tamamen Sınırsız Finans Motoru (Sıfır API Key)
+    let v6_hisseAdedi = 92.8009;
+    let v6_sanofiFiyati = 75.50; 
+    let v6_euroKuru = 53.31;   
+    let v6_trendVerisi = [74.50, 74.90, 73.80, 74.20, 75.50];
 
-    // TR Standartlarına Uygun Sayı Formatlayıcıları (369.715,53)
-    const v5_fmtPara = new Intl.NumberFormat('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2, useGrouping: true });
-    const v5_fmtAsset = new Intl.NumberFormat('tr-TR', { minimumFractionDigits: 4, maximumFractionDigits: 4, useGrouping: true });
+    const v6_fmtPara = new Intl.NumberFormat('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2, useGrouping: true });
+    const v6_fmtAsset = new Intl.NumberFormat('tr-TR', { minimumFractionDigits: 4, maximumFractionDigits: 4, useGrouping: true });
 
-    function v5_grafikCizici(fiyatlar) {
+    function v6_grafikCizici(fiyatlar) {
         const canvas = document.getElementById('premiumTrendChart');
         if (!canvas) return;
         const ctx = canvas.getContext('2d');
@@ -423,30 +421,30 @@
         ctx.fill();
     }
 
-    function v5_arayuzHesapla() {
-        const tEuro = v5_hisseAdedi * v5_sanofiFiyati;
-        const tTL = tEuro * v5_euroKuru;
+    function v6_arayuzHesapla() {
+        const tEuro = v6_hisseAdedi * v6_sanofiFiyati;
+        const tTL = tEuro * v6_euroKuru;
 
-        document.getElementById('ui-asset-count').innerText = v5_fmtAsset.format(v5_hisseAdedi) + " Adet";
-        document.getElementById('ui-total-euro').innerText = "€" + v5_fmtPara.format(tEuro);
-        document.getElementById('ui-total-tl').innerText = "₺" + v5_fmtPara.format(tTL);
+        document.getElementById('ui-asset-count').innerText = v6_fmtAsset.format(v6_hisseAdedi) + " Adet";
+        document.getElementById('ui-total-euro').innerText = "€" + v6_fmtPara.format(tEuro);
+        document.getElementById('ui-total-tl').innerText = "₺" + v6_fmtPara.format(tTL);
     }
 
-    function v5_tetikleyiciPortfoy() {
-        let promptVal = prompt("Yeni Sanofi hisse adedini giriniz:", v5_hisseAdedi);
+    function v6_tetikleyiciPortfoy() {
+        let promptVal = prompt("Yeni Sanofi hisse adedini giriniz:", v6_hisseAdedi);
         if (promptVal !== null && promptVal.trim() !== "") {
             promptVal = promptVal.replace(',', '.');
             const parsed = parseFloat(promptVal);
             if (!isNaN(parsed) && parsed >= 0) {
-                v5_hisseAdedi = parsed;
-                v5_arayuzHesapla();
+                v6_hisseAdedi = parsed;
+                v6_arayuzHesapla();
             } else {
                 alert("Lütfen geçerli bir sayısal değer belirtin.");
             }
         }
     }
 
-    function v5_zamanGuncelle() {
+    function v6_zamanGuncelle() {
         const simdi = new Date();
         const saat = String(simdi.getHours()).padStart(2, '0');
         const dakika = String(simdi.getMinutes()).padStart(2, '0');
@@ -454,33 +452,45 @@
         document.getElementById('last-update-time').innerText = saat + ":" + dakika + ":" + saniye;
     }
 
-    async function v5_veriMerkezi() {
+    async function v6_veriMerkezi() {
         try {
-            // 1. Doviz Kuru Verisi
-            const fxFetch = await fetch('https://api.exchangerate-api.com/v4/latest/EUR');
-            const fxData = await fxFetch.json();
-            v5_euroKuru = fxData.rates.TRY;
-
-            // 2. Hisse Fiyat Verisi (Buraya kendi Marketstack anahtarını eklemelisin)
-            const stFetch = await fetch('https://api.marketstack.com/v1/eod/latest?access_key=BURAYA_MARKETSTACK_KEY_EKLE&symbols=SAN.XPAR');
-
-            if (stFetch.ok) {
-                const stData = await stFetch.json();
-                if (stData && stData.data && stData.data.length > 0) {
-                    v5_sanofiFiyati = stData.data[0].close;
-                    const cTrend = stData.data.slice(0, 7).map(item => item.close).reverse();
-                    if(cTrend.length > 1) v5_trendVerisi = cTrend;
-                }
+            // Sınırsız Veri Çekme Köprüsü (CORS Proxy üzerinden Yahoo Finance verisi)
+            const proxyUrl = "https://corsproxy.io/?";
+            const targetUrl = encodeURIComponent("https://query1.finance.yahoo.com/v8/finance/chart/SAN.PA?interval=1d&range=7d");
+            
+            const response = await fetch(proxyUrl + targetUrl);
+            if (!response.ok) throw new Error("Ağ hatası");
+            
+            const json = await response.json();
+            const result = json.chart.result[0];
+            
+            // Güncel Fiyatı Ayıkla
+            v6_sanofiFiyati = result.meta.regularMarketPrice;
+            
+            // Haftalık Grafik Verisini Ayıkla
+            const closes = result.indicators.quote[0].close.filter(val => val !== null);
+            if (closes.length > 1) {
+                v6_trendVerisi = closes;
             }
 
-            document.getElementById('sanofi-price-box').innerText = "€" + v5_fmtPara.format(v5_sanofiFiyati);
-            document.getElementById('euro-price-box').innerText = "₺" + v5_fmtPara.format(v5_euroKuru);
-            
-            v5_arayuzHesapla();
-            v5_zamanGuncelle();
+            // Euro/TL Kurunu Sınırsız Çekme
+            const kurTargetUrl = encodeURIComponent("https://query1.finance.yahoo.com/v8/finance/chart/EURTRY=X?interval=1m&range=1d");
+            const kurResponse = await fetch(proxyUrl + kurTargetUrl);
+            if (kurResponse.ok) {
+                const kurJson = await kurResponse.json();
+                v6_euroKuru = kurJson.chart.result[0].meta.regularMarketPrice;
+            }
 
-            const f0 = v5_trendVerisi[0];
-            const f1 = v5_trendVerisi[v5_trendVerisi.length - 1];
+            // Ekran Kartlarını Güncelleme
+            document.getElementById('sanofi-price-box').innerText = "€" + v6_fmtPara.format(v6_sanofiFiyati);
+            document.getElementById('euro-price-box').innerText = "₺" + v6_fmtPara.format(v6_euroKuru);
+            
+            v6_arayuzHesapla();
+            v6_zamanGuncelle();
+
+            // Yüzdesel Fark Hesaplama
+            const f0 = v6_trendVerisi[0];
+            const f1 = v6_trendVerisi[v6_trendVerisi.length - 1];
             const diff = ((f1 - f0) / f0) * 100;
             const bElement = document.getElementById('trend-badge');
             
@@ -494,28 +504,29 @@
                 bElement.style.background = 'rgba(239, 68, 68, 0.08)';
             }
 
-            v5_grafikCizici(v5_trendVerisi);
+            v6_grafikCizici(v6_trendVerisi);
 
         } catch (err) {
-            // Hata durumunda varsayılan arayüzü koruma modu
-            document.getElementById('sanofi-price-box').innerText = "€" + v5_fmtPara.format(v5_sanofiFiyati);
-            document.getElementById('euro-price-box').innerText = "₺" + v5_fmtPara.format(v5_euroKuru);
-            document.getElementById('trend-badge').innerText = "%0,00";
-            
-            v5_arayuzHesapla();
-            v5_zamanGuncelle();
-            v5_grafikCizici(v5_trendVerisi);
+            // Hata durumunda (Borsa kapalıyken veya proxy yoğunluğunda) arayüzü son canlı verilerle koru
+            document.getElementById('sanofi-price-box').innerText = "€" + v6_fmtPara.format(v6_sanofiFiyati);
+            document.getElementById('euro-price-box').innerText = "₺" + v6_fmtPara.format(v6_euroKuru);
+            if(document.getElementById('trend-badge').innerText === "...") {
+                document.getElementById('trend-badge').innerText = "%0,00";
+            }
+            v6_arayuzHesapla();
+            v6_zamanGuncelle();
+            v6_grafikCizici(v6_trendVerisi);
         }
     }
 
-    // Başlangıç Komutları
-    v5_veriMerkezi();
+    // İlk tetikleme
+    v6_veriMerkezi();
     
-    // Her 5 dakikada bir (300.000 ms) otomatik yenileme döngüsü
-    setInterval(v5_veriMerkezi, 300000);
+    // Her 5 dakikada bir arka planda otomatik yenileme (Sorgu sınırı olmadığı için güvenle dönebilir)
+    setInterval(v6_veriMerkezi, 300000);
     
     window.addEventListener('resize', () => {
-        v5_grafikCizici(v5_trendVerisi);
+        v6_grafikCizici(v6_trendVerisi);
     });
 </script>
 
