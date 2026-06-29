@@ -19,11 +19,6 @@
             padding: 0;
             user-select: none;
         }
-        html, body {
-            width: 100%;
-            height: 100%;
-            overflow: hidden;
-        }
         body {
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
             background-color: #0f172a;
@@ -31,19 +26,19 @@
             display: flex;
             justify-content: center;
             align-items: center;
-            padding: 10px;
+            min-height: 100vh;
+            padding: 14px;
         }
         .container {
             width: 100%;
             max-width: 420px;
-            height: 96vh;
-            display: flex;
-            flex-direction: column;
             background: #1e293b;
             border-radius: 24px;
-            padding: 18px;
+            padding: 22px;
             box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.3);
             border: 1px solid #334155;
+            display: flex;
+            flex-direction: column;
         }
         
         .logo-area {
@@ -52,11 +47,11 @@
             align-items: center;
             justify-content: center;
             text-align: center;
-            margin-bottom: 14px;
+            margin-bottom: 20px;
         }
         .logo-icon {
-            width: 42px;
-            height: 42px;
+            width: 44px;
+            height: 44px;
             background: linear-gradient(135deg, #38bdf8 0%, #34d399 100%);
             border-radius: 12px;
             display: flex;
@@ -86,11 +81,11 @@
             display: grid;
             grid-template-columns: 1fr 1fr;
             gap: 12px;
-            margin-bottom: 14px;
+            margin-bottom: 16px;
         }
         .card {
             background: #111827;
-            padding: 12px 14px;
+            padding: 14px;
             border-radius: 16px;
             border: 1px solid #1f2937;
         }
@@ -113,11 +108,7 @@
             border-radius: 16px;
             padding: 14px;
             border: 1px solid #1f2937;
-            margin-bottom: 14px;
-            flex-grow: 1;
-            display: flex;
-            flex-direction: column;
-            justify-content: space-between;
+            margin-bottom: 16px;
         }
         .chart-title {
             font-size: 0.75rem;
@@ -126,13 +117,12 @@
             letter-spacing: 0.05em;
             display: flex;
             justify-content: space-between;
-            margin-bottom: 6px;
+            margin-bottom: 10px;
         }
         .chart-container {
             position: relative;
             width: 100%;
-            height: calc(100% - 20px);
-            min-height: 80px;
+            height: 90px;
         }
         canvas {
             width: 100% !important;
@@ -142,17 +132,17 @@
         .portfolio-box {
             background: #111827;
             border-radius: 16px;
-            padding: 14px 16px;
+            padding: 16px;
             border: 1px solid #1f2937;
-            margin-bottom: 12px;
+            margin-bottom: 16px;
         }
         .welcome-header {
             display: flex;
             justify-content: space-between;
             align-items: center;
             border-bottom: 1px solid #334155;
-            padding-bottom: 8px;
-            margin-bottom: 10px;
+            padding-bottom: 10px;
+            margin-bottom: 12px;
         }
         .welcome-title {
             font-size: 0.9rem;
@@ -170,7 +160,6 @@
             cursor: pointer;
             box-shadow: 0 4px 6px -1px rgba(56, 189, 248, 0.2);
             transition: all 0.2s;
-            display: inline-block; /* Görünürlüğü garanti altına alır */
         }
         .calc-btn:active {
             transform: scale(0.95);
@@ -179,15 +168,15 @@
             display: flex;
             justify-content: space-between;
             align-items: center;
-            margin-bottom: 6px;
-            font-size: 0.9rem;
+            margin-bottom: 8px;
+            font-size: 0.95rem;
             color: #cbd5e1;
         }
         .row:last-child {
             margin-bottom: 0;
-            margin-top: 8px;
+            margin-top: 12px;
             border-top: 1px dashed #334155;
-            padding-top: 8px;
+            padding-top: 12px;
         }
         .row-label {
             color: #94a3b8;
@@ -198,7 +187,7 @@
         }
         .total-tl {
             color: #34d399;
-            font-size: 1.1rem;
+            font-size: 1.15rem;
         }
 
         .footer {
@@ -206,7 +195,6 @@
             color: #64748b;
             letter-spacing: 0.02em;
             text-align: center;
-            margin-top: auto; /* Sayfa dikeyde ne kadar daralırsa daralsın en altta sabit kalmasını sağlar */
         }
     </style>
 </head>
@@ -251,7 +239,7 @@
         
         <div class="row">
             <span class="row-label">Toplam Varlık:</span>
-            <span class="row-value" id="asset-count">92.8009 Adet</span>
+            <span class="row-value" id="asset-count">92,8009 Adet</span>
         </div>
         
         <div class="row">
@@ -276,8 +264,9 @@
     let anlikEuroKuru = 53.0700;
     let sonFiyatTrendi = [74.50, 74.90, 73.80, 74.20, 75.07];
 
-    const trFormat = new Intl.NumberFormat('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-    const trFormatKur = new Intl.NumberFormat('tr-TR', { minimumFractionDigits: 4, maximumFractionDigits: 4 });
+    // TR Standartlarına Tam Uyumlu Noktalama Formatı
+    const trFormatDecimal = new Intl.NumberFormat('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    const trFormatAsset = new Intl.NumberFormat('tr-TR', { minimumFractionDigits: 4, maximumFractionDigits: 4 });
 
     function grafikCiz(fiyatlar) {
         const canvas = document.getElementById('trendChart');
@@ -337,9 +326,10 @@
         const toplamEuro = aktifHisseAdedi * anlikSanofiFiyati;
         const toplamTL = toplamEuro * anlikEuroKuru;
 
-        document.getElementById('asset-count').innerText = `${aktifHisseAdedi.toString().replace('.', ',')} Adet`;
-        document.getElementById('total-euro').innerText = `€${trFormat.format(toplamEuro)}`;
-        document.getElementById('total-tl').innerText = `₺${trFormat.format(toplamTL)}`;
+        // Varlık adedi küsüratlı ise nokta-virgül dengesini TR'ye göre korur
+        document.getElementById('asset-count').innerText = `${trFormatAsset.format(aktifHisseAdedi)} Adet`;
+        document.getElementById('total-euro').innerText = `€${trFormatDecimal.format(toplamEuro)}`;
+        document.getElementById('total-tl').innerText = `₺${trFormatDecimal.format(toplamTL)}`;
     }
 
     function portfoyDegistir() {
@@ -376,8 +366,8 @@
                 }
             }
 
-            document.getElementById('sanofi-alani').innerText = `€${trFormat.format(anlikSanofiFiyati)}`;
-            document.getElementById('eur-alani').innerText = `₺${trFormatKur.format(anlikEuroKuru)}`;
+            document.getElementById('sanofi-alani').innerText = `€${trFormatDecimal.format(anlikSanofiFiyati)}`;
+            document.getElementById('eur-alani').innerText = `₺${trFormatAsset.format(anlikEuroKuru)}`;
             
             hesaplamalariYansit();
 
