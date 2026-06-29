@@ -5,7 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Finans Takip Paneli</title>
 
-    <!-- TELEFON ANA EKRAN İKON AYARLARI -->
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-title" content="Sanofi Takip">
@@ -102,7 +101,6 @@
         }
         #eur-alani { color: #34d399; }
 
-        /* Grafik Kartı Alanı */
         .chart-box {
             background: #111827;
             border-radius: 16px;
@@ -181,7 +179,6 @@
 <body>
 
 <div class="container">
-    <!-- Üst Logo Alanı -->
     <div class="logo-area">
         <div class="logo-icon">
             <svg viewBox="0 0 24 24">
@@ -191,7 +188,6 @@
         <div class="panel-title">GÜNCEL SANOFI HISSE VE EURO/TL KURU</div>
     </div>
 
-    <!-- Piyasalar -->
     <div class="market-grid">
         <div class="card">
             <div class="card-label">Sanofi (Hisse)</div>
@@ -203,7 +199,6 @@
         </div>
     </div>
 
-    <!-- Haftalık Trend Grafiği -->
     <div class="chart-box">
         <div class="chart-title">
             <span>Sanofi Haftalık Trend</span>
@@ -214,7 +209,6 @@
         </div>
     </div>
 
-    <!-- Varlık Dökümü -->
     <div class="portfolio-box">
         <div class="welcome-title">Merhaba Yatırım Uzmanı Maaşlı Çalışan</div>
         
@@ -240,13 +234,11 @@
 </div>
 
 <script>
-    // Grafiği HTML Canvas ile dinamik çizen fonksiyon
     function grafikCiz(fiyatlar) {
         const canvas = document.getElementById('trendChart');
         if (!canvas) return;
         const ctx = canvas.getContext('2d');
         
-        // Çözünürlük netliği için boyut eşitleme
         canvas.width = canvas.parentElement.clientWidth;
         canvas.height = canvas.parentElement.clientHeight;
 
@@ -258,24 +250,20 @@
         const minPrice = Math.min(...fiyatlar);
         const priceRange = maxPrice - minPrice === 0 ? 1 : maxPrice - minPrice;
 
-        // Noktaların koordinatlarını hesaplama
         const points = fiyatlar.map((price, index) => {
             const x = padding + (index * (width - padding * 2) / (fiyatlar.length - 1));
             const y = height - padding - ((price - minPrice) * (height - padding * 2) / priceRange);
             return { x, y };
         });
 
-        // Çizgi Gradyanı (Mavi/Yeşil Trend)
         const lineGrad = ctx.createLinearGradient(0, 0, width, 0);
         lineGrad.addColorStop(0, '#38bdf8');
         lineGrad.addColorStop(1, '#34d399');
 
-        // Arka Plan Dolgu Gradyanı
         const fillGrad = ctx.createLinearGradient(0, 0, 0, height);
         fillGrad.addColorStop(0, 'rgba(56, 189, 248, 0.15)');
         fillGrad.addColorStop(1, 'rgba(15, 23, 42, 0)');
 
-        // Alanı doldur
         ctx.beginPath();
         ctx.moveTo(points[0].x, height);
         points.forEach(p => ctx.lineTo(p.x, p.y));
@@ -284,7 +272,6 @@
         ctx.fillStyle = fillGrad;
         ctx.fill();
 
-        // Çizgiyi çek
         ctx.beginPath();
         ctx.moveTo(points[0].x, points[0].y);
         points.forEach(p => ctx.lineTo(p.x, p.y));
@@ -292,7 +279,6 @@
         ctx.lineWidth = 3;
         ctx.stroke();
 
-        // Son noktaya parlak bir daire koy
         const lastPoint = points[points.length - 1];
         ctx.beginPath();
         ctx.arc(lastPoint.x, lastPoint.y, 5, 0, 2 * Math.PI);
@@ -305,7 +291,6 @@
 
     async function verileriGetir() {
         const hisseAdedi = 92.8009;
-        // API hatası veya hafta sonu için yedek 5 günlük veri trendi
         let haftalikFiyatlar = [74.50, 74.90, 73.80, 74.20, 75.07]; 
 
         try {
@@ -322,7 +307,6 @@
                 if (stockData && stockData.data && stockData.data.length > 0) {
                     sanofiPrice = stockData.data[0].close;
                     
-                    // Son 5-7 günün kapanış verilerini çekip grafiğe aktarma
                     const canliTrend = stockData.data.slice(0, 7).map(item => item.close).reverse();
                     if(canliTrend.length > 1) {
                         haftalikFiyatlar = canliTrend;
@@ -333,36 +317,34 @@
             const toplamEuro = hisseAdedi * sanofiPrice;
             const toplamTL = toplamEuro * eurTryRate;
 
-            // Kart verilerini basma
             document.getElementById('sanofi-alani').innerText = `€${sanofiPrice.toFixed(2)}`;
             document.getElementById('eur-alani').innerText = `₺${eurTryRate.toFixed(4)}`;
             
             document.getElementById('total-euro').innerText = `€${toplamEuro.toFixed(2)}`;
             document.getElementById('total-tl').innerText = `₺${toplamTL.toFixed(2)}`;
 
-            // Trend yüzdesi ve yönü hesaplama
             const ilkFiyat = haftalikFiyatlar[0];
             const sonFiyat = haftalikFiyatlar[haftalikFiyatlar.length - 1];
             const degisim = ((sonFiyat - ilkFiyat) / ilkFiyat) * 100;
             const trendDurumElement = document.getElementById('trend-durum');
             
+            // Syntax Hatası Düzeltildi: Escape karakteri kaldırıldı
             if(degisim >= 0) {
-                trendDurumElement.innerText = `+$\%{degisim.toFixed(2)}\% ↑`;
+                trendDurumElement.innerText = `+%${degisim.toFixed(2)} ↑`;
                 trendDurumElement.style.color = '#34d399';
             } else {
-                trendDurumElement.innerText = `$\%{degisim.toFixed(2)}\% ↓`;
+                trendDurumElement.innerText = `%${degisim.toFixed(2)} ↓`;
                 trendDurumElement.style.color = '#f87171';
             }
 
-            // Grafik çizimini tetikle
             grafikCiz(haftalikFiyatlar);
 
         } catch (error) {
             const yedekEuro = hisseAdedi * 75.07;
-            const yedekTL = yedekEuro * 35.2150;
+            const yedekTL = yedekEuro * 53.0700; // Ekran görüntüsündeki güncel kura yaklaştırıldı
 
             document.getElementById('sanofi-alani').innerText = "€75.07";
-            document.getElementById('eur-alani').innerText = "₺35.2150";
+            document.getElementById('eur-alani').innerText = "₺53.0700";
             
             document.getElementById('total-euro').innerText = `€${yedekEuro.toFixed(2)}`;
             document.getElementById('total-tl').innerText = `₺${yedekTL.toFixed(2)}`;
@@ -374,7 +356,6 @@
 
     verileriGetir();
     
-    // Ekran boyutu değişirse grafiği bozmadan yeniden ölçeklendirir
     window.addEventListener('resize', () => {
         verileriGetir();
     });
