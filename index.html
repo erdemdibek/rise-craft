@@ -530,12 +530,37 @@
         return `${gun}.${ay}.${borsaTarihi.getFullYear()} ${saat}:${dakika}`;
     }
 
+    // [DÜZELTİLDİ] Çift katmanlı akıllı proxy yapısı. AllOrigins fail verirse yedek cors proxy'e atlar.
     async function v6_fetchYahooData(tickerUrl) {
-        const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(tickerUrl)}`;
-        const res = await fetch(proxyUrl);
-        if (!res.ok) throw new Error("Proxy hatası");
-        const data = await res.json();
-        return JSON.parse(data.contents);
+        const cacheBuster = `&_cb=${Date.now()}`;
+        const targetUrl = tickerUrl + cacheBuster;
+
+        // Katman 1: AllOrigins (Standart)
+        try {
+            const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(targetUrl)}`;
+            const res = await fetch(proxyUrl);
+            if (res.ok) {
+                const data = await res.json();
+                if (data.contents) {
+                    return JSON.parse(data.contents);
+                }
+            }
+        } catch (e) {
+            console.warn("Ana proxy (AllOrigins) hatası, yedeğe geçiliyor...");
+        }
+
+        // Katman 2: Cors-Anywhere Alternatifi
+        try {
+            const backupProxyUrl = `https://corsproxy.io/?${encodeURIComponent(targetUrl)}`;
+            const res = await fetch(backupProxyUrl);
+            if (res.ok) {
+                return await res.json();
+            }
+        } catch (e) {
+            console.error("Yedek proxy de başarısız oldu.");
+        }
+        
+        throw new Error("Veri çekme servisleri yanıt vermiyor.");
     }
 
     function v6_setChartRange(range) {
@@ -557,9 +582,9 @@
         }
     }
 
-    // [HIZLANDIRILDI] fields filtreleri ve includeTimestamps parametresiyle yük %90 hafifletildi
+    // [DÜZELTİLDİ] Yahoo'nun WAF (güvenlik) duvarını tetikleyen tüm kirli filtre parametreleri temizlendi.
     async function v6_sadeceHisseVerisiCek(range) {
-        let targetChartUrl = `https://query1.finance.yahoo.com/v8/finance/chart/SAN.PA?interval=${range === '1d' ? '15m' : '1d'}&range=${range}&fields=regularMarketPrice,regularMarketTime&includeTimestamps=true`;
+        let targetChartUrl = `https://query1.finance.yahoo.com/v8/finance/chart/SAN.PA?interval=${range === '1d' ? '15m' : '1d'}&range=${range}`;
         let borsaSonIslemZamani = Math.floor(Date.now() / 1000);
 
         try {
@@ -599,10 +624,10 @@
         }
     }
 
-    // [HIZLANDIRILDI] Geçmiş gün içi seans yükü atıldı, sadece anlık değer filtresi eklendi
+    // [DÜZELTİLDİ] Döviz kuru sorgusu ham ve temiz hale getirildi.
     async function v6_sadeceKurCek() {
         try {
-            const kurJson = await v6_fetchYahooData("https://query1.finance.yahoo.com/v8/finance/chart/EURTRY=X?interval=1d&range=1d&fields=regularMarketPrice");
+            const kurJson = await v6_fetchYahooData("https://query1.finance.yahoo.com/v8/finance/chart/EURTRY=X?interval=1d&range=1d");
             if (kurJson?.chart?.result) {
                 v6_euroKuru = kurJson.chart.result[0].meta.regularMarketPrice || v6_euroKuru;
                 document.getElementById('euro-price-box').innerText = "₺" + v6_fmtPara.format(v6_euroKuru);
@@ -636,22 +661,16 @@
         v6_grafikCizici(v6_trendVerisi);
     }
 
-    // [HIZLANDIRILDI] Eşzamanlı istek çakışması engellendi. Aralara 500ms gecikme eklendi.
+    // İstek çakışmalarını önlemek için asenkron kuyruk yönetimi
     async function v6_veriMerkezi() {
-        // Önce kuru çekip bitiriyoruz
         await v6_sadeceKurCek();
-        
-        // Proxy'nin darboğaza girmemesi için ufak bir es
-        await new Promise(resolve => setTimeout(resolve, 500));
-        
-        // Aktif olan grafik aralığını getir
+        await new Promise(resolve => setTimeout(resolve, 600)); // proxy bekleme payı
         await v6_sadeceHisseVerisiCek(v6_activeRange);
         
-        // Arka plandaki diğer sekmeyi 1 saniye sonra sessizce doldur
         setTimeout(() => {
             const digerMod = v6_activeRange === '1d' ? '7d' : '1d';
             v6_sadeceHisseVerisiCek(digerMod);
-        }, 1000);
+        }, 1200);
     }
 
     function v6_badgeReset() {
@@ -705,10 +724,10 @@
         }, 1500);
     });
 
-    // İlk açılış
+    // İlk açılış tetikleyicisi
     v6_veriMerkezi();
     
-    // 5 dakikada bir otomatik arka plan güncellemesi
+    // 5 dakikada bir veri tazeleme
     setInterval(v6_veriMerkezi, 300000);
     
     window.addEventListener('resize', () => {
