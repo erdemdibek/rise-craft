@@ -120,7 +120,7 @@
             font-family: monospace;
         }
 
-        /* 3'LÜ STATS GRID */
+        /* STATS GRID */
         .grid-wrapper {
             display: grid;
             grid-template-columns: 1fr 1fr;
@@ -397,7 +397,7 @@
         <div class="data-list">
             <div class="data-row">
                 <span class="data-label">Sanofi Portföyü:</span>
-                <span class="data-value" id="ui-asset-count">...</span>
+                <span class="data-value" id="ui-asset-count">92,8009 Adet</span>
             </div>
             <div class="data-row grand-total">
                 <span class="data-label">Toplam Portföy Değeri:</span>
@@ -416,7 +416,8 @@
     let v7_activeTarget = 'sanofi'; 
     let v7_activeRange = '1d';      
 
-    let v7_prices = { sanofi: 92.50, euro: 36.20, gold: 0.0 };
+    // İlk yüklemede boş kalmaması için mantıklı mock/default değerler veriyoruz
+    let v7_prices = { sanofi: 92.50, euro: 36.20, gold: 2950.00 };
 
     let v7_db = {
         sanofi: { '1d': { prices: [], times: [] }, '7d': { prices: [], times: [] } },
@@ -545,14 +546,29 @@
         return `${gun}.${ay}.${d.getFullYear()} ${saat}:${dakika}`;
     }
 
-    // Cache-busting içeren akıllı veri indirme fonksiyonu
+    // Hata toleranslı çift proxy destekli indirme motoru
     async function v7_fetchYahoo(url) {
-        const cacheBuster = `&_cb=${Date.now()}`;
-        const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(url + cacheBuster)}`;
-        const res = await fetch(proxyUrl);
-        if(!res.ok) throw new Error("Ağ hatası");
-        const data = await res.json();
-        return JSON.parse(data.contents);
+        const cb = `&_cb=${Date.now()}_${Math.random().toString(36).substr(2, 5)}`;
+        const targetUrl = url + cb;
+        
+        // Proxy 1: Allorigins
+        try {
+            const p1 = `https://api.allorigins.win/get?url=${encodeURIComponent(targetUrl)}`;
+            const res = await fetch(p1);
+            if (res.ok) {
+                const data = await res.json();
+                if (data.contents) return JSON.parse(data.contents);
+            }
+        } catch(e) { console.log("Proxy 1 başarısız, Yedek Proxy deneniyor..."); }
+
+        // Proxy 2: Alternatif hızlı JSON köprüsü
+        try {
+            const p2 = `https://api.codetabs.com/v1/proxy/?quest=${encodeURIComponent(targetUrl)}`;
+            const res = await fetch(p2);
+            if (res.ok) return await res.json();
+        } catch(e) { console.log("Proxy 2 de başarısız oldu."); }
+
+        throw new Error("Tüm proxy hatları tıkalı.");
     }
 
     function v7_parseYahooSeries(result) {
@@ -569,46 +585,51 @@
         return { prices: p, times: t };
     }
 
-    // DARBOĞAZI ÖZLEYEN PARALEL SÜREÇ MERKEZİ
+    // ASENKRON KADEMELİ AKIŞ MOTORU (Sıra beklemez, gelen veri ekrana basılır)
     async function v7_veriMerkezi() {
         const intervalStr = v7_activeRange === '1d' ? "15m" : "1d";
         const rangeStr = v7_activeRange === '1d' ? "1d" : "7d";
 
-        // İstek adresleri yapılandırılıyor
         const urlSanofi = `https://query1.finance.yahoo.com/v8/finance/chart/SAN.PA?interval=${intervalStr}&range=${rangeStr}`;
         const urlEuro    = `https://query1.finance.yahoo.com/v8/finance/chart/EURTRY=X?interval=${intervalStr}&range=${rangeStr}`;
         const urlGold    = `https://query1.finance.yahoo.com/v8/finance/chart/GC=F?interval=${intervalStr}&range=${rangeStr}`;
         const urlUsd     = `https://query1.finance.yahoo.com/v8/finance/chart/USDTRY=X?interval=${intervalStr}&range=${rangeStr}`;
 
-        try {
-            // PARALEL PROMISE: 4 Veri paketini sırayla beklemek yerine aynı anda paralel çeker!
-            const [rawSanofi, rawEuro, rawGold, rawUsd] = await Promise.all([
-                v7_fetchYahoo(urlSanofi).catch(e => null),
-                v7_fetchYahoo(urlEuro).catch(e => null),
-                v7_fetchYahoo(urlGold).catch(e => null),
-                v7_fetchYahoo(urlUsd).catch(e => null)
-            ]);
-
-            // 1. Sanofi Çözümleme
-            if(rawSanofi && rawSanofi.chart && rawSanofi.chart.result) {
-                const res = rawSanofi.chart.result[0];
+        // 1. SANOFI İSTEĞİ (Bağımsız çalışır)
+        v7_fetchYahoo(urlSanofi).then(raw => {
+            if(raw && raw.chart && raw.chart.result) {
+                const res = raw.chart.result[0];
                 v7_prices.sanofi = res.meta.regularMarketPrice || v7_prices.sanofi;
                 v7_db.sanofi[v7_activeRange] = v7_parseYahooSeries(res);
+                document.getElementById('sanofi-price-box').innerText = "€" + v7_fmtPara.format(v7_prices.sanofi);
+                v7_arayuzHesapla();
+                if(v7_activeTarget === 'sanofi') v7_renderChartAndBadge();
             }
+        }).catch(e => console.log("Sanofi Akışı Hatası"));
 
-            // 2. Euro Çözümleme
-            if(rawEuro && rawEuro.chart && rawEuro.chart.result) {
-                const res = rawEuro.chart.result[0];
+        // 2. EURO İSTEĞİ (Bağımsız çalışır)
+        v7_fetchYahoo(urlEuro).then(raw => {
+            if(raw && raw.chart && raw.chart.result) {
+                const res = raw.chart.result[0];
                 v7_prices.euro = res.meta.regularMarketPrice || v7_prices.euro;
                 v7_db.euro[v7_activeRange] = v7_parseYahooSeries(res);
+                document.getElementById('euro-price-box').innerText = "₺" + v7_fmtPara.format(v7_prices.euro);
+                v7_arayuzHesapla();
+                if(v7_activeTarget === 'euro') v7_renderChartAndBadge();
             }
+        }).catch(e => console.log("Euro Akışı Hatası"));
 
-            // 3. Altın Çözümleme ve 22K Formülizasyonu
+        // 3. ALTIN & DOLAR ORTAK ANALİZİ (İkisi paralel bittiği an altını hesaplar)
+        Promise.all([
+            v7_fetchYahoo(urlGold).catch(() => null),
+            v7_fetchYahoo(urlUsd).catch(() => null)
+        ]).then(([rawGold, rawUsd]) => {
             if(rawGold && rawGold.chart && rawGold.chart.result && rawUsd && rawUsd.chart && rawUsd.chart.result) {
                 const gRes = rawGold.chart.result[0];
                 const uRes = rawUsd.chart.result[0];
                 
                 v7_prices.gold = ((gRes.meta.regularMarketPrice * uRes.meta.regularMarketPrice) / 31.1034768) * 0.916;
+                document.getElementById('gold-price-box').innerText = "₺" + v7_fmtPara.format(v7_prices.gold);
 
                 const gData = v7_parseYahooSeries(gRes);
                 const uData = v7_parseYahooSeries(uRes);
@@ -623,27 +644,20 @@
                     goldTimes.push(gData.times[i]);
                 }
                 v7_db.gold[v7_activeRange] = { prices: goldPrices, times: goldTimes };
+                if(v7_activeTarget === 'gold') v7_renderChartAndBadge();
             }
+        }).catch(e => console.log("Altın Döngüsü Hatası"));
 
-        } catch(e) {
-            console.log("Paralel veri döngüsünde istisna oluştu.");
-        }
-
-        // DOM Elementlerini doldur ve Yükleniyor donmasını kaldır
-        document.getElementById('sanofi-price-box').innerText = "€" + v7_fmtPara.format(v7_prices.sanofi);
-        document.getElementById('euro-price-box').innerText = "₺" + v7_fmtPara.format(v7_prices.euro);
-        document.getElementById('gold-price-box').innerText = "₺" + v7_fmtPara.format(v7_prices.gold);
-        
+        // Durum çubuğunu hemen güncelle, yükleniyor yazısını kaldır
         document.getElementById('last-update-time').innerText = v7_zamanFormatla();
-        v7_arayuzHesapla();
-        v7_renderChartAndBadge();
     }
 
     function v7_renderChartAndBadge() {
         const dataset = v7_db[v7_activeTarget][v7_activeRange];
+        
         if(!dataset || dataset.prices.length === 0) {
-            // Eğer o anlık veri yoksa yedek boş grafik göstererek kilitlenmeyi önler
-            v7_grafikCizici([v7_prices[v7_activeTarget]]);
+            // Veri o an henüz gelmediyse veya proxy geciktiyse kilitlenmek yerine taban fiyatı tek nokta çizer
+            v7_grafikCizici([v7_prices[v7_activeTarget], v7_prices[v7_activeTarget]]);
             return;
         }
 
@@ -715,8 +729,10 @@
     grafikAlani.addEventListener('mouseleave', () => { v7_renderChartAndBadge(); });
     grafikAlani.addEventListener('touchend', () => { setTimeout(v7_renderChartAndBadge, 1200); });
 
+    // İlk Çalıştırma Döngüleri
+    v7_arayuzHesapla();
     v7_veriMerkezi();
-    setInterval(v7_veriMerkezi, 300000); 
+    setInterval(v7_veriMerkezi, 60000); // 1 dakikada bir otomatik yenileme tetikler
     window.addEventListener('resize', () => {
         if(v7_db[v7_activeTarget][v7_activeRange].prices.length > 0) {
             v7_grafikCizici(v7_db[v7_activeTarget][v7_activeRange].prices);
