@@ -85,7 +85,7 @@
             margin-top: 1px;
         }
 
-        /* CANLI DURUM VE ZAMAN SÜRECİ */
+        /* STATUS BAR */
         .status-bar {
             display: flex;
             justify-content: space-between;
@@ -124,7 +124,7 @@
             text-align: right;
         }
 
-        /* STATS CARDS GRID */
+        /* GRID CARDS */
         .grid-wrapper {
             display: grid;
             grid-template-columns: 1fr 1fr;
@@ -136,7 +136,6 @@
             border: 1px solid rgba(255, 255, 255, 0.03);
             border-radius: 20px;
             padding: 16px;
-            position: relative;
         }
         .card-meta {
             font-size: 0.7rem;
@@ -155,7 +154,7 @@
         .sanofi-color { color: #38bdf8; }
         .euro-color { color: #10b981; }
 
-        /* TREND CHART BOX */
+        /* PREMIUM CHART BOX */
         .premium-chart-box {
             background: rgba(30, 41, 59, 0.15);
             border: 1px solid rgba(255, 255, 255, 0.02);
@@ -185,7 +184,6 @@
             transition: all 0.15s ease;
         }
 
-        /* GRAFİK FİLTRE BUTONLARI */
         .chart-tabs {
             display: flex;
             gap: 6px;
@@ -221,11 +219,8 @@
             position: relative;
             cursor: crosshair;
         }
-        .chart-viewport canvas {
-            display: block;
-        }
 
-        /* MAIN PORTFOLIO CARD */
+        /* PORTFOLIO CARD */
         .portfolio-card {
             background: linear-gradient(135deg, #16153b 0%, #0d121f 100%);
             border: 1px solid rgba(99, 102, 241, 0.18);
@@ -267,11 +262,6 @@
             display: flex;
             align-items: center;
             gap: 6px;
-            transition: all 0.2s ease;
-        }
-        .action-menu-btn:active {
-            background: rgba(255, 255, 255, 0.15);
-            transform: scale(0.95);
         }
 
         .data-list {
@@ -308,12 +298,10 @@
             text-shadow: 0 0 12px rgba(16, 185, 129, 0.25);
         }
 
-        /* FOOTER */
         .app-footer {
             font-size: 0.68rem;
             color: #475569;
             text-align: center;
-            letter-spacing: 0.01em;
             font-weight: 500;
         }
     </style>
@@ -344,17 +332,17 @@
     <section class="grid-wrapper">
         <div class="stat-card">
             <div class="card-meta">Sanofi Hisse</div>
-            <div id="sanofi-price-box" class="card-data sanofi-color">...</div>
+            <div id="sanofi-price-box" class="card-data sanofi-color">€92.50</div>
         </div>
         <div class="stat-card">
             <div class="card-meta">Euro / TL</div>
-            <div id="euro-price-box" class="card-data euro-color">...</div>
+            <div id="euro-price-box" class="card-data euro-color">₺36.20</div>
         </div>
     </section>
 
     <div class="premium-chart-box">
         <div class="chart-header">
-            <div class="chart-title" id="chart-main-title">Sanofi Trend Analizi</div>
+            <div class="chart-title" id="chart-main-title">Sanofi Gün İçi Seans</div>
             <div id="trend-badge" class="chart-badge">...</div>
         </div>
         
@@ -399,30 +387,26 @@
         Prepared by Erdem DIBEK
     </footer>
 </div>
+
 <script>
     let v6_hisseAdedi = 92.8009;
     let v6_sanofiFiyati = 92.50; 
     let v6_euroKuru = 36.20;     
-    
-    // Aktif görünüm modu: '1d' veya '7d'
     let v6_activeRange = '1d'; 
 
-    let v6_trendVerisi = [92.00, 92.15, 92.30, 92.20, 92.45, 92.50];
+    // İlk açılışta boş kalmaması için statik ama gerçekçi bir önizleme trendi
+    let v6_trendVerisi = [92.10, 92.35, 92.20, 92.40, 92.30, 92.50];
     let v6_trendZamanlari = []; 
-    let v6_varsayilanBadgeText = "...";
-    let v6_varsayilanBadgeColor = "";
-    let v6_varsayilanBadgeBg = "";
-    
     let v6_pixelPoints = [];
 
-    // HIZLI GEÇİŞ İÇİN BELLEK (CACHE) KATMANI
+    // ÖN BELLEK KATMANI (Cache): Sekme geçişlerini milisaniyelere indiren hafıza
     let v6_cachedData = {
-        '1d': { trend: null, zamanlar: null, sonIslemZamani: null },
+        '1d': { trend: [92.10, 92.35, 92.20, 92.40, 92.30, 92.50], zamanlar: [], sonIslemZamani: Math.floor(Date.now()/1000) },
         '7d': { trend: null, zamanlar: null, sonIslemZamani: null }
     };
 
-    const v6_fmtPara = new Intl.NumberFormat('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2, useGrouping: true });
-    const v6_fmtAsset = new Intl.NumberFormat('tr-TR', { minimumFractionDigits: 4, maximumFractionDigits: 4, useGrouping: true });
+    const v6_fmtPara = new Intl.NumberFormat('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    const v6_fmtAsset = new Intl.NumberFormat('tr-TR', { minimumFractionDigits: 4, maximumFractionDigits: 4 });
 
     function v6_grafikCizici(fiyatlar, activeIndex = null) {
         const canvas = document.getElementById('premiumTrendChart');
@@ -481,11 +465,9 @@
             } else if (idx === v6_pixelPoints.length - 1 && activeIndex === null) {
                 ctx.arc(p.x, p.y, 4, 0, 2 * Math.PI);
                 ctx.fillStyle = '#6366f1';
-                ctx.shadowBlur = 0;
             } else {
-                ctx.arc(p.x, p.y, 2, 0, 2 * Math.PI);
+                ctx.arc(p.x, p.y, 1.5, 0, 2 * Math.PI);
                 ctx.fillStyle = 'rgba(255,255,255,0.15)';
-                ctx.shadowBlur = 0;
             }
             ctx.fill();
             ctx.shadowBlur = 0;
@@ -509,60 +491,51 @@
             if (!isNaN(parsed) && parsed >= 0) {
                 v6_hisseAdedi = parsed;
                 v6_arayuzHesapla();
-            } else {
-                alert("Lütfen geçerli bir sayısal değer belirtin.");
             }
         }
     }
 
     function v6_borsaZamaniniFormatla(unixTimestamp, sadeceDetay = false) {
         const borsaTarihi = unixTimestamp ? new Date(unixTimestamp * 1000) : new Date();
-        
         const gun = String(borsaTarihi.getDate()).padStart(2, '0');
         const ay = String(borsaTarihi.getMonth() + 1).padStart(2, '0');
         const saat = String(borsaTarihi.getHours()).padStart(2, '0');
         const dakika = String(borsaTarihi.getMinutes()).padStart(2, '0');
         
         if (sadeceDetay) {
-            return v6_activeRange === '1d' ? `${saat}:${dakika}` : `${gun}.${ay}.${borsaTarihi.getFullYear()}`;
+            return v6_activeRange === '1d' ? `${saat}:${dakika}` : `${gun}.${ay}`;
         }
-        
         return `${gun}.${ay}.${borsaTarihi.getFullYear()} ${saat}:${dakika}`;
     }
 
-    // [DÜZELTİLDİ] Çift katmanlı akıllı proxy yapısı. AllOrigins fail verirse yedek cors proxy'e atlar.
+    // Çift Kanallı Bypass Proxy Sistemi (Hızlandırılmış ve hafifletilmiş)
     async function v6_fetchYahooData(tickerUrl) {
-        const cacheBuster = `&_cb=${Date.now()}`;
-        const targetUrl = tickerUrl + cacheBuster;
-
-        // Katman 1: AllOrigins (Standart)
+        const targetUrl = tickerUrl + `&_ts=${Date.now()}`;
+        
+        // İlk şans: AllOrigins
         try {
             const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(targetUrl)}`;
             const res = await fetch(proxyUrl);
             if (res.ok) {
                 const data = await res.json();
-                if (data.contents) {
-                    return JSON.parse(data.contents);
-                }
+                if (data.contents) return JSON.parse(data.contents);
             }
         } catch (e) {
-            console.warn("Ana proxy (AllOrigins) hatası, yedeğe geçiliyor...");
+            console.warn("Proxy 1 gecikti/hata verdi, Alternatife geçiliyor...");
         }
 
-        // Katman 2: Cors-Anywhere Alternatifi
+        // İkinci şans: Cors.io (Hızlı bypass hattı)
         try {
             const backupProxyUrl = `https://corsproxy.io/?${encodeURIComponent(targetUrl)}`;
             const res = await fetch(backupProxyUrl);
-            if (res.ok) {
-                return await res.json();
-            }
+            if (res.ok) return await res.json();
         } catch (e) {
-            console.error("Yedek proxy de başarısız oldu.");
+            console.error("Yedek proxy hattı da başarısız.");
         }
-        
-        throw new Error("Veri çekme servisleri yanıt vermiyor.");
+        throw new Error("Veri hatası.");
     }
 
+    // SEKMELER ARASI GEÇİŞ ARTIK ANLIK (Önce cache basılıyor, sonra arka planda güncelleniyor)
     function v6_setChartRange(range) {
         if(v6_activeRange === range) return;
         v6_activeRange = range;
@@ -572,28 +545,23 @@
         
         if (v6_cachedData[range].trend !== null) {
             v6_trendVerisi = v6_cachedData[range].trend;
-            v6_trendZamanlari = v6_cachedData[range].zamanlar;
+            v6_trendZamanlari = v6_cachedData[range].zamanlar || [];
             v6_sanofiFiyati = v6_trendVerisi[v6_trendVerisi.length - 1] || v6_sanofiFiyati;
-            
             v6_grafikArayuzunuGuncelle(v6_cachedData[range].sonIslemZamani);
-            v6_sadeceHisseVerisiCek(range); 
-        } else {
-            v6_sadeceHisseVerisiCek(range);
         }
+        
+        v6_sadeceHisseVerisiCek(range); 
     }
 
-    // [DÜZELTİLDİ] Yahoo'nun WAF (güvenlik) duvarını tetikleyen tüm kirli filtre parametreleri temizlendi.
     async function v6_sadeceHisseVerisiCek(range) {
         let targetChartUrl = `https://query1.finance.yahoo.com/v8/finance/chart/SAN.PA?interval=${range === '1d' ? '15m' : '1d'}&range=${range}`;
-        let borsaSonIslemZamani = Math.floor(Date.now() / 1000);
-
         try {
             const sanofiJson = await v6_fetchYahooData(targetChartUrl);
             if (sanofiJson?.chart?.result) {
                 const result = sanofiJson.chart.result[0];
                 const currentPrice = result.meta.regularMarketPrice || v6_sanofiFiyati;
                 const timestamps = result.timestamp || [];
-                borsaSonIslemZamani = result.meta.regularMarketTime || (timestamps.length > 0 ? timestamps[timestamps.length - 1] : borsaSonIslemZamani);
+                const borsaSonIslemZamani = result.meta.regularMarketTime || (timestamps.length > 0 ? timestamps[timestamps.length - 1] : Math.floor(Date.now()/1000));
 
                 const closes = result.indicators.quote[0].close || [];
                 let temizFiyatlar = [];
@@ -619,12 +587,9 @@
                     }
                 }
             }
-        } catch (err) {
-            console.log("Hisse verisi yenileme hatası.");
-        }
+        } catch (err) { console.log("Hisse yenileme gecikti."); }
     }
 
-    // [DÜZELTİLDİ] Döviz kuru sorgusu ham ve temiz hale getirildi.
     async function v6_sadeceKurCek() {
         try {
             const kurJson = await v6_fetchYahooData("https://query1.finance.yahoo.com/v8/finance/chart/EURTRY=X?interval=1d&range=1d");
@@ -633,9 +598,7 @@
                 document.getElementById('euro-price-box').innerText = "₺" + v6_fmtPara.format(v6_euroKuru);
                 v6_arayuzHesapla();
             }
-        } catch (err) {
-            console.log("Kur yenileme hatası.");
-        }
+        } catch (err) { console.log("Kur yenileme gecikti."); }
     }
 
     function v6_grafikArayuzunuGuncelle(borsaSonIslemZamani) {
@@ -647,45 +610,34 @@
         const f1 = v6_trendVerisi[v6_trendVerisi.length - 1] || v6_sanofiFiyati;
         const diff = ((f1 - f0) / f0) * 100;
         
+        const bElement = document.getElementById('trend-badge');
         if(diff >= 0) {
-            v6_varsayilanBadgeText = "+" + diff.toFixed(2) + "% ↑";
-            v6_varsayilanBadgeColor = '#10b981';
-            v6_varsayilanBadgeBg = 'rgba(16, 185, 129, 0.08)';
+            bElement.innerText = "+" + diff.toFixed(2) + "% ↑";
+            bElement.style.color = '#10b981';
+            bElement.style.background = 'rgba(16, 185, 129, 0.08)';
         } else {
-            v6_varsayilanBadgeText = diff.toFixed(2) + "% ↓";
-            v6_varsayilanBadgeColor = '#ef4444';
-            v6_varsayilanBadgeBg = 'rgba(239, 68, 68, 0.08)';
+            bElement.innerText = diff.toFixed(2) + "% ↓";
+            bElement.style.color = '#ef4444';
+            bElement.style.background = 'rgba(239, 68, 68, 0.08)';
         }
-
-        v6_badgeReset();
+        document.getElementById('chart-main-title').innerText = v6_activeRange === '1d' ? "Sanofi Gün İçi Seans" : "Sanofi Haftalık Trend";
         v6_grafikCizici(v6_trendVerisi);
     }
 
-    // İstek çakışmalarını önlemek için asenkron kuyruk yönetimi
-    async function v6_veriMerkezi() {
-        await v6_sadeceKurCek();
-        await new Promise(resolve => setTimeout(resolve, 600)); // proxy bekleme payı
-        await v6_sadeceHisseVerisiCek(v6_activeRange);
-        
-        setTimeout(() => {
+    // ASENKRON PARALEL TETİKLEME (Gecikmeyi azaltan kritik nokta)
+    function v6_veriMerkezi() {
+        Promise.all([
+            v6_sadeceKurCek(),
+            v6_sadeceHisseVerisiCek(v6_activeRange)
+        ]).then(() => {
+            // Diğer mod verisini arka planda sezgisel yükle (Cache doldurma)
             const digerMod = v6_activeRange === '1d' ? '7d' : '1d';
             v6_sadeceHisseVerisiCek(digerMod);
-        }, 1200);
-    }
-
-    function v6_badgeReset() {
-        const bElement = document.getElementById('trend-badge');
-        if(bElement) {
-            bElement.innerText = v6_varsayilanBadgeText;
-            bElement.style.color = v6_varsayilanBadgeColor;
-            bElement.style.background = v6_varsayilanBadgeBg;
-        }
-        document.getElementById('chart-main-title').innerText = v6_activeRange === '1d' ? "Sanofi Gün İçi Seans" : "Sanofi Haftalık Trend";
+        });
     }
 
     function v6_grafikEtkilesimYoneticisi(e) {
         if (v6_pixelPoints.length === 0) return;
-        
         const rect = document.getElementById('premiumTrendChart').getBoundingClientRect();
         const clientX = e.touches ? e.touches[0].clientX : e.clientX;
         const targetX = clientX - rect.left;
@@ -696,9 +648,9 @@
 
         if (enYakinNokta) {
             const bElement = document.getElementById('trend-badge');
-            const detayMetni = v6_trendZamanlari[enYakinNokta.index] ? v6_borsaZamaniniFormatla(v6_trendZamanlari[enYakinNokta.index], true) : `Nokta ${enYakinNokta.index + 1}`;
+            const detayMetni = v6_trendZamanlari[enYakinNokta.index] ? v6_borsaZamaniniFormatla(v6_trendZamanlari[enYakinNokta.index], true) : '';
             
-            document.getElementById('chart-main-title').innerText = detayMetni;
+            document.getElementById('chart-main-title').innerText = v6_activeRange === '1d' ? `Saat: ${detayMetni}` : `Tarih: ${detayMetni}`;
             bElement.innerText = "€" + v6_fmtPara.format(enYakinNokta.price);
             bElement.style.color = '#38bdf8';
             bElement.style.background = 'rgba(56, 189, 248, 0.15)';
@@ -708,31 +660,21 @@
     }
 
     const grafikAlani = document.getElementById('chart-area');
-    
     grafikAlani.addEventListener('mousemove', v6_grafikEtkilesimYoneticisi);
     grafikAlani.addEventListener('touchstart', v6_grafikEtkilesimYoneticisi, {passive: true});
     grafikAlani.addEventListener('touchmove', v6_grafikEtkilesimYoneticisi, {passive: true});
     
-    grafikAlani.addEventListener('mouseleave', () => {
-        v6_badgeReset();
-        v6_grafikCizici(v6_trendVerisi);
-    });
-    grafikAlani.addEventListener('touchend', () => {
-        setTimeout(() => {
-            v6_badgeReset();
-            v6_grafikCizici(v6_trendVerisi);
-        }, 1500);
-    });
+    grafikAlani.addEventListener('mouseleave', () => v6_grafikArayuzunuGuncelle(v6_cachedData[v6_activeRange].sonIslemZamani));
+    grafikAlani.addEventListener('touchend', () => setTimeout(() => v6_grafikArayuzunuGuncelle(v6_cachedData[v6_activeRange].sonIslemZamani), 1000));
 
-    // İlk açılış tetikleyicisi
+    // İlk Çalıştırma
+    v6_arayuzHesapla();
+    v6_grafikCizici(v6_trendVerisi);
     v6_veriMerkezi();
     
-    // 5 dakikada bir veri tazeleme
-    setInterval(v6_veriMerkezi, 300000);
-    
-    window.addEventListener('resize', () => {
-        v6_grafikCizici(v6_trendVerisi);
-    });
+    // Her 3 dakikada bir güncelle
+    setInterval(v6_veriMerkezi, 180000);
+    window.addEventListener('resize', () => v6_grafikCizici(v6_trendVerisi));
 </script>
 
 </body>
