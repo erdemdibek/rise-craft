@@ -234,6 +234,11 @@
 </div>
 
 <script>
+    // TR Formatında sayı biçimlendirici (Örn: 123.456,78)
+    const trFormat = new Intl.NumberFormat('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    // Kur formatı (Virgülden sonra 4 basamak gösterimi için)
+    const trFormatKur = new Intl.NumberFormat('tr-TR', { minimumFractionDigits: 4, maximumFractionDigits: 4 });
+
     function grafikCiz(fiyatlar) {
         const canvas = document.getElementById('trendChart');
         if (!canvas) return;
@@ -317,18 +322,18 @@
             const toplamEuro = hisseAdedi * sanofiPrice;
             const toplamTL = toplamEuro * eurTryRate;
 
-            document.getElementById('sanofi-alani').innerText = `€${sanofiPrice.toFixed(2)}`;
-            document.getElementById('eur-alani').innerText = `₺${eurTryRate.toFixed(4)}`;
+            // TR Formatlı hale getirilmiş çıktılar
+            document.getElementById('sanofi-alani').innerText = `€${trFormat.format(sanofiPrice)}`;
+            document.getElementById('eur-alani').innerText = `₺${trFormatKur.format(eurTryRate)}`;
             
-            document.getElementById('total-euro').innerText = `€${toplamEuro.toFixed(2)}`;
-            document.getElementById('total-tl').innerText = `₺${toplamTL.toFixed(2)}`;
+            document.getElementById('total-euro').innerText = `€${trFormat.format(toplamEuro)}`;
+            document.getElementById('total-tl').innerText = `₺${trFormat.format(toplamTL)}`;
 
             const ilkFiyat = haftalikFiyatlar[0];
             const sonFiyat = haftalikFiyatlar[haftalikFiyatlar.length - 1];
             const degisim = ((sonFiyat - ilkFiyat) / ilkFiyat) * 100;
             const trendDurumElement = document.getElementById('trend-durum');
             
-            // Syntax Hatası Düzeltildi: Escape karakteri kaldırıldı
             if(degisim >= 0) {
                 trendDurumElement.innerText = `+%${degisim.toFixed(2)} ↑`;
                 trendDurumElement.style.color = '#34d399';
@@ -341,13 +346,13 @@
 
         } catch (error) {
             const yedekEuro = hisseAdedi * 75.07;
-            const yedekTL = yedekEuro * 53.0700; // Ekran görüntüsündeki güncel kura yaklaştırıldı
+            const yedekTL = yedekEuro * 53.0700;
 
-            document.getElementById('sanofi-alani').innerText = "€75.07";
-            document.getElementById('eur-alani').innerText = "₺53.0700";
+            document.getElementById('sanofi-alani').innerText = "€75,07";
+            document.getElementById('eur-alani').innerText = "₺53,0700";
             
-            document.getElementById('total-euro').innerText = `€${yedekEuro.toFixed(2)}`;
-            document.getElementById('total-tl').innerText = `₺${yedekTL.toFixed(2)}`;
+            document.getElementById('total-euro').innerText = `€${trFormat.format(yedekEuro)}`;
+            document.getElementById('total-tl').innerText = `₺${trFormat.format(yedekTL)}`;
             
             document.getElementById('trend-durum').innerText = "Sabit %0.00";
             grafikCiz(haftalikFiyatlar);
@@ -361,5 +366,5 @@
     });
 </script>
 
-</body>
+</body
 </html>
