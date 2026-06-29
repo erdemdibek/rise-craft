@@ -1,6 +1,10 @@
 <!DOCTYPE html>
 <html lang="tr">
 <head>
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+    <meta http-equiv="Pragma" content="no-cache" />
+    <meta http-equiv="Expires" content="0" />
+    
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Finans Takip Paneli</title>
@@ -9,8 +13,8 @@
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-title" content="Sanofi Takip">
     
-    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='24' fill='%230f172a'/><path d='M82 50H66l-12 36L38 14l-12 36H18' fill='none' stroke='%2338bdf8' stroke-width='9' stroke-linecap='round' stroke-linejoin='round'/></svg>">
-    <link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='24' fill='%230f172a'/><path d='M82 50H66l-12 36L38 14l-12 36H18' fill='none' stroke='%2338bdf8' stroke-width='9' stroke-linecap='round' stroke-linejoin='round'/></svg>">
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='24' fill='%230b0f19'/><path d='M82 50H66l-12 36L38 14l-12 36H18' fill='none' stroke='%2338bdf8' stroke-width='9' stroke-linecap='round' stroke-linejoin='round'/></svg>">
+    <link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='24' fill='%230b0f19'/><path d='M82 50H66l-12 36L38 14l-12 36H18' fill='none' stroke='%2338bdf8' stroke-width='9' stroke-linecap='round' stroke-linejoin='round'/></svg>">
 
     <style>
         * {
@@ -22,7 +26,7 @@
         }
         body {
             font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", Roboto, sans-serif;
-            background-color: #090d16;
+            background-color: #070a12;
             color: #f1f5f9;
             display: flex;
             justify-content: center;
@@ -33,11 +37,11 @@
         .app-container {
             width: 100%;
             max-width: 410px;
-            background: linear-gradient(145deg, #111827 0%, #0f172a 100%);
+            background: linear-gradient(145deg, #0f1626 0%, #0b0f19 100%);
             border-radius: 32px;
             padding: 24px;
-            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
-            border: 1px solid rgba(255, 255, 255, 0.05);
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.6);
+            border: 1px solid rgba(255, 255, 255, 0.04);
         }
 
         /* HEADER */
@@ -45,7 +49,7 @@
             display: flex;
             align-items: center;
             gap: 12px;
-            margin-bottom: 24px;
+            margin-bottom: 22px;
             border-bottom: 1px solid rgba(255, 255, 255, 0.04);
             padding-bottom: 16px;
         }
@@ -81,45 +85,45 @@
             margin-top: 1px;
         }
 
-        /* LIVE STATUS TIME TAG */
+        /* CANLI DURUM VE ZAMAN SÜRECİ */
         .status-bar {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            background: rgba(30, 41, 59, 0.5);
-            padding: 8px 14px;
-            border-radius: 12px;
+            background: rgba(30, 41, 59, 0.4);
+            padding: 10px 14px;
+            border-radius: 14px;
             margin-bottom: 18px;
             border: 1px solid rgba(255, 255, 255, 0.03);
         }
         .status-dot-wrapper {
             display: flex;
             align-items: center;
-            gap: 6px;
+            gap: 8px;
             font-size: 0.72rem;
             color: #94a3b8;
             font-weight: 500;
         }
         .status-dot {
-            width: 6px;
-            height: 6px;
+            width: 7px;
+            height: 7px;
             background-color: #10b981;
             border-radius: 50%;
             animation: pulse 2s infinite;
         }
         @keyframes pulse {
-            0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(16, 119, 81, 0.7); }
-            70% { transform: scale(1); box-shadow: 0 0 0 6px rgba(16, 119, 81, 0); }
-            100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(16, 119, 81, 0); }
+            0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.5); }
+            70% { transform: scale(1); box-shadow: 0 0 0 6px rgba(16, 185, 129, 0); }
+            100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
         }
         .update-time {
             font-size: 0.72rem;
             color: #38bdf8;
-            font-weight: 600;
+            font-weight: 700;
             font-family: monospace;
         }
 
-        /* GRID CARDS */
+        /* STATS CARDS GRID */
         .grid-wrapper {
             display: grid;
             grid-template-columns: 1fr 1fr;
@@ -127,19 +131,11 @@
             margin-bottom: 18px;
         }
         .stat-card {
-            background: rgba(30, 41, 59, 0.3);
+            background: rgba(30, 41, 59, 0.25);
             border: 1px solid rgba(255, 255, 255, 0.03);
             border-radius: 20px;
             padding: 16px;
             position: relative;
-            overflow: hidden;
-        }
-        .stat-card::before {
-            content: '';
-            position: absolute;
-            top: 0; left: 0; width: 100%; height: 100%;
-            background: linear-gradient(180deg, rgba(255, 255, 255, 0.02) 0%, rgba(255, 255, 255, 0) 100%);
-            pointer-events: none;
         }
         .card-meta {
             font-size: 0.7rem;
@@ -158,10 +154,10 @@
         .sanofi-color { color: #38bdf8; }
         .euro-color { color: #10b981; }
 
-        /* CHART BOX */
+        /* TREND CHART BOX */
         .premium-chart-box {
-            background: rgba(30, 41, 59, 0.2);
-            border: 1px solid rgba(255, 255, 255, 0.03);
+            background: rgba(30, 41, 59, 0.15);
+            border: 1px solid rgba(255, 255, 255, 0.02);
             border-radius: 20px;
             padding: 16px;
             margin-bottom: 18px;
@@ -184,7 +180,7 @@
             border-radius: 8px;
             font-size: 0.7rem;
             font-weight: 700;
-            background: rgba(255, 255, 255, 0.05);
+            background: rgba(255, 255, 255, 0.04);
         }
         .chart-viewport {
             width: 100%;
@@ -194,12 +190,11 @@
 
         /* MAIN PORTFOLIO CARD */
         .portfolio-card {
-            background: linear-gradient(135deg, #1e1b4b 0%, #111827 100%);
-            border: 1px solid rgba(99, 102, 241, 0.15);
+            background: linear-gradient(135deg, #16153b 0%, #0d121f 100%);
+            border: 1px solid rgba(99, 102, 241, 0.18);
             border-radius: 24px;
             padding: 20px;
             margin-bottom: 20px;
-            box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.1);
         }
         .portfolio-top {
             display: flex;
@@ -223,12 +218,12 @@
             margin-top: 2px;
         }
         
-        /* GÖRÜNÜR PORTFÖY MENÜSÜ BUTONU */
+        /* HER ZAMAN GÖRÜNÜR SEÇKİN BUTON */
         .action-menu-btn {
-            background: rgba(255, 255, 255, 0.07);
+            background: rgba(255, 255, 255, 0.06);
             border: 1px solid rgba(255, 255, 255, 0.1);
             color: #ffffff;
-            padding: 8px 12px;
+            padding: 8px 14px;
             border-radius: 10px;
             font-size: 0.72rem;
             font-weight: 600;
@@ -236,12 +231,11 @@
             display: flex;
             align-items: center;
             gap: 6px;
-            transition: all 0.2s;
+            transition: all 0.2s ease;
         }
-        .action-menu-btn:hidden { display: none !important; }
         .action-menu-btn:active {
             background: rgba(255, 255, 255, 0.15);
-            transform: scale(0.96);
+            transform: scale(0.95);
         }
 
         .data-list {
@@ -275,7 +269,7 @@
         .grand-total .data-value {
             font-size: 1.3rem;
             color: #10b981;
-            text-shadow: 0 0 12px rgba(16, 185, 129, 0.2);
+            text-shadow: 0 0 12px rgba(16, 185, 129, 0.25);
         }
 
         /* FOOTER */
@@ -306,9 +300,9 @@
     <div class="status-bar">
         <div class="status-dot-wrapper">
             <div class="status-dot"></div>
-            <span id="sync-text">Canlı Veri Bağlantısı</span>
+            <span id="sync-text">Veri Bağlantısı Aktif</span>
         </div>
-        <div class="update-time" id="last-update-time">Yükleniyor...</div>
+        <div class="update-time" id="last-update-time">Saat Alınıyor...</div>
     </div>
 
     <section class="grid-wrapper">
@@ -365,13 +359,13 @@
 </div>
 
 <script>
-    // Tamamen bağımsız v5 İzole Finans Motoru
+    // v5 İzole Finans Motoru Altyapısı
     let v5_hisseAdedi = 92.8009;
     let v5_sanofiFiyati = 75.07;
     let v5_euroKuru = 53.0700;
     let v5_trendVerisi = [74.50, 74.90, 73.80, 74.20, 75.07];
 
-    // TR Format Altyapısı
+    // TR Standartlarına Uygun Sayı Formatlayıcıları (369.715,53)
     const v5_fmtPara = new Intl.NumberFormat('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2, useGrouping: true });
     const v5_fmtAsset = new Intl.NumberFormat('tr-TR', { minimumFractionDigits: 4, maximumFractionDigits: 4, useGrouping: true });
 
@@ -403,7 +397,7 @@
 
         const fillGrad = ctx.createLinearGradient(0, 0, 0, height);
         fillGrad.addColorStop(0, 'rgba(56, 189, 248, 0.12)');
-        fillGrad.addColorStop(1, 'rgba(9, 13, 22, 0)');
+        fillGrad.addColorStop(1, 'rgba(11, 15, 25, 0)');
 
         ctx.clearRect(0, 0, width, height);
 
@@ -462,11 +456,13 @@
 
     async function v5_veriMerkezi() {
         try {
+            // 1. Doviz Kuru Verisi
             const fxFetch = await fetch('https://api.exchangerate-api.com/v4/latest/EUR');
             const fxData = await fxFetch.json();
             v5_euroKuru = fxData.rates.TRY;
 
-            const stFetch = await fetch('https://api.marketstack.com/v1/eod/latest?access_key=BURAYA_MARKETSTACK_ANAHTARI_GELECEK&symbols=SAN.XPAR');
+            // 2. Hisse Fiyat Verisi (Buraya kendi Marketstack anahtarını eklemelisin)
+            const stFetch = await fetch('https://api.marketstack.com/v1/eod/latest?access_key=BURAYA_MARKETSTACK_KEY_EKLE&symbols=SAN.XPAR');
 
             if (stFetch.ok) {
                 const stData = await stFetch.json();
@@ -491,21 +487,20 @@
             if(diff >= 0) {
                 bElement.innerText = "+" + diff.toFixed(2) + "% ↑";
                 bElement.style.color = '#10b981';
-                bElement.style.background = 'rgba(16, 185, 129, 0.1)';
+                bElement.style.background = 'rgba(16, 185, 129, 0.08)';
             } else {
                 bElement.innerText = diff.toFixed(2) + "% ↓";
                 bElement.style.color = '#ef4444';
-                bElement.style.background = 'rgba(239, 68, 68, 0.1)';
+                bElement.style.background = 'rgba(239, 68, 68, 0.08)';
             }
 
             v5_grafikCizici(v5_trendVerisi);
 
         } catch (err) {
-            // Hata durumunda korumalı mod verileri aktarılır
+            // Hata durumunda varsayılan arayüzü koruma modu
             document.getElementById('sanofi-price-box').innerText = "€" + v5_fmtPara.format(v5_sanofiFiyati);
             document.getElementById('euro-price-box').innerText = "₺" + v5_fmtPara.format(v5_euroKuru);
             document.getElementById('trend-badge').innerText = "%0,00";
-            document.getElementById('trend-badge').style.color = '#94a3b8';
             
             v5_arayuzHesapla();
             v5_zamanGuncelle();
@@ -513,10 +508,10 @@
         }
     }
 
-    // İlk Çalıştırma Komutları
+    // Başlangıç Komutları
     v5_veriMerkezi();
     
-    // Her 5 dakikada bir (300.000 ms) arka planda otomatik yenileme
+    // Her 5 dakikada bir (300.000 ms) otomatik yenileme döngüsü
     setInterval(v5_veriMerkezi, 300000);
     
     window.addEventListener('resize', () => {
