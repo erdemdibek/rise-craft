@@ -10,10 +10,7 @@
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-title" content="Sanofi Takip">
     
-    <!-- Tarayıcı Sekmesi ve Android Chrome Ana Ekran İkonu (SVG Verisi) -->
     <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='24' fill='%23111827'/><path d='M82 50H66l-12 36L38 14l-12 36H18' fill='none' stroke='%2338bdf8' stroke-width='9' stroke-linecap='round' stroke-linejoin='round'/></svg>">
-    
-    <!-- iOS (iPhone) Ana Ekran İkonu -->
     <link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='24' fill='%23111827'/><path d='M82 50H66l-12 36L38 14l-12 36H18' fill='none' stroke='%2338bdf8' stroke-width='9' stroke-linecap='round' stroke-linejoin='round'/></svg>">
 
     <style>
@@ -27,7 +24,7 @@
             background-color: #0f172a;
             color: #f8fafc;
             display: flex;
-            flex-direction: column; /* Elemanların alt alta düzgün hizalanması için */
+            flex-direction: column;
             justify-content: center;
             align-items: center;
             min-height: 100vh;
@@ -43,7 +40,6 @@
             border: 1px solid #334155;
         }
         
-        /* Logo ve Başlık Alanı */
         .logo-area {
             display: flex;
             flex-direction: column;
@@ -84,7 +80,7 @@
             display: grid;
             grid-template-columns: 1fr 1fr;
             gap: 16px;
-            margin-bottom: 24px;
+            margin-bottom: 20px;
         }
         .card {
             background: #111827;
@@ -105,6 +101,33 @@
             color: #38bdf8;
         }
         #eur-alani { color: #34d399; }
+
+        /* Grafik Kartı Alanı */
+        .chart-box {
+            background: #111827;
+            border-radius: 16px;
+            padding: 16px;
+            border: 1px solid #1f2937;
+            margin-bottom: 20px;
+        }
+        .chart-title {
+            font-size: 0.85rem;
+            color: #94a3b8;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-bottom: 12px;
+            display: flex;
+            justify-content: space-between;
+        }
+        .chart-container {
+            position: relative;
+            width: 100%;
+            height: 120px;
+        }
+        canvas {
+            width: 100% !important;
+            height: 100% !important;
+        }
 
         .portfolio-box {
             background: #111827;
@@ -146,7 +169,6 @@
             font-size: 1.2rem;
         }
 
-        /* Yeni İmza Alanı */
         .footer {
             margin-top: 24px;
             font-size: 0.75rem;
@@ -181,6 +203,17 @@
         </div>
     </div>
 
+    <!-- Haftalık Trend Grafiği -->
+    <div class="chart-box">
+        <div class="chart-title">
+            <span>Sanofi Haftalık Trend</span>
+            <span id="trend-durum" style="color: #94a3b8;">Yükleniyor...</span>
+        </div>
+        <div class="chart-container">
+            <canvas id="trendChart"></canvas>
+        </div>
+    </div>
+
     <!-- Varlık Dökümü -->
     <div class="portfolio-box">
         <div class="welcome-title">Merhaba Yatırım Uzmanı Maaşlı Çalışan</div>
@@ -202,14 +235,78 @@
     </div>
 </div>
 
-<!-- Yeni Alt Bilgi Metni -->
 <div class="footer">
     Bu bilgilendirme sayfası Erdem DIBEK tarafından hazırlanmıştır.
 </div>
 
 <script>
+    // Grafiği HTML Canvas ile dinamik çizen fonksiyon
+    function grafikCiz(fiyatlar) {
+        const canvas = document.getElementById('trendChart');
+        if (!canvas) return;
+        const ctx = canvas.getContext('2d');
+        
+        // Çözünürlük netliği için boyut eşitleme
+        canvas.width = canvas.parentElement.clientWidth;
+        canvas.height = canvas.parentElement.clientHeight;
+
+        const width = canvas.width;
+        const height = canvas.height;
+        const padding = 10;
+
+        const maxPrice = Math.max(...fiyatlar);
+        const minPrice = Math.min(...fiyatlar);
+        const priceRange = maxPrice - minPrice === 0 ? 1 : maxPrice - minPrice;
+
+        // Noktaların koordinatlarını hesaplama
+        const points = fiyatlar.map((price, index) => {
+            const x = padding + (index * (width - padding * 2) / (fiyatlar.length - 1));
+            const y = height - padding - ((price - minPrice) * (height - padding * 2) / priceRange);
+            return { x, y };
+        });
+
+        // Çizgi Gradyanı (Mavi/Yeşil Trend)
+        const lineGrad = ctx.createLinearGradient(0, 0, width, 0);
+        lineGrad.addColorStop(0, '#38bdf8');
+        lineGrad.addColorStop(1, '#34d399');
+
+        // Arka Plan Dolgu Gradyanı
+        const fillGrad = ctx.createLinearGradient(0, 0, 0, height);
+        fillGrad.addColorStop(0, 'rgba(56, 189, 248, 0.15)');
+        fillGrad.addColorStop(1, 'rgba(15, 23, 42, 0)');
+
+        // Alanı doldur
+        ctx.beginPath();
+        ctx.moveTo(points[0].x, height);
+        points.forEach(p => ctx.lineTo(p.x, p.y));
+        ctx.lineTo(points[points.length - 1].x, height);
+        ctx.closePath();
+        ctx.fillStyle = fillGrad;
+        ctx.fill();
+
+        // Çizgiyi çek
+        ctx.beginPath();
+        ctx.moveTo(points[0].x, points[0].y);
+        points.forEach(p => ctx.lineTo(p.x, p.y));
+        ctx.strokeStyle = lineGrad;
+        ctx.lineWidth = 3;
+        ctx.stroke();
+
+        // Son noktaya parlak bir daire koy
+        const lastPoint = points[points.length - 1];
+        ctx.beginPath();
+        ctx.arc(lastPoint.x, lastPoint.y, 5, 0, 2 * Math.PI);
+        ctx.fillStyle = '#34d399';
+        ctx.fill();
+        ctx.strokeStyle = '#111827';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+    }
+
     async function verileriGetir() {
         const hisseAdedi = 92.8009;
+        // API hatası veya hafta sonu için yedek 5 günlük veri trendi
+        let haftalikFiyatlar = [74.50, 74.90, 73.80, 74.20, 75.07]; 
 
         try {
             const forexRes = await fetch('https://api.exchangerate-api.com/v4/latest/EUR');
@@ -222,19 +319,43 @@
 
             if (stockRes.ok) {
                 const stockData = await stockRes.json();
-                if (stockData && stockData.data && stockData.data[0]) {
+                if (stockData && stockData.data && stockData.data.length > 0) {
                     sanofiPrice = stockData.data[0].close;
+                    
+                    // Son 5-7 günün kapanış verilerini çekip grafiğe aktarma
+                    const canliTrend = stockData.data.slice(0, 7).map(item => item.close).reverse();
+                    if(canliTrend.length > 1) {
+                        haftalikFiyatlar = canliTrend;
+                    }
                 }
             }
 
             const toplamEuro = hisseAdedi * sanofiPrice;
             const toplamTL = toplamEuro * eurTryRate;
 
+            // Kart verilerini basma
             document.getElementById('sanofi-alani').innerText = `€${sanofiPrice.toFixed(2)}`;
             document.getElementById('eur-alani').innerText = `₺${eurTryRate.toFixed(4)}`;
             
             document.getElementById('total-euro').innerText = `€${toplamEuro.toFixed(2)}`;
             document.getElementById('total-tl').innerText = `₺${toplamTL.toFixed(2)}`;
+
+            // Trend yüzdesi ve yönü hesaplama
+            const ilkFiyat = haftalikFiyatlar[0];
+            const sonFiyat = haftalikFiyatlar[haftalikFiyatlar.length - 1];
+            const degisim = ((sonFiyat - ilkFiyat) / ilkFiyat) * 100;
+            const trendDurumElement = document.getElementById('trend-durum');
+            
+            if(degisim >= 0) {
+                trendDurumElement.innerText = `+$\%{degisim.toFixed(2)}\% ↑`;
+                trendDurumElement.style.color = '#34d399';
+            } else {
+                trendDurumElement.innerText = `$\%{degisim.toFixed(2)}\% ↓`;
+                trendDurumElement.style.color = '#f87171';
+            }
+
+            // Grafik çizimini tetikle
+            grafikCiz(haftalikFiyatlar);
 
         } catch (error) {
             const yedekEuro = hisseAdedi * 75.07;
@@ -245,10 +366,18 @@
             
             document.getElementById('total-euro').innerText = `€${yedekEuro.toFixed(2)}`;
             document.getElementById('total-tl').innerText = `₺${yedekTL.toFixed(2)}`;
+            
+            document.getElementById('trend-durum').innerText = "Sabit %0.00";
+            grafikCiz(haftalikFiyatlar);
         }
     }
 
     verileriGetir();
+    
+    // Ekran boyutu değişirse grafiği bozmadan yeniden ölçeklendirir
+    window.addEventListener('resize', () => {
+        verileriGetir();
+    });
 </script>
 
 </body>
