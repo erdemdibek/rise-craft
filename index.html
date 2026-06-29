@@ -394,12 +394,10 @@
     let v6_euroKuru = 36.20;     
     let v6_activeRange = '1d'; 
 
-    // İlk açılışta boş kalmaması için statik ama gerçekçi bir önizleme trendi
     let v6_trendVerisi = [92.10, 92.35, 92.20, 92.40, 92.30, 92.50];
     let v6_trendZamanlari = []; 
     let v6_pixelPoints = [];
 
-    // ÖN BELLEK KATMANI (Cache): Sekme geçişlerini milisaniyelere indiren hafıza
     let v6_cachedData = {
         '1d': { trend: [92.10, 92.35, 92.20, 92.40, 92.30, 92.50], zamanlar: [], sonIslemZamani: Math.floor(Date.now()/1000) },
         '7d': { trend: null, zamanlar: null, sonIslemZamani: null }
@@ -508,34 +506,45 @@
         return `${gun}.${ay}.${borsaTarihi.getFullYear()} ${saat}:${dakika}`;
     }
 
-    // Çift Kanallı Bypass Proxy Sistemi (Hızlandırılmış ve hafifletilmiş)
-    async function v6_fetchYahooData(tickerUrl) {
-        const targetUrl = tickerUrl + `&_ts=${Date.now()}`;
+    // [YENİLENDİ - JET HIZINDA] Google Finance CORS Engeline Takılmaz. Proxy Olmadan Doğrudan Çeker.
+    async function v6_fetchGoogleFinance(ticker, interval, range) {
+        // Google Finance standart mobil json endpoint'i
+        const url = `https://history.google.com/finance/getprices?q=${ticker}&i=${interval}&p=${range}&f=d,c,v,o,h,l`;
+        const res = await fetch(url);
+        if (!res.ok) throw new Error("Google Finance bağlantı hatası.");
+        const text = await res.text();
         
-        // İlk şans: AllOrigins
-        try {
-            const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(targetUrl)}`;
-            const res = await fetch(proxyUrl);
-            if (res.ok) {
-                const data = await res.json();
-                if (data.contents) return JSON.parse(data.contents);
+        // Google'ın ham CSV/Text formatını parse edelim
+        const lines = text.split('\n');
+        let fiyatlar = [];
+        let zamanlar = [];
+        let baseTimestamp = 0;
+        let intervalSec = parseInt(interval);
+
+        for (let i = 7; i < lines.length; i++) {
+            const line = lines[i].trim();
+            if (!line) continue;
+            const parts = line.split(',');
+            if (parts.length < 2) continue;
+
+            let rawTime = parts[0];
+            let closePrice = parseFloat(parts[1]);
+
+            if (isNaN(closePrice)) continue;
+
+            if (rawTime.startsWith('a')) {
+                baseTimestamp = parseInt(rawTime.substring(1));
+                zamanlar.push(baseTimestamp);
+            } else {
+                let offset = parseInt(rawTime);
+                zamanlar.push(baseTimestamp + (offset * intervalSec));
             }
-        } catch (e) {
-            console.warn("Proxy 1 gecikti/hata verdi, Alternatife geçiliyor...");
+            fiyatlar.push(closePrice);
         }
 
-        // İkinci şans: Cors.io (Hızlı bypass hattı)
-        try {
-            const backupProxyUrl = `https://corsproxy.io/?${encodeURIComponent(targetUrl)}`;
-            const res = await fetch(backupProxyUrl);
-            if (res.ok) return await res.json();
-        } catch (e) {
-            console.error("Yedek proxy hattı da başarısız.");
-        }
-        throw new Error("Veri hatası.");
+        return { fiyatlar, zamanlar, sonZaman: zamanlar[zamanlar.length - 1] || Math.floor(Date.now()/1000) };
     }
 
-    // SEKMELER ARASI GEÇİŞ ARTIK ANLIK (Önce cache basılıyor, sonra arka planda güncelleniyor)
     function v6_setChartRange(range) {
         if(v6_activeRange === range) return;
         v6_activeRange = range;
@@ -554,51 +563,39 @@
     }
 
     async function v6_sadeceHisseVerisiCek(range) {
-        let targetChartUrl = `https://query1.finance.yahoo.com/v8/finance/chart/SAN.PA?interval=${range === '1d' ? '15m' : '1d'}&range=${range}`;
+        // 1d için 15 dakikalık (900sn), 7d için günlük (86400sn) veri aralıkları optimize edildi
+        let interval = range === '1d' ? '900' : '86400';
+        let period = range === '1d' ? '1d' : '7d';
+
         try {
-            const sanofiJson = await v6_fetchYahooData(targetChartUrl);
-            if (sanofiJson?.chart?.result) {
-                const result = sanofiJson.chart.result[0];
-                const currentPrice = result.meta.regularMarketPrice || v6_sanofiFiyati;
-                const timestamps = result.timestamp || [];
-                const borsaSonIslemZamani = result.meta.regularMarketTime || (timestamps.length > 0 ? timestamps[timestamps.length - 1] : Math.floor(Date.now()/1000));
+            // EPA:SAN -> Google Finance Sanofi kodu
+            const data = await v6_fetchGoogleFinance('SAN', interval, period);
+            
+            if (data.fiyatlar.length > 0) {
+                v6_cachedData[range].trend = data.fiyatlar;
+                v6_cachedData[range].zamanlar = data.zamanlar;
+                v6_cachedData[range].sonIslemZamani = data.sonZaman;
 
-                const closes = result.indicators.quote[0].close || [];
-                let temizFiyatlar = [];
-                let temizZamanlar = [];
-                
-                for(let i=0; i<closes.length; i++) {
-                    if(closes[i] !== null && closes[i] !== undefined) {
-                        temizFiyatlar.push(closes[i]);
-                        temizZamanlar.push(timestamps[i]);
-                    }
-                }
-
-                if (temizFiyatlar.length > 0) {
-                    v6_cachedData[range].trend = temizFiyatlar;
-                    v6_cachedData[range].zamanlar = temizZamanlar;
-                    v6_cachedData[range].sonIslemZamani = borsaSonIslemZamani;
-
-                    if (v6_activeRange === range) {
-                        v6_trendVerisi = temizFiyatlar;
-                        v6_trendZamanlari = temizZamanlar;
-                        v6_sanofiFiyati = currentPrice;
-                        v6_grafikArayuzunuGuncelle(borsaSonIslemZamani);
-                    }
+                if (v6_activeRange === range) {
+                    v6_trendVerisi = data.fiyatlar;
+                    v6_trendZamanlari = data.zamanlar;
+                    v6_sanofiFiyati = data.fiyatlar[data.fiyatlar.length - 1];
+                    v6_grafikArayuzunuGuncelle(data.sonZaman);
                 }
             }
-        } catch (err) { console.log("Hisse yenileme gecikti."); }
+        } catch (err) { console.error("Google Hisse yenileme hatası:", err); }
     }
 
     async function v6_sadeceKurCek() {
         try {
-            const kurJson = await v6_fetchYahooData("https://query1.finance.yahoo.com/v8/finance/chart/EURTRY=X?interval=1d&range=1d");
-            if (kurJson?.chart?.result) {
-                v6_euroKuru = kurJson.chart.result[0].meta.regularMarketPrice || v6_euroKuru;
+            // CURRENCY:EURTRY -> Google Finance Euro/TL kodu
+            const data = await v6_fetchGoogleFinance('EURTRY', '86400', '1d');
+            if (data.fiyatlar.length > 0) {
+                v6_euroKuru = data.fiyatlar[data.fiyatlar.length - 1];
                 document.getElementById('euro-price-box').innerText = "₺" + v6_fmtPara.format(v6_euroKuru);
                 v6_arayuzHesapla();
             }
-        } catch (err) { console.log("Kur yenileme gecikti."); }
+        } catch (err) { console.error("Google Kur yenileme hatası:", err); }
     }
 
     function v6_grafikArayuzunuGuncelle(borsaSonIslemZamani) {
@@ -624,13 +621,12 @@
         v6_grafikCizici(v6_trendVerisi);
     }
 
-    // ASENKRON PARALEL TETİKLEME (Gecikmeyi azaltan kritik nokta)
     function v6_veriMerkezi() {
+        // Google altyapısında gecikme olmadığı için direkt paralel ateşliyoruz
         Promise.all([
             v6_sadeceKurCek(),
             v6_sadeceHisseVerisiCek(v6_activeRange)
         ]).then(() => {
-            // Diğer mod verisini arka planda sezgisel yükle (Cache doldurma)
             const digerMod = v6_activeRange === '1d' ? '7d' : '1d';
             v6_sadeceHisseVerisiCek(digerMod);
         });
@@ -667,12 +663,12 @@
     grafikAlani.addEventListener('mouseleave', () => v6_grafikArayuzunuGuncelle(v6_cachedData[v6_activeRange].sonIslemZamani));
     grafikAlani.addEventListener('touchend', () => setTimeout(() => v6_grafikArayuzunuGuncelle(v6_cachedData[v6_activeRange].sonIslemZamani), 1000));
 
-    // İlk Çalıştırma
+    // İlk Açılış Tetikleyicileri
     v6_arayuzHesapla();
     v6_grafikCizici(v6_trendVerisi);
     v6_veriMerkezi();
     
-    // Her 3 dakikada bir güncelle
+    // Her 3 dakikada bir otomatik arka plan güncellemesi
     setInterval(v6_veriMerkezi, 180000);
     window.addEventListener('resize', () => v6_grafikCizici(v6_trendVerisi));
 </script>
