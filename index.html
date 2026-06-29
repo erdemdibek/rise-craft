@@ -27,7 +27,7 @@
             justify-content: center;
             align-items: center;
             min-height: 100vh;
-            padding: 14px;
+            padding: 2vh 14px; /* Dikeyde ekran yüksekliğinin %2'si kadar boşluk bıraktım */
         }
         .container {
             width: 100%;
@@ -265,8 +265,16 @@
     let sonFiyatTrendi = [74.50, 74.90, 73.80, 74.20, 75.07];
 
     // TR Standartlarına Tam Uyumlu Noktalama Formatı
-    const trFormatDecimal = new Intl.NumberFormat('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-    const trFormatAsset = new Intl.NumberFormat('tr-TR', { minimumFractionDigits: 4, maximumFractionDigits: 4 });
+    const trFormatDecimal = new Intl.NumberFormat('tr-TR', { 
+        minimumFractionDigits: 2, 
+        maximumFractionDigits: 2,
+        useGrouping: true // Binler basamağını nokta ile ayırmayı garanti eder
+    });
+    const trFormatAsset = new Intl.NumberFormat('tr-TR', { 
+        minimumFractionDigits: 4, 
+        maximumFractionDigits: 4,
+        useGrouping: true // Binler basamağını nokta ile ayırmayı garanti eder
+    });
 
     function grafikCiz(fiyatlar) {
         const canvas = document.getElementById('trendChart');
@@ -326,8 +334,8 @@
         const toplamEuro = aktifHisseAdedi * anlikSanofiFiyati;
         const toplamTL = toplamEuro * anlikEuroKuru;
 
-        // Varlık adedi küsüratlı ise nokta-virgül dengesini TR'ye göre korur
-        document.getElementById('asset-count').innerText = `${trFormatAsset.format(aktifHisseAdedi)} Adet`;
+        // Varlık adedi formatlama revizyonu (92,8009 olarak gösterilmesi için)
+        document.getElementById('asset-count').innerText = `${aktifHisseAdedi.toLocaleString('tr-TR', { minimumFractionDigits: 4, maximumFractionDigits: 4 })} Adet`;
         document.getElementById('total-euro').innerText = `€${trFormatDecimal.format(toplamEuro)}`;
         document.getElementById('total-tl').innerText = `₺${trFormatDecimal.format(toplamTL)}`;
     }
