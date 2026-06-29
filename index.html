@@ -27,7 +27,7 @@
             justify-content: center;
             align-items: center;
             min-height: 100vh;
-            padding: 2vh 14px; /* Dikeyde ekran yüksekliğinin %2'si kadar boşluk bıraktım */
+            padding: 15px;
         }
         .container {
             width: 100%;
@@ -37,8 +37,6 @@
             padding: 22px;
             box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.3);
             border: 1px solid #334155;
-            display: flex;
-            flex-direction: column;
         }
         
         .logo-area {
@@ -136,34 +134,36 @@
             border: 1px solid #1f2937;
             margin-bottom: 16px;
         }
+        
+        /* Garantili Buton Alanı: Sıkışmayı önlemek için dikey blok düzeni */
         .welcome-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
             border-bottom: 1px solid #334155;
             padding-bottom: 10px;
             margin-bottom: 12px;
         }
         .welcome-title {
-            font-size: 0.9rem;
+            font-size: 0.95rem;
             color: #f1f5f9;
             font-weight: 600;
+            margin-bottom: 8px;
         }
         .calc-btn {
             background: linear-gradient(135deg, #38bdf8 0%, #0284c7 100%);
             border: none;
             color: white;
-            padding: 6px 12px;
+            padding: 6px 14px;
             border-radius: 8px;
             font-size: 0.75rem;
             font-weight: 600;
             cursor: pointer;
             box-shadow: 0 4px 6px -1px rgba(56, 189, 248, 0.2);
-            transition: all 0.2s;
+            display: block;
+            width: max-content;
         }
         .calc-btn:active {
             transform: scale(0.95);
         }
+        
         .row {
             display: flex;
             justify-content: space-between;
@@ -187,7 +187,7 @@
         }
         .total-tl {
             color: #34d399;
-            font-size: 1.15rem;
+            font-size: 1.2rem;
         }
 
         .footer {
@@ -233,8 +233,8 @@
 
     <div class="portfolio-box">
         <div class="welcome-header">
-            <div class="welcome-title">Merhaba Yatırım Uzmanı</div>
-            <button class="calc-btn" onclick="portfoyDegistir()">⚙️ Adet Değiştir</button>
+            <div class="welcome-title">Merhaba Yatırım Uzmanı Maaşlı Çalışan</div>
+            <button class="calc-btn" onclick="v3_portfoyGuncelle()">⚙️ Portföy Değiştir</button>
         </div>
         
         <div class="row">
@@ -259,24 +259,17 @@
 </div>
 
 <script>
-    let aktifHisseAdedi = 92.8009;
-    let anlikSanofiFiyati = 75.07;
-    let anlikEuroKuru = 53.0700;
-    let sonFiyatTrendi = [74.50, 74.90, 73.80, 74.20, 75.07];
+    // Tarayıcı hafızasını tamamen çökertmek için benzersiz v3 değişkenleri
+    let v3_hisseAdedi = 92.8009;
+    let v3_sanofiFiyati = 75.07;
+    let v3_euroKuru = 53.0700;
+    let v3_trendVerisi = [74.50, 74.90, 73.80, 74.20, 75.07];
 
-    // TR Standartlarına Tam Uyumlu Noktalama Formatı
-    const trFormatDecimal = new Intl.NumberFormat('tr-TR', { 
-        minimumFractionDigits: 2, 
-        maximumFractionDigits: 2,
-        useGrouping: true // Binler basamağını nokta ile ayırmayı garanti eder
-    });
-    const trFormatAsset = new Intl.NumberFormat('tr-TR', { 
-        minimumFractionDigits: 4, 
-        maximumFractionDigits: 4,
-        useGrouping: true // Binler basamağını nokta ile ayırmayı garanti eder
-    });
+    // Sayıları Türkiye standartlarına (Binlik: Nokta, Kuruş: Virgül) göre biçimlendiren format motorları
+    const v3_fmtTL = new Intl.NumberFormat('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    const v3_fmtKur = new Intl.NumberFormat('tr-TR', { minimumFractionDigits: 4, maximumFractionDigits: 4 });
 
-    function grafikCiz(fiyatlar) {
+    function v3_grafikCiz(fiyatlar) {
         const canvas = document.getElementById('trendChart');
         if (!canvas) return;
         const ctx = canvas.getContext('2d');
@@ -330,88 +323,88 @@
         ctx.fill();
     }
 
-    function hesaplamalariYansit() {
-        const toplamEuro = aktifHisseAdedi * anlikSanofiFiyati;
-        const toplamTL = toplamEuro * anlikEuroKuru;
+    // Matematiksel çıktıları kesin olarak nokta ve virgülle ayıran güvenli fonksiyon
+    function v3_ekranaYansit() {
+        const hesaplananEuro = v3_hisseAdedi * v3_sanofiFiyati;
+        const hesaplananTL = hesaplananEuro * v3_euroKuru;
 
-        // Varlık adedi formatlama revizyonu (92,8009 olarak gösterilmesi için)
-        document.getElementById('asset-count').innerText = `${aktifHisseAdedi.toLocaleString('tr-TR', { minimumFractionDigits: 4, maximumFractionDigits: 4 })} Adet`;
-        document.getElementById('total-euro').innerText = `€${trFormatDecimal.format(toplamEuro)}`;
-        document.getElementById('total-tl').innerText = `₺${trFormatDecimal.format(toplamTL)}`;
+        // Ekrana basılan alanların TR formatlamasını zorluyoruz
+        document.getElementById('asset-count').innerText = v3_hisseAdedi.toLocaleString('tr-TR', { minimumFractionDigits: 4, maximumFractionDigits: 4 }) + " Adet";
+        document.getElementById('total-euro').innerText = "€" + v3_fmtTL.format(hesaplananEuro);
+        document.getElementById('total-tl').innerText = "₺" + v3_fmtTL.format(hesaplananTL);
     }
 
-    function portfoyDegistir() {
-        let yeniAdet = prompt("Lütfen hesaplamak istediğiniz yeni Sanofi hisse adedini girin:", aktifHisseAdedi);
-        if (yeniAdet !== null && yeniAdet.trim() !== "") {
-            yeniAdet = yeniAdet.replace(',', '.');
-            const sayiKontrol = parseFloat(yeniAdet);
-            if (!isNaN(sayiKontrol) && sayiKontrol >= 0) {
-                aktifHisseAdedi = sayiKontrol;
-                hesaplamalariYansit();
+    function v3_portfoyGuncelle() {
+        let girdi = prompt("Hesaplamak istediğiniz yeni Sanofi hisse adedini girin:", v3_hisseAdedi);
+        if (girdi !== null && girdi.trim() !== "") {
+            girdi = girdi.replace(',', '.');
+            const kontrol = parseFloat(girdi);
+            if (!isNaN(kontrol) && kontrol >= 0) {
+                v3_hisseAdedi = kontrol;
+                v3_ekranaYansit();
             } else {
-                alert("Lütfen geçerli bir sayısal değer girin.");
+                alert("Geçersiz bir sayı girdiniz.");
             }
         }
     }
 
-    async function verileriGetir() {
+    async function v3_cekici() {
         try {
             const forexRes = await fetch('https://api.exchangerate-api.com/v4/latest/EUR');
             const forexData = await forexRes.json();
-            anlikEuroKuru = forexData.rates.TRY;
+            v3_euroKuru = forexData.rates.TRY;
 
             const stockRes = await fetch('https://api.marketstack.com/v1/eod/latest?access_key=fca7b64082msh63b514e865f2425p1b089ajsn7b570cb1e6a2&symbols=SAN.XPAR');
 
             if (stockRes.ok) {
                 const stockData = await stockRes.json();
                 if (stockData && stockData.data && stockData.data.length > 0) {
-                    anlikSanofiFiyati = stockData.data[0].close;
+                    v3_sanofiFiyati = stockData.data[0].close;
                     
                     const canliTrend = stockData.data.slice(0, 7).map(item => item.close).reverse();
                     if(canliTrend.length > 1) {
-                        sonFiyatTrendi = canliTrend;
+                        v3_trendVerisi = canliTrend;
                     }
                 }
             }
 
-            document.getElementById('sanofi-alani').innerText = `€${trFormatDecimal.format(anlikSanofiFiyati)}`;
-            document.getElementById('eur-alani').innerText = `₺${trFormatAsset.format(anlikEuroKuru)}`;
+            document.getElementById('sanofi-alani').innerText = "€" + v3_fmtTL.format(v3_sanofiFiyati);
+            document.getElementById('eur-alani').innerText = "₺" + v3_fmtKur.format(v3_euroKuru);
             
-            hesaplamalariYansit();
+            v3_ekranaYansit();
 
-            const ilkFiyat = sonFiyatTrendi[0];
-            const sonFiyat = sonFiyatTrendi[sonFiyatTrendi.length - 1];
+            const ilkFiyat = v3_trendVerisi[0];
+            const sonFiyat = v3_trendVerisi[v3_trendVerisi.length - 1];
             const degisim = ((sonFiyat - ilkFiyat) / ilkFiyat) * 100;
             const trendDurumElement = document.getElementById('trend-durum');
             
             if(degisim >= 0) {
-                trendDurumElement.innerText = `+%${degisim.toFixed(2)} ↑`;
+                trendDurumElement.innerText = "+" + degisim.toFixed(2) + "% ↑";
                 trendDurumElement.style.color = '#34d399';
             } else {
-                trendDurumElement.innerText = `%${degisim.toFixed(2)} ↓`;
+                trendDurumElement.innerText = degisim.toFixed(2) + "% ↓";
                 trendDurumElement.style.color = '#f87171';
             }
 
-            grafikCiz(sonFiyatTrendi);
+            v3_grafikCiz(v3_trendVerisi);
 
         } catch (error) {
-            anlikSanofiFiyati = 75.07;
-            anlikEuroKuru = 53.0700;
+            v3_sanofiFiyati = 75.07;
+            v3_euroKuru = 53.0700;
 
             document.getElementById('sanofi-alani').innerText = "€75,07";
             document.getElementById('eur-alani').innerText = "₺53,0700";
             
-            hesaplamalariYansit();
-            
+            v3_ekranaYansit();
             document.getElementById('trend-durum').innerText = "Sabit %0.00";
-            grafikCiz(sonFiyatTrendi);
+            v3_grafikCiz(v3_trendVerisi);
         }
     }
 
-    verileriGetir();
+    v3_cekici();
     
     window.addEventListener('resize', () => {
-        grafikCiz(sonFiyatTrendi);
+        v3_grafikCiz(v3_trendVerisi);
     });
 </script>
 
