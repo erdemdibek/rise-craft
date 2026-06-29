@@ -2,7 +2,7 @@
 <html lang="tr">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Finans Takip Paneli</title>
 
     <meta name="mobile-web-app-capable" content="yes">
@@ -17,6 +17,12 @@
             box-sizing: border-box;
             margin: 0;
             padding: 0;
+            user-select: none;
+        }
+        html, body {
+            width: 100%;
+            height: 100%;
+            overflow: hidden; /* Aşağı yukarı kaydırmayı tamamen engeller */
         }
         body {
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
@@ -26,15 +32,18 @@
             flex-direction: column;
             justify-content: center;
             align-items: center;
-            min-height: 100vh;
-            padding: 20px;
+            padding: 12px;
         }
         .container {
             width: 100%;
-            max-width: 450px;
+            max-width: 420px;
+            height: 94vh; /* Ekrana tam dikey sığma kontrolü */
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between; /* Elemanları dikeyde dengeli dağıtır */
             background: #1e293b;
             border-radius: 24px;
-            padding: 28px 24px;
+            padding: 20px 20px;
             box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.3);
             border: 1px solid #334155;
         }
@@ -44,23 +53,23 @@
             flex-direction: column;
             align-items: center;
             justify-content: center;
-            margin-bottom: 24px;
             text-align: center;
+            margin-bottom: 5px;
         }
         .logo-icon {
-            width: 48px;
-            height: 48px;
+            width: 42px;
+            height: 42px;
             background: linear-gradient(135deg, #38bdf8 0%, #34d399 100%);
             border-radius: 12px;
             display: flex;
             justify-content: center;
             align-items: center;
-            margin-bottom: 12px;
+            margin-bottom: 8px;
             box-shadow: 0 8px 16px -4px rgba(56, 189, 248, 0.3);
         }
         .logo-icon svg {
-            width: 26px;
-            height: 26px;
+            width: 22px;
+            height: 22px;
             fill: none;
             stroke: #ffffff;
             stroke-width: 2.5;
@@ -68,7 +77,7 @@
             stroke-linejoin: round;
         }
         .panel-title {
-            font-size: 0.85rem;
+            font-size: 0.75rem;
             color: #94a3b8;
             text-transform: uppercase;
             letter-spacing: 0.1em;
@@ -78,24 +87,23 @@
         .market-grid {
             display: grid;
             grid-template-columns: 1fr 1fr;
-            gap: 16px;
-            margin-bottom: 20px;
+            gap: 12px;
         }
         .card {
             background: #111827;
-            padding: 16px;
+            padding: 12px 14px;
             border-radius: 16px;
             border: 1px solid #1f2937;
         }
         .card-label {
-            font-size: 0.8rem;
+            font-size: 0.75rem;
             color: #94a3b8;
             text-transform: uppercase;
             letter-spacing: 0.05em;
-            margin-bottom: 4px;
+            margin-bottom: 2px;
         }
         .card-value {
-            font-size: 1.5rem;
+            font-size: 1.35rem;
             font-weight: 700;
             color: #38bdf8;
         }
@@ -104,23 +112,26 @@
         .chart-box {
             background: #111827;
             border-radius: 16px;
-            padding: 16px;
+            padding: 14px;
             border: 1px solid #1f2937;
-            margin-bottom: 20px;
+            flex-grow: 0.8; /* Grafiğin dikeyde esnek kalmasını sağlar */
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            min-height: 110px;
         }
         .chart-title {
-            font-size: 0.85rem;
+            font-size: 0.75rem;
             color: #94a3b8;
             text-transform: uppercase;
             letter-spacing: 0.05em;
-            margin-bottom: 12px;
             display: flex;
             justify-content: space-between;
         }
         .chart-container {
             position: relative;
             width: 100%;
-            height: 120px;
+            height: 85px;
         }
         canvas {
             width: 100% !important;
@@ -130,30 +141,50 @@
         .portfolio-box {
             background: #111827;
             border-radius: 16px;
-            padding: 20px;
+            padding: 16px;
             border: 1px solid #1f2937;
         }
+        .welcome-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid #334155;
+            padding-bottom: 8px;
+            margin-bottom: 12px;
+        }
         .welcome-title {
-            font-size: 1.1rem;
+            font-size: 0.95rem;
             color: #f1f5f9;
             font-weight: 600;
-            margin-bottom: 16px;
-            border-bottom: 1px solid #334155;
-            padding-bottom: 10px;
+        }
+        .calc-btn {
+            background: linear-gradient(135deg, #38bdf8 0%, #0284c7 100%);
+            border: none;
+            color: white;
+            padding: 5px 10px;
+            border-radius: 8px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            cursor: pointer;
+            box-shadow: 0 4px 6px -1px rgba(56, 189, 248, 0.2);
+            transition: all 0.2s;
+        }
+        .calc-btn:active {
+            transform: scale(0.95);
         }
         .row {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            margin-bottom: 12px;
-            font-size: 1rem;
+            margin-bottom: 8px;
+            font-size: 0.9rem;
             color: #cbd5e1;
         }
         .row:last-child {
             margin-bottom: 0;
-            margin-top: 14px;
+            margin-top: 10px;
             border-top: 1px dashed #334155;
-            padding-top: 14px;
+            padding-top: 10px;
         }
         .row-label {
             color: #94a3b8;
@@ -164,15 +195,15 @@
         }
         .total-tl {
             color: #34d399;
-            font-size: 1.2rem;
+            font-size: 1.1rem;
         }
 
         .footer {
-            margin-top: 24px;
-            font-size: 0.75rem;
+            font-size: 0.7rem;
             color: #64748b;
             letter-spacing: 0.02em;
             text-align: center;
+            margin-top: 2px;
         }
     </style>
 </head>
@@ -202,7 +233,7 @@
     <div class="chart-box">
         <div class="chart-title">
             <span>Sanofi Haftalık Trend</span>
-            <span id="trend-durum" style="color: #94a3b8;">Yükleniyor...</span>
+            <span id="trend-durum" style="color: #94a3b8;">...</span>
         </div>
         <div class="chart-container">
             <canvas id="trendChart"></canvas>
@@ -210,11 +241,14 @@
     </div>
 
     <div class="portfolio-box">
-        <div class="welcome-title">Merhaba Yatırım Uzmanı Maaşlı Çalışan</div>
+        <div class="welcome-header">
+            <div class="welcome-title">Merhaba Yatırım Uzmanı</div>
+            <button class="calc-btn" onclick="portfoyDegistir()">⚙️ Adet Değiştir</button>
+        </div>
         
         <div class="row">
             <span class="row-label">Toplam Varlık:</span>
-            <span class="row-value">92.8009 Adet</span>
+            <span class="row-value" id="asset-count">92.8009 Adet</span>
         </div>
         
         <div class="row">
@@ -227,16 +261,19 @@
             <span class="row-value total-tl" id="total-tl">...</span>
         </div>
     </div>
-</div>
 
-<div class="footer">
-    Bu bilgilendirme sayfası Erdem DIBEK tarafından hazırlanmıştır.
+    <div class="footer">
+        Bu bilgilendirme sayfası Erdem DIBEK tarafından hazırlanmıştır.
+    </div>
 </div>
 
 <script>
-    // TR Formatında sayı biçimlendirici (Örn: 123.456,78)
+    // Global Değişkenler (Hesaplamanın dinamik yürümesi için)
+    let aktifHisseAdedi = 92.8009;
+    let anlikSanofiFiyati = 75.07;
+    let anlikEuroKuru = 53.0700;
+
     const trFormat = new Intl.NumberFormat('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-    // Kur formatı (Virgülden sonra 4 basamak gösterimi için)
     const trFormatKur = new Intl.NumberFormat('tr-TR', { minimumFractionDigits: 4, maximumFractionDigits: 4 });
 
     function grafikCiz(fiyatlar) {
@@ -249,7 +286,7 @@
 
         const width = canvas.width;
         const height = canvas.height;
-        const padding = 10;
+        const padding = 8;
 
         const maxPrice = Math.max(...fiyatlar);
         const minPrice = Math.min(...fiyatlar);
@@ -281,36 +318,56 @@
         ctx.moveTo(points[0].x, points[0].y);
         points.forEach(p => ctx.lineTo(p.x, p.y));
         ctx.strokeStyle = lineGrad;
-        ctx.lineWidth = 3;
+        ctx.lineWidth = 2.5;
         ctx.stroke();
 
         const lastPoint = points[points.length - 1];
         ctx.beginPath();
-        ctx.arc(lastPoint.x, lastPoint.y, 5, 0, 2 * Math.PI);
+        ctx.arc(lastPoint.x, lastPoint.y, 4, 0, 2 * Math.PI);
         ctx.fillStyle = '#34d399';
         ctx.fill();
-        ctx.strokeStyle = '#111827';
-        ctx.lineWidth = 2;
-        ctx.stroke();
+    }
+
+    // Arayüzdeki toplam değerleri güncelleyen fonksiyon
+    function hesaplamalariYansit() {
+        const toplamEuro = aktifHisseAdedi * anlikSanofiFiyati;
+        const toplamTL = toplamEuro * anlikEuroKuru;
+
+        document.getElementById('asset-count').innerText = `${aktifHisseAdedi.toString().replace('.', ',')} Adet`;
+        document.getElementById('total-euro').innerText = `€${trFormat.format(toplamEuro)}`;
+        document.getElementById('total-tl').innerText = `₺${trFormat.format(toplamTL)}`;
+    }
+
+    // Butona basıldığında hisse adedi değiştiren prompt penceresi
+    function portfoyDegistir() {
+        let yeniAdet = prompt("Lütfen hesaplamak istediğiniz yeni Sanofi hisse adedini girin:", aktifHisseAdedi);
+        if (yeniAdet !== null && yeniAdet.trim() !== "") {
+            // Virgüllü girişleri de sistemin algılaması için noktaya çeviriyoruz
+            yeniAdet = yeniAdet.replace(',', '.');
+            const sayiKontrol = parseFloat(yeniAdet);
+            if (!isNaN(sayiKontrol) && sayiKontrol >= 0) {
+                aktifHisseAdedi = sayiKontrol;
+                hesaplamalariYansit();
+            } else {
+                alert("Lütfen geçerli bir sayısal değer girin.");
+            }
+        }
     }
 
     async function verileriGetir() {
-        const hisseAdedi = 92.8009;
         let haftalikFiyatlar = [74.50, 74.90, 73.80, 74.20, 75.07]; 
 
         try {
             const forexRes = await fetch('https://api.exchangerate-api.com/v4/latest/EUR');
             const forexData = await forexRes.json();
-            const eurTryRate = forexData.rates.TRY;
+            anlikEuroKuru = forexData.rates.TRY;
 
             const stockRes = await fetch('https://api.marketstack.com/v1/eod/latest?access_key=fca7b64082msh63b514e865f2425p1b089ajsn7b570cb1e6a2&symbols=SAN.XPAR');
-            
-            let sanofiPrice = 75.07;
 
             if (stockRes.ok) {
                 const stockData = await stockRes.json();
                 if (stockData && stockData.data && stockData.data.length > 0) {
-                    sanofiPrice = stockData.data[0].close;
+                    anlikSanofiFiyati = stockData.data[0].close;
                     
                     const canliTrend = stockData.data.slice(0, 7).map(item => item.close).reverse();
                     if(canliTrend.length > 1) {
@@ -319,15 +376,10 @@
                 }
             }
 
-            const toplamEuro = hisseAdedi * sanofiPrice;
-            const toplamTL = toplamEuro * eurTryRate;
-
-            // TR Formatlı hale getirilmiş çıktılar
-            document.getElementById('sanofi-alani').innerText = `€${trFormat.format(sanofiPrice)}`;
-            document.getElementById('eur-alani').innerText = `₺${trFormatKur.format(eurTryRate)}`;
+            document.getElementById('sanofi-alani').innerText = `€${trFormat.format(anlikSanofiFiyati)}`;
+            document.getElementById('eur-alani').innerText = `₺${trFormatKur.format(anlikEuroKuru)}`;
             
-            document.getElementById('total-euro').innerText = `€${trFormat.format(toplamEuro)}`;
-            document.getElementById('total-tl').innerText = `₺${trFormat.format(toplamTL)}`;
+            hesaplamalariYansit();
 
             const ilkFiyat = haftalikFiyatlar[0];
             const sonFiyat = haftalikFiyatlar[haftalikFiyatlar.length - 1];
@@ -345,14 +397,13 @@
             grafikCiz(haftalikFiyatlar);
 
         } catch (error) {
-            const yedekEuro = hisseAdedi * 75.07;
-            const yedekTL = yedekEuro * 53.0700;
+            anlikSanofiFiyati = 75.07;
+            anlikEuroKuru = 53.0700;
 
             document.getElementById('sanofi-alani').innerText = "€75,07";
             document.getElementById('eur-alani').innerText = "₺53,0700";
             
-            document.getElementById('total-euro').innerText = `€${trFormat.format(yedekEuro)}`;
-            document.getElementById('total-tl').innerText = `₺${trFormat.format(yedekTL)}`;
+            hesaplamalariYansit();
             
             document.getElementById('trend-durum').innerText = "Sabit %0.00";
             grafikCiz(haftalikFiyatlar);
@@ -362,9 +413,9 @@
     verileriGetir();
     
     window.addEventListener('resize', () => {
-        verileriGetir();
+        grafikCiz([74.50, 74.90, 73.80, 74.20, 75.07]); // Yeniden boyutlandırmada grafiği korur
     });
 </script>
 
-</body
+</body>
 </html>
