@@ -167,7 +167,7 @@
             display: flex;
             justify-content: space-between;
             align-items: center;
-            margin-bottom: 12px;
+            margin-bottom: 8px;
         }
         .chart-title {
             font-size: 0.72rem;
@@ -184,6 +184,37 @@
             background: rgba(255, 255, 255, 0.04);
             transition: all 0.15s ease;
         }
+
+        /* GRAFİK FİLTRE BUTONLARI */
+        .chart-tabs {
+            display: flex;
+            gap: 6px;
+            margin-bottom: 12px;
+            background: rgba(15, 23, 42, 0.6);
+            padding: 3px;
+            border-radius: 10px;
+            border: 1px solid rgba(255, 255, 255, 0.03);
+        }
+        .tab-btn {
+            flex: 1;
+            background: transparent;
+            border: none;
+            color: #64748b;
+            font-size: 0.7rem;
+            font-weight: 700;
+            padding: 6px 0;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+        }
+        .tab-btn.active {
+            background: rgba(56, 189, 248, 0.12);
+            color: #38bdf8;
+            border: 1px solid rgba(56, 189, 248, 0.2);
+        }
+
         .chart-viewport {
             width: 100%;
             height: 95px;
@@ -323,9 +354,15 @@
 
     <div class="premium-chart-box">
         <div class="chart-header">
-            <div class="chart-title" id="chart-main-title">Sanofi Haftalık Trend</div>
+            <div class="chart-title" id="chart-main-title">Sanofi Trend Analizi</div>
             <div id="trend-badge" class="chart-badge">...</div>
         </div>
+        
+        <div class="chart-tabs">
+            <button class="tab-btn active" id="tab-1d" onclick="v6_setChartRange('1d')">Gün (1G)</button>
+            <button class="tab-btn" id="tab-7d" onclick="v6_setChartRange('7d')">Hafta (7G)</button>
+        </div>
+
         <div class="chart-viewport" id="chart-area">
             <canvas id="premiumTrendChart"></canvas>
         </div>
@@ -365,10 +402,13 @@
 
 <script>
     let v6_hisseAdedi = 92.8009;
-    let v6_sanofiFiyati = 92.50; // Gerçekçi fallback başlangıç fiyatı
-    let v6_euroKuru = 36.20;     // Gerçekçi fallback başlangıç kuru
+    let v6_sanofiFiyati = 92.50; 
+    let v6_euroKuru = 36.20;     
     
-    let v6_trendVerisi = [91.20, 91.80, 90.90, 92.10, 91.60, 92.30, 92.50];
+    // Aktif görünüm modu: '1d' (Günlük seans) veya '7d' (Haftalık trend)
+    let v6_activeRange = '1d'; 
+
+    let v6_trendVerisi = [92.00, 92.15, 92.30, 92.20, 92.45, 92.50];
     let v6_trendZamanlari = []; 
     let v6_varsayilanBadgeText = "...";
     let v6_varsayilanBadgeColor = "";
@@ -470,23 +510,23 @@
         }
     }
 
-    function v6_borsaZamaniniFormatla(unixTimestamp, sadeceTarih = false) {
+    function v6_borsaZamaniniFormatla(unixTimestamp, sadeceDetay = false) {
         const borsaTarihi = unixTimestamp ? new Date(unixTimestamp * 1000) : new Date();
         
         const gun = String(borsaTarihi.getDate()).padStart(2, '0');
         const ay = String(borsaTarihi.getMonth() + 1).padStart(2, '0');
-        const yil = borsaTarihi.getFullYear();
-        
-        if (sadeceTarih) return `${gun}.${ay}.${yil}`;
-        
         const saat = String(borsaTarihi.getHours()).padStart(2, '0');
         const dakika = String(borsaTarihi.getMinutes()).padStart(2, '0');
-        return `${gun}.${ay}.${yil} ${saat}:${dakika}`;
+        
+        // Günlük görünümde saat bilgisi, haftalık görünümde takvim tarihi öncelikli gösterilir
+        if (sadeceDetay) {
+            return v6_activeRange === '1d' ? `${saat}:${dakika}` : `${gun}.${ay}.${borsaTarihi.getFullYear()}`;
+        }
+        
+        return `${gun}.${ay}.${borsaTarihi.getFullYear()} ${saat}:${dakika}`;
     }
 
-    // Güvenli proxy üzerinden veri çekme fonksiyonu
     async function v6_fetchYahooData(tickerUrl) {
-        // Tamamen açık ve sorunsuz çalışan ultra-stabil allorigins proxy altyapısı kullanılıyor
         const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(tickerUrl)}`;
         const res = await fetch(proxyUrl);
         if (!res.ok) throw new Error("Proxy hatası");
@@ -494,12 +534,26 @@
         return JSON.parse(data.contents);
     }
 
+    // Grafik aralığı değiştirme butonu tetikleyicisi
+    function v6_setChartRange(range) {
+        v6_activeRange = range;
+        document.getElementById('tab-1d').classList.toggle('active', range === '1d');
+        document.getElementById('tab-7d').classList.toggle('active', range === '7d');
+        v6_veriMerkezi();
+    }
+
     async function v6_veriMerkezi() {
         let borsaSonIslemZamani = Math.floor(Date.now() / 1000);
         
-        // 1. ADIM: SANOFI HİSSE VERİSİNİ ÇEKME
+        // URL Dinamikleştirildi: Mod '1d' ise 15 dakikalık seans verisi, '7d' ise son 7 günlük kapanışlar gelir.
+        let targetChartUrl = "https://query1.finance.yahoo.com/v8/finance/chart/SAN.PA?interval=15m&range=1d";
+        if (v6_activeRange === '7d') {
+            targetChartUrl = "https://query1.finance.yahoo.com/v8/finance/chart/SAN.PA?interval=1d&range=7d";
+        }
+
+        // SANOFI VERİ KATMANI
         try {
-            const sanofiJson = await v6_fetchYahooData("https://query1.finance.yahoo.com/v8/finance/chart/SAN.PA?interval=1d&range=7d");
+            const sanofiJson = await v6_fetchYahooData(targetChartUrl);
             if (sanofiJson && sanofiJson.chart && sanofiJson.chart.result) {
                 const result = sanofiJson.chart.result[0];
                 v6_sanofiFiyati = result.meta.regularMarketPrice || v6_sanofiFiyati;
@@ -514,7 +568,7 @@
                 for(let i=0; i<closes.length; i++) {
                     if(closes[i] !== null && closes[i] !== undefined) {
                         temizFiyatlar.push(closes[i]);
-                        temizZamanlar.push(timestamps[i] || borsaSonIslemZamani);
+                        temizZamanlar.push(timestamps[i]);
                     }
                 }
 
@@ -524,20 +578,20 @@
                 }
             }
         } catch (err) {
-            console.log("Sanofi verisi çekilemedi, hafızadaki değerler korunuyor.");
+            console.log("Hisse verisi çekme hatası.");
         }
 
-        // 2. ADIM: EURO / TL KURUNU ÇEKME
+        // DÖVİZ KURU KATMANI
         try {
             const kurJson = await v6_fetchYahooData("https://query1.finance.yahoo.com/v8/finance/chart/EURTRY=X?interval=1m&range=1d");
             if (kurJson && kurJson.chart && kurJson.chart.result) {
                 v6_euroKuru = kurJson.chart.result[0].meta.regularMarketPrice || v6_euroKuru;
             }
         } catch (err) {
-            console.log("Kur verisi çekilemedi, hafızadaki kur korunuyor.");
+            console.log("Kur hatası.");
         }
 
-        // 3. ADIM: ARAYÜZÜ YENİLEME VE ÇÖKMELERİ ENGELLEME
+        // ARAYÜZ YANSITMA
         try {
             document.getElementById('sanofi-price-box').innerText = "€" + v6_fmtPara.format(v6_sanofiFiyati);
             document.getElementById('euro-price-box').innerText = "₺" + v6_fmtPara.format(v6_euroKuru);
@@ -564,9 +618,7 @@
             v6_grafikCizici(v6_trendVerisi);
 
         } catch (err) {
-            // Catch bloğundaki v5 harf hatası düzeltildi, böylece hata anında ekran donmuyor
             v6_arayuzHesapla();
-            document.getElementById('last-update-time').innerText = v6_borsaZamaniniFormatla(Math.floor(Date.now() / 1000));
             v6_grafikCizici(v6_trendVerisi);
         }
     }
@@ -578,7 +630,7 @@
             bElement.style.color = v6_varsayilanBadgeColor;
             bElement.style.background = v6_varsayilanBadgeBg;
         }
-        document.getElementById('chart-main-title').innerText = "Sanofi Haftalık Trend";
+        document.getElementById('chart-main-title').innerText = v6_activeRange === '1d' ? "Sanofi Gün İçi Seans" : "Sanofi Haftalık Trend";
     }
 
     function v6_grafikEtkilesimYoneticisi(e) {
@@ -594,9 +646,9 @@
 
         if (enYakinNokta) {
             const bElement = document.getElementById('trend-badge');
-            const tarihMetni = v6_trendZamanlari[enYakinNokta.index] ? v6_borsaZamaniniFormatla(v6_trendZamanlari[enYakinNokta.index], true) : `${enYakinNokta.index + 1}. Gün`;
+            const detayMetni = v6_trendZamanlari[enYakinNokta.index] ? v6_borsaZamaniniFormatla(v6_trendZamanlari[enYakinNokta.index], true) : `Nokta ${enYakinNokta.index + 1}`;
             
-            document.getElementById('chart-main-title').innerText = tarihMetni;
+            document.getElementById('chart-main-title').innerText = detayMetni;
             bElement.innerText = "€" + v6_fmtPara.format(enYakinNokta.price);
             bElement.style.color = '#38bdf8';
             bElement.style.background = 'rgba(56, 189, 248, 0.15)';
@@ -623,6 +675,7 @@
     });
 
     v6_veriMerkezi();
+    // 5 dakikada bir otomatik canlı veri güncellemesi yapmaya devam eder
     setInterval(v6_veriMerkezi, 300000);
     
     window.addEventListener('resize', () => {
