@@ -182,11 +182,16 @@
             font-size: 0.7rem;
             font-weight: 700;
             background: rgba(255, 255, 255, 0.04);
+            transition: all 0.15s ease;
         }
         .chart-viewport {
             width: 100%;
-            height: 85px;
+            height: 95px;
             position: relative;
+            cursor: crosshair;
+        }
+        .chart-viewport canvas {
+            display: block;
         }
 
         /* MAIN PORTFOLIO CARD */
@@ -318,10 +323,10 @@
 
     <div class="premium-chart-box">
         <div class="chart-header">
-            <div class="chart-title">Sanofi Haftalık Trend</div>
+            <div class="chart-title" id="chart-main-title">Sanofi Haftalık Trend</div>
             <div id="trend-badge" class="chart-badge">...</div>
         </div>
-        <div class="chart-viewport">
+        <div class="chart-viewport" id="chart-area">
             <canvas id="premiumTrendChart"></canvas>
         </div>
     </div>
@@ -329,7 +334,7 @@
     <div class="portfolio-card">
         <div class="portfolio-top">
             <div class="profile-title">
-                <p>Merhaba Yatırım Uzmanı</p>
+                <p>Yatırım Uzmanı</p>
                 <h3>Maaşlı Çalışan</h3>
             </div>
             <button class="action-menu-btn" onclick="v6_tetikleyiciPortfoy()">
@@ -362,12 +367,21 @@
     let v6_hisseAdedi = 92.8009;
     let v6_sanofiFiyati = 75.50; 
     let v6_euroKuru = 53.31;   
-    let v6_trendVerisi = [74.50, 74.90, 73.80, 74.20, 75.50];
+    
+    // Geçmiş 7 iş gününün fiyat ve zaman verilerini tutacak ana bellek dizileri
+    let v6_trendVerisi = [74.50, 74.80, 73.90, 74.20, 74.60, 75.10, 75.50];
+    let v6_trendZamanlari = []; 
+    let v6_varsayilanBadgeText = "...";
+    let v6_varsayilanBadgeColor = "";
+    let v6_varsayilanBadgeBg = "";
+    
+    // Çizilen koordinat noktalarının ekrandaki X konumlarını tıklama için hafızada tutacağız
+    let v6_pixelPoints = [];
 
     const v6_fmtPara = new Intl.NumberFormat('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2, useGrouping: true });
     const v6_fmtAsset = new Intl.NumberFormat('tr-TR', { minimumFractionDigits: 4, maximumFractionDigits: 4, useGrouping: true });
 
-    function v6_grafikCizici(fiyatlar) {
+    function v6_grafikCizici(fiyatlar, activeIndex = null) {
         const canvas = document.getElementById('premiumTrendChart');
         if (!canvas) return;
         const ctx = canvas.getContext('2d');
@@ -377,16 +391,17 @@
 
         const width = canvas.width;
         const height = canvas.height;
-        const padding = 6;
+        const padding = 10;
 
         const maxPrice = Math.max(...fiyatlar);
         const minPrice = Math.min(...fiyatlar);
         const priceRange = maxPrice - minPrice === 0 ? 1 : maxPrice - minPrice;
 
-        const points = fiyatlar.map((price, index) => {
+        // X ve Y piksel haritalaması yapılıyor
+        v6_pixelPoints = fiyatlar.map((price, index) => {
             const x = padding + (index * (width - padding * 2) / (fiyatlar.length - 1));
             const y = height - padding - ((price - minPrice) * (height - padding * 2) / priceRange);
-            return { x, y };
+            return { x, y, price, index };
         });
 
         const lineGrad = ctx.createLinearGradient(0, 0, width, 0);
@@ -399,26 +414,46 @@
 
         ctx.clearRect(0, 0, width, height);
 
+        // Alanı doldurma
         ctx.beginPath();
-        ctx.moveTo(points[0].x, height);
-        points.forEach(p => ctx.lineTo(p.x, p.y));
-        ctx.lineTo(points[points.length - 1].x, height);
+        ctx.moveTo(v6_pixelPoints[0].x, height);
+        v6_pixelPoints.forEach(p => ctx.lineTo(p.x, p.y));
+        ctx.lineTo(v6_pixelPoints[v6_pixelPoints.length - 1].x, height);
         ctx.closePath();
         ctx.fillStyle = fillGrad;
         ctx.fill();
 
+        // Çizgiyi çekme
         ctx.beginPath();
-        ctx.moveTo(points[0].x, points[0].y);
-        points.forEach(p => ctx.lineTo(p.x, p.y));
+        ctx.moveTo(v6_pixelPoints[0].x, v6_pixelPoints[0].y);
+        v6_pixelPoints.forEach(p => ctx.lineTo(p.x, p.y));
         ctx.strokeStyle = lineGrad;
         ctx.lineWidth = 2.5;
         ctx.stroke();
 
-        const lastPoint = points[points.length - 1];
-        ctx.beginPath();
-        ctx.arc(lastPoint.x, lastPoint.y, 4, 0, 2 * Math.PI);
-        ctx.fillStyle = '#6366f1';
-        ctx.fill();
+        // Noktaları yerleştirme
+        v6_pixelPoints.forEach((p, idx) => {
+            ctx.beginPath();
+            if (activeIndex !== null && idx === activeIndex) {
+                // Tıklanan aktif günün noktası büyük ve parlak olur
+                ctx.arc(p.x, p.y, 6, 0, 2 * Math.PI);
+                ctx.fillStyle = '#ffffff';
+                ctx.shadowColor = '#38bdf8';
+                ctx.shadowBlur = 10;
+            } else if (idx === v6_pixelPoints.length - 1 && activeIndex === null) {
+                // Varsayılan durumda son gün noktası seçili kalır
+                ctx.arc(p.x, p.y, 4, 0, 2 * Math.PI);
+                ctx.fillStyle = '#6366f1';
+                ctx.shadowBlur = 0;
+            } else {
+                // Diğer günler için küçük kılavuz noktalar
+                ctx.arc(p.x, p.y, 2, 0, 2 * Math.PI);
+                ctx.fillStyle = 'rgba(255,255,255,0.15)';
+                ctx.shadowBlur = 0;
+            }
+            ctx.fill();
+            ctx.shadowBlur = 0; // shadow reset
+        });
     }
 
     function v6_arayuzHesapla() {
@@ -444,23 +479,25 @@
         }
     }
 
-    // Unix zaman damgasını Türkiye saat formatına (DD.MM.YYYY HH:MM) dönüştüren fonksiyon
-    function v6_borsaZamaniniFormatla(unixTimestamp) {
+    function v6_borsaZamaniniFormatla(unixTimestamp, sadeceTarih = false) {
         if(!unixTimestamp) return "Mevcut";
         const borsaTarihi = new Date(unixTimestamp * 1000);
         
         const gun = String(borsaTarihi.getDate()).padStart(2, '0');
         const ay = String(borsaTarihi.getMonth() + 1).padStart(2, '0');
         const yil = borsaTarihi.getFullYear();
+        
+        if (sadeceTarih) return `${gun}.${ay}.${yil}`;
+        
         const saat = String(borsaTarihi.getHours()).padStart(2, '0');
         const dakika = String(borsaTarihi.getMinutes()).padStart(2, '0');
-        
         return `${gun}.${ay}.${yil} ${saat}:${dakika}`;
     }
 
     async function v6_veriMerkezi() {
         try {
             const proxyUrl = "https://corsproxy.io/?";
+            // Yahoo'dan son 7 günün günlük (1d) kapanış verilerini talep ediyoruz
             const targetUrl = encodeURIComponent("https://query1.finance.yahoo.com/v8/finance/chart/SAN.PA?interval=1d&range=7d");
             
             const response = await fetch(proxyUrl + targetUrl);
@@ -470,15 +507,29 @@
             const result = json.chart.result[0];
             
             v6_sanofiFiyati = result.meta.regularMarketPrice;
-            
-            // Yahoo sunucusundan dönen son piyasa işlem zaman damgası (regularMarketTime)
             const borsaSonIslemZamani = result.meta.regularMarketTime;
 
-            const closes = result.indicators.quote[0].close.filter(val => val !== null);
-            if (closes.length > 1) {
-                v6_trendVerisi = closes;
+            // Zaman damgalarını ve kapanış fiyatlarını eşleştirerek hafızaya alma
+            const timestamps = result.timestamp || [];
+            const closes = result.indicators.quote[0].close || [];
+            
+            // Null verileri filtreleyip temiz veri serisi elde etme
+            let temizFiyatlar = [];
+            let temizZamanlar = [];
+            
+            for(let i=0; i<closes.length; i++) {
+                if(closes[i] !== null && closes[i] !== undefined) {
+                    temizFiyatlar.push(closes[i]);
+                    temizZamanlar.push(timestamps[i] || borsaSonIslemZamani);
+                }
             }
 
+            if (temizFiyatlar.length > 1) {
+                v6_trendVerisi = temizFiyatlar;
+                v6_trendZamanlari = temizZamanlar;
+            }
+
+            // Döviz kurunu çekme
             const kurTargetUrl = encodeURIComponent("https://query1.finance.yahoo.com/v8/finance/chart/EURTRY=X?interval=1m&range=1d");
             const kurResponse = await fetch(proxyUrl + kurTargetUrl);
             if (kurResponse.ok) {
@@ -490,25 +541,25 @@
             document.getElementById('euro-price-box').innerText = "₺" + v6_fmtPara.format(v6_euroKuru);
             
             v6_arayuzHesapla();
-            
-            // Kullanıcının isteği: Son sorgu zamanı yerine fiyata ait borsadaki son işlem zamanı yazılıyor
             document.getElementById('last-update-time').innerText = v6_borsaZamaniniFormatla(borsaSonIslemZamani);
 
+            // Varsayılan Haftalık Trend Durumunu Hesaplama
             const f0 = v6_trendVerisi[0];
-            const f1 = v6_trendVerisi[v5_trendVerisi.length - 1] || v6_sanofiFiyati;
+            const f1 = v6_trendVerisi[v6_trendVerisi.length - 1];
             const diff = ((f1 - f0) / f0) * 100;
             const bElement = document.getElementById('trend-badge');
             
             if(diff >= 0) {
-                bElement.innerText = "+" + diff.toFixed(2) + "% ↑";
-                bElement.style.color = '#10b981';
-                bElement.style.background = 'rgba(16, 185, 129, 0.08)';
+                v6_varsayilanBadgeText = "+" + diff.toFixed(2) + "% ↑";
+                v6_varsayilanBadgeColor = '#10b981';
+                v6_varsayilanBadgeBg = 'rgba(16, 185, 129, 0.08)';
             } else {
-                bElement.innerText = diff.toFixed(2) + "% ↓";
-                bElement.style.color = '#ef4444';
-                bElement.style.background = 'rgba(239, 68, 68, 0.08)';
+                v6_varsayilanBadgeText = diff.toFixed(2) + "% ↓";
+                v6_varsayilanBadgeColor = '#ef4444';
+                v6_varsayilanBadgeBg = 'rgba(239, 68, 68, 0.08)';
             }
 
+            v6_badgeReset();
             v6_grafikCizici(v6_trendVerisi);
 
         } catch (err) {
@@ -519,6 +570,63 @@
         }
     }
 
+    function v6_badgeReset() {
+        const bElement = document.getElementById('trend-badge');
+        bElement.innerText = v6_varsayilanBadgeText;
+        bElement.style.color = v6_varsayilanBadgeColor;
+        bElement.style.background = v6_varsayilanBadgeBg;
+        document.getElementById('chart-main-title').innerText = "Sanofi Haftalık Trend";
+    }
+
+    // Grafikte Tıklama/Dokunma Konumunu Yakalayan Etkileşim Motoru
+    function v6_grafikEtkilesimYoneticisi(e) {
+        if (v6_pixelPoints.length === 0) return;
+        
+        const rect = document.getElementById('premiumTrendChart').getBoundingClientRect();
+        // Mouse veya parmak dokunma koordinatını hesapla
+        const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+        const targetX = clientX - rect.left;
+
+        // X ekseninde tıklanan yere en yakın günü bulma
+        let enYakinNokta = v6_pixelPoints.reduce((prev, curr) => {
+            return (Math.abs(curr.x - targetX) < Math.abs(prev.x - targetX)) ? curr : prev;
+        });
+
+        if (enYakinNokta) {
+            const bElement = document.getElementById('trend-badge');
+            const tarihMetni = v6_trendZamanlari[enYakinNokta.index] ? v6_borsaZamaniniFormatla(v6_trendZamanlari[enYakinNokta.index], true) : `${enYakinNokta.index + 1}. Gün`;
+            
+            // Başlığı ve Rozeti Tıklanan Günün Değerine Göre Güncelle
+            document.getElementById('chart-main-title').innerText = tarihMetni;
+            bElement.innerText = "€" + v6_fmtPara.format(enYakinNokta.price);
+            bElement.style.color = '#38bdf8';
+            bElement.style.background = 'rgba(56, 189, 248, 0.15)';
+            
+            // Grafiği ilgili noktayı vurgulayarak yeniden çiz
+            v6_grafikCizici(v6_trendVerisi, enYakinNokta.index);
+        }
+    }
+
+    // Grafik Alanı Olay Dinleyicileri (Mouse ve Mobil Touch)
+    const grafikAlani = document.getElementById('chart-area');
+    
+    grafikAlani.addEventListener('mousemove', v6_grafikEtkilesimYoneticisi);
+    grafikAlani.addEventListener('touchstart', v6_grafikEtkilesimYoneticisi, {passive: true});
+    grafikAlani.addEventListener('touchmove', v6_grafikEtkilesimYoneticisi, {passive: true});
+    
+    // Ayrılma Durumunda Eski Haline Dönme
+    grafikAlani.addEventListener('mouseleave', () => {
+        v6_badgeReset();
+        v6_grafikCizici(v6_trendVerisi);
+    });
+    grafikAlani.addEventListener('touchend', () => {
+        setTimeout(() => {
+            v6_badgeReset();
+            v6_grafikCizici(v6_trendVerisi);
+        }, 1500); // Mobilde okuma kolaylığı için 1.5 saniye sonra eski haline döner
+    });
+
+    // Başlangıç Komutları
     v6_veriMerkezi();
     setInterval(v6_veriMerkezi, 300000);
     
