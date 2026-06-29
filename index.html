@@ -22,28 +22,26 @@
         html, body {
             width: 100%;
             height: 100%;
-            overflow: hidden; /* Aşağı yukarı kaydırmayı tamamen engeller */
+            overflow: hidden;
         }
         body {
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
             background-color: #0f172a;
             color: #f8fafc;
             display: flex;
-            flex-direction: column;
             justify-content: center;
             align-items: center;
-            padding: 12px;
+            padding: 10px;
         }
         .container {
             width: 100%;
             max-width: 420px;
-            height: 94vh; /* Ekrana tam dikey sığma kontrolü */
+            height: 96vh;
             display: flex;
             flex-direction: column;
-            justify-content: space-between; /* Elemanları dikeyde dengeli dağıtır */
             background: #1e293b;
             border-radius: 24px;
-            padding: 20px 20px;
+            padding: 18px;
             box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.3);
             border: 1px solid #334155;
         }
@@ -54,7 +52,7 @@
             align-items: center;
             justify-content: center;
             text-align: center;
-            margin-bottom: 5px;
+            margin-bottom: 14px;
         }
         .logo-icon {
             width: 42px;
@@ -64,7 +62,7 @@
             display: flex;
             justify-content: center;
             align-items: center;
-            margin-bottom: 8px;
+            margin-bottom: 6px;
             box-shadow: 0 8px 16px -4px rgba(56, 189, 248, 0.3);
         }
         .logo-icon svg {
@@ -88,6 +86,7 @@
             display: grid;
             grid-template-columns: 1fr 1fr;
             gap: 12px;
+            margin-bottom: 14px;
         }
         .card {
             background: #111827;
@@ -114,11 +113,11 @@
             border-radius: 16px;
             padding: 14px;
             border: 1px solid #1f2937;
-            flex-grow: 0.8; /* Grafiğin dikeyde esnek kalmasını sağlar */
+            margin-bottom: 14px;
+            flex-grow: 1;
             display: flex;
             flex-direction: column;
             justify-content: space-between;
-            min-height: 110px;
         }
         .chart-title {
             font-size: 0.75rem;
@@ -127,11 +126,13 @@
             letter-spacing: 0.05em;
             display: flex;
             justify-content: space-between;
+            margin-bottom: 6px;
         }
         .chart-container {
             position: relative;
             width: 100%;
-            height: 85px;
+            height: calc(100% - 20px);
+            min-height: 80px;
         }
         canvas {
             width: 100% !important;
@@ -141,8 +142,9 @@
         .portfolio-box {
             background: #111827;
             border-radius: 16px;
-            padding: 16px;
+            padding: 14px 16px;
             border: 1px solid #1f2937;
+            margin-bottom: 12px;
         }
         .welcome-header {
             display: flex;
@@ -150,10 +152,10 @@
             align-items: center;
             border-bottom: 1px solid #334155;
             padding-bottom: 8px;
-            margin-bottom: 12px;
+            margin-bottom: 10px;
         }
         .welcome-title {
-            font-size: 0.95rem;
+            font-size: 0.9rem;
             color: #f1f5f9;
             font-weight: 600;
         }
@@ -161,13 +163,14 @@
             background: linear-gradient(135deg, #38bdf8 0%, #0284c7 100%);
             border: none;
             color: white;
-            padding: 5px 10px;
+            padding: 6px 12px;
             border-radius: 8px;
             font-size: 0.75rem;
             font-weight: 600;
             cursor: pointer;
             box-shadow: 0 4px 6px -1px rgba(56, 189, 248, 0.2);
             transition: all 0.2s;
+            display: inline-block; /* Görünürlüğü garanti altına alır */
         }
         .calc-btn:active {
             transform: scale(0.95);
@@ -176,15 +179,15 @@
             display: flex;
             justify-content: space-between;
             align-items: center;
-            margin-bottom: 8px;
+            margin-bottom: 6px;
             font-size: 0.9rem;
             color: #cbd5e1;
         }
         .row:last-child {
             margin-bottom: 0;
-            margin-top: 10px;
+            margin-top: 8px;
             border-top: 1px dashed #334155;
-            padding-top: 10px;
+            padding-top: 8px;
         }
         .row-label {
             color: #94a3b8;
@@ -203,7 +206,7 @@
             color: #64748b;
             letter-spacing: 0.02em;
             text-align: center;
-            margin-top: 2px;
+            margin-top: auto; /* Sayfa dikeyde ne kadar daralırsa daralsın en altta sabit kalmasını sağlar */
         }
     </style>
 </head>
@@ -268,10 +271,10 @@
 </div>
 
 <script>
-    // Global Değişkenler (Hesaplamanın dinamik yürümesi için)
     let aktifHisseAdedi = 92.8009;
     let anlikSanofiFiyati = 75.07;
     let anlikEuroKuru = 53.0700;
+    let sonFiyatTrendi = [74.50, 74.90, 73.80, 74.20, 75.07];
 
     const trFormat = new Intl.NumberFormat('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
     const trFormatKur = new Intl.NumberFormat('tr-TR', { minimumFractionDigits: 4, maximumFractionDigits: 4 });
@@ -306,6 +309,8 @@
         fillGrad.addColorStop(0, 'rgba(56, 189, 248, 0.15)');
         fillGrad.addColorStop(1, 'rgba(15, 23, 42, 0)');
 
+        ctx.clearRect(0, 0, width, height);
+
         ctx.beginPath();
         ctx.moveTo(points[0].x, height);
         points.forEach(p => ctx.lineTo(p.x, p.y));
@@ -328,7 +333,6 @@
         ctx.fill();
     }
 
-    // Arayüzdeki toplam değerleri güncelleyen fonksiyon
     function hesaplamalariYansit() {
         const toplamEuro = aktifHisseAdedi * anlikSanofiFiyati;
         const toplamTL = toplamEuro * anlikEuroKuru;
@@ -338,11 +342,9 @@
         document.getElementById('total-tl').innerText = `₺${trFormat.format(toplamTL)}`;
     }
 
-    // Butona basıldığında hisse adedi değiştiren prompt penceresi
     function portfoyDegistir() {
         let yeniAdet = prompt("Lütfen hesaplamak istediğiniz yeni Sanofi hisse adedini girin:", aktifHisseAdedi);
         if (yeniAdet !== null && yeniAdet.trim() !== "") {
-            // Virgüllü girişleri de sistemin algılaması için noktaya çeviriyoruz
             yeniAdet = yeniAdet.replace(',', '.');
             const sayiKontrol = parseFloat(yeniAdet);
             if (!isNaN(sayiKontrol) && sayiKontrol >= 0) {
@@ -355,8 +357,6 @@
     }
 
     async function verileriGetir() {
-        let haftalikFiyatlar = [74.50, 74.90, 73.80, 74.20, 75.07]; 
-
         try {
             const forexRes = await fetch('https://api.exchangerate-api.com/v4/latest/EUR');
             const forexData = await forexRes.json();
@@ -371,7 +371,7 @@
                     
                     const canliTrend = stockData.data.slice(0, 7).map(item => item.close).reverse();
                     if(canliTrend.length > 1) {
-                        haftalikFiyatlar = canliTrend;
+                        sonFiyatTrendi = canliTrend;
                     }
                 }
             }
@@ -381,8 +381,8 @@
             
             hesaplamalariYansit();
 
-            const ilkFiyat = haftalikFiyatlar[0];
-            const sonFiyat = haftalikFiyatlar[haftalikFiyatlar.length - 1];
+            const ilkFiyat = sonFiyatTrendi[0];
+            const sonFiyat = sonFiyatTrendi[sonFiyatTrendi.length - 1];
             const degisim = ((sonFiyat - ilkFiyat) / ilkFiyat) * 100;
             const trendDurumElement = document.getElementById('trend-durum');
             
@@ -394,7 +394,7 @@
                 trendDurumElement.style.color = '#f87171';
             }
 
-            grafikCiz(haftalikFiyatlar);
+            grafikCiz(sonFiyatTrendi);
 
         } catch (error) {
             anlikSanofiFiyati = 75.07;
@@ -406,14 +406,14 @@
             hesaplamalariYansit();
             
             document.getElementById('trend-durum').innerText = "Sabit %0.00";
-            grafikCiz(haftalikFiyatlar);
+            grafikCiz(sonFiyatTrendi);
         }
     }
 
     verileriGetir();
     
     window.addEventListener('resize', () => {
-        grafikCiz([74.50, 74.90, 73.80, 74.20, 75.07]); // Yeniden boyutlandırmada grafiği korur
+        grafikCiz(sonFiyatTrendi);
     });
 </script>
 
