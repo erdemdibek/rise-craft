@@ -85,7 +85,7 @@
             margin-top: 1px;
         }
 
-        /* STATUS BAR (YENİLENDİ) */
+        /* STATUS BAR */
         .status-bar {
             display: flex;
             flex-direction: column;
@@ -112,18 +112,17 @@
         .status-dot {
             width: 7px;
             height: 7px;
-            background-color: #10b981;
+            background-color: #38bdf8;
             border-radius: 50%;
             animation: pulse 2s infinite;
         }
         .status-dot.euro-dot {
             background-color: #10b981;
-            animation: none; /* Euro API genellikle statiktir veya seyrek güncellenir */
         }
         @keyframes pulse {
-            0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.5); }
-            70% { transform: scale(1); box-shadow: 0 0 0 6px rgba(16, 185, 129, 0); }
-            100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
+            0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(56, 189, 248, 0.5); }
+            70% { transform: scale(1); box-shadow: 0 0 0 6px rgba(56, 189, 248, 0); }
+            100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(56, 189, 248, 0); }
         }
         .update-time {
             font-size: 0.68rem;
@@ -333,7 +332,6 @@
         </div>
     </header>
 
-    <!-- STATUS BAR (Sanofi ve Euro Ayrıştırıldı) -->
     <div class="status-bar">
         <div class="status-row">
             <div class="status-dot-wrapper">
@@ -345,7 +343,7 @@
         <div class="status-row">
             <div class="status-dot-wrapper">
                 <div class="status-dot euro-dot"></div>
-                <span>Euro/TL Güncelleme:</span>
+                <span>Euro/TL Son Değişim:</span>
             </div>
             <div class="update-time euro-time" id="euro-update-time">Yükleniyor...</div>
         </div>
@@ -527,10 +525,21 @@
         return `${String(d.getDate()).padStart(2,'0')}.${String(d.getMonth()+1).padStart(2,'0')} 18:30`;
     }
 
-    // Euro Zaman Damgası Yönetimi
-    function v8_getFormatliZaman() {
+    // Euro'nun global piyasalardaki gerçek değişim vaktini basan fonksiyon
+    function v8_parseEuroDegisimSaati(utcString) {
+        try {
+            // Gelen veri formatı genellikle: "Tue, 30 Jun 2026 04:00:01 +0000" şeklindedir
+            if(utcString) {
+                const globalTarih = new Date(utcString);
+                if(!isNaN(globalTarih.getTime())) {
+                    return `${String(globalTarih.getDate()).padStart(2,'0')}.${String(globalTarih.getMonth()+1).padStart(2,'0')} ${String(globalTarih.getHours()).padStart(2,'0')}:${String(globalTarih.getMinutes()).padStart(2,'0')}`;
+                }
+            }
+        } catch(e) {}
+        
+        // Fallback
         const d = new Date();
-        return `${String(d.getDate()).padStart(2,'0')}.${String(d.getMonth()+1).padStart(2,'0')} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
+        return `${String(d.getDate()).padStart(2,'0')}.${String(d.getMonth()+1).padStart(2,'0')} ${String(d.getHours()).padStart(2,'0')}:00`;
     }
 
     async function v8_fetchEuroUri() {
@@ -542,15 +551,16 @@
                     v8_euroKuru = parseFloat(data.rates.TRY);
                     document.getElementById('euro-price-box').innerText = "₺" + v8_fmtPara.format(v8_euroKuru);
                     
-                    // API'den gelen son güncelleme UTC zamanını yerel saate dönüştürme veya anlık başarılı istek zamanını basma
-                    document.getElementById('euro-update-time').innerText = v8_getFormatliZaman();
+                    // Sizin istediğiniz değişim saati: API'deki global fiyat değişim vaktini yerel saate çeviriyoruz
+                    document.getElementById('euro-update-time').innerText = v8_parseEuroDegisimSaati(data.time_last_update_utc);
                     v8_arayuzHesapla();
                 }
             }
         } catch(e) { 
             console.warn("FX Kur servisi gecikti, stabil mod devrede."); 
             if(document.getElementById('euro-update-time').innerText === "Yükleniyor...") {
-                document.getElementById('euro-update-time').innerText = v8_getFormatliZaman();
+                const d = new Date();
+                document.getElementById('euro-update-time').innerText = `${String(d.getDate()).padStart(2,'0')}.${String(d.getMonth()+1).padStart(2,'0')} ${String(d.getHours()).padStart(2,'0')}:00`;
             }
         }
     }
