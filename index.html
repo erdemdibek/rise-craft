@@ -327,7 +327,7 @@
             </svg>
         </div>
         <div class="header-info">
-            <h1>Merhaba Yatırım Uzmanı</h1>
+            <h1>Finans Takip Paneli</h1>
             <p>Varlık & Kur Monitörü</p>
         </div>
     </header>
@@ -336,7 +336,7 @@
         <div class="status-row">
             <div class="status-dot-wrapper">
                 <div class="status-dot"></div>
-                <span>Sanofi Son Değişim:</span>
+                <span>Sanofi Son İşlem:</span>
             </div>
             <div class="update-time" id="last-update-time">Yükleniyor...</div>
         </div>
@@ -379,8 +379,8 @@
     <div class="portfolio-card">
         <div class="portfolio-top">
             <div class="profile-title">
-                <p>Sanofi Hisse Senedi</p>
-                <h3>Varlıklar Toplamı</h3>
+                <p>Yatırım Uzmanı</p>
+                <h3>Maaşlı Çalışan</h3>
             </div>
             <button class="action-menu-btn" onclick="v8_tetikleyiciPortfoy()">
                 <span>⚙️ Yönet</span>
@@ -389,7 +389,7 @@
         
         <div class="data-list">
             <div class="data-row">
-                <span class="data-label">Toplam Lot:</span>
+                <span class="data-label">Toplam Varlık:</span>
                 <span class="data-value" id="ui-asset-count">92,8009 Adet</span>
             </div>
             <div class="data-row">
@@ -418,8 +418,8 @@
     let v8_pixelPoints = [];
 
     let v8_cachedData = {
-        '1d': { trend: [75.10, 75.35, 75.20, 75.40, 75.30, 75.50], sonZaman: "" },
-        '7d': { trend: [74.20, 74.80, 75.10, 74.90, 75.30, 75.50], sonZaman: "" }
+        '1d': { trend: [75.10, 75.35, 75.20, 75.40, 75.30, 75.50] },
+        '7d': { trend: [74.20, 74.80, 75.10, 74.90, 75.30, 75.50] }
     };
 
     const v8_fmtPara = new Intl.NumberFormat('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -512,91 +512,53 @@
         }
     }
 
-    function v8_parseBorsaSaati(htmlSource) {
-        try {
-            const timeMatch = htmlSource.match(/data-market-close-time="([^"]+)"/i) || 
-                              htmlSource.match(/class="ygw3Zb">([^<]+)/i);
-            if (timeMatch && timeMatch[1]) {
-                return timeMatch[1].replace(/Discl.*/i, '').trim(); 
-            }
-        } catch(e) {}
-        
-        const d = new Date();
-        return `${String(d.getDate()).padStart(2,'0')}.${String(d.getMonth()+1).padStart(2,'0')} 18:30`;
+    // Unix zaman damgasını GG.AA SS:DD formatına çeviren yardımcı fonksiyon
+    function v8_formatUnixTime(unixTimestamp) {
+        if(!unixTimestamp) return "--.-- --:--";
+        const date = new Date(unixTimestamp * 1000);
+        return `${String(date.getDate()).padStart(2,'0')}.${String(date.getMonth()+1).padStart(2,'0')} ${String(date.getHours()).padStart(2,'0')}:${String(date.getMinutes()).padStart(2,'0')}`;
     }
 
-    // Euro'nun global piyasalardaki gerçek değişim vaktini basan fonksiyon
-    function v8_parseEuroDegisimSaati(utcString) {
+    // YENİ VE SORUNSUZ VERİ MERKEZİ (YAHOO FINANCE ENTEGRASYONU)
+    async function v8_veriMerkezi() {
         try {
-            // Gelen veri formatı genellikle: "Tue, 30 Jun 2026 04:00:01 +0000" şeklindedir
-            if(utcString) {
-                const globalTarih = new Date(utcString);
-                if(!isNaN(globalTarih.getTime())) {
-                    return `${String(globalTarih.getDate()).padStart(2,'0')}.${String(globalTarih.getMonth()+1).padStart(2,'0')} ${String(globalTarih.getHours()).padStart(2,'0')}:${String(globalTarih.getMinutes()).padStart(2,'0')}`;
-                }
-            }
-        } catch(e) {}
-        
-        // Fallback
-        const d = new Date();
-        return `${String(d.getDate()).padStart(2,'0')}.${String(d.getMonth()+1).padStart(2,'0')} ${String(d.getHours()).padStart(2,'0')}:00`;
-    }
-
-    async function v8_fetchEuroUri() {
-        try {
-            const res = await fetch('https://open.er-api.com/v6/latest/EUR');
+            // Sanofi (SAN.PA) ve Euro/TL (EURTRY=X) verilerini tek bir istekte Yahoo API'den doğrudan çekiyoruz (Proxy Yok!)
+            const url = `https://query1.finance.yahoo.com/v7/finance/quote?symbols=SAN.PA,EURTRY=X&_ts=${Date.now()}`;
+            const res = await fetch(url, { cache: "no-store" });
+            
             if(res.ok) {
-                const data = await res.json();
-                if(data?.rates?.TRY) {
-                    v8_euroKuru = parseFloat(data.rates.TRY);
-                    document.getElementById('euro-price-box').innerText = "₺" + v8_fmtPara.format(v8_euroKuru);
-                    
-                    // Sizin istediğiniz değişim saati: API'deki global fiyat değişim vaktini yerel saate çeviriyoruz
-                    document.getElementById('euro-update-time').innerText = v8_parseEuroDegisimSaati(data.time_last_update_utc);
-                    v8_arayuzHesapla();
+                const json = await res.json();
+                const quotes = json?.quoteResponse?.result;
+                
+                if(quotes && quotes.length >= 2) {
+                    // 1. Sanofi Verilerini Ayıkla
+                    const sanofiData = quotes.find(q => q.symbol === "SAN.PA");
+                    if(sanofiData) {
+                        v8_sanofiFiyati = sanofiData.regularMarketPrice;
+                        document.getElementById('sanofi-price-box').innerText = "€" + v8_fmtPara.format(v8_sanofiFiyati);
+                        // Fiyatın küresel piyasalarda gerçekten değiştiği an (Son İşlem Zamanı)
+                        document.getElementById('last-update-time').innerText = v8_formatUnixTime(sanofiData.regularMarketTime);
+                        
+                        // Grafik verisini besle
+                        if(v8_trendVerisi[v8_trendVerisi.length - 1] !== v8_sanofiFiyati) {
+                            v8_trendVerisi.push(v8_sanofiFiyati);
+                            if(v8_trendVerisi.length > 8) v8_trendVerisi.shift();
+                            v8_cachedData['1d'].trend = [...v8_trendVerisi];
+                        }
+                    }
+
+                    // 2. Euro/TL Verilerini Ayıkla
+                    const euroData = quotes.find(q => q.symbol === "EURTRY=X");
+                    if(euroData) {
+                        v8_euroKuru = euroData.regularMarketPrice;
+                        document.getElementById('euro-price-box').innerText = "₺" + v8_fmtPara.format(v8_euroKuru);
+                        // Kurun küresel piyasalarda gerçekten değiştiği an (Son Değişim Zamanı)
+                        document.getElementById('euro-update-time').innerText = v8_formatUnixTime(euroData.regularMarketTime);
+                    }
                 }
             }
-        } catch(e) { 
-            console.warn("FX Kur servisi gecikti, stabil mod devrede."); 
-            if(document.getElementById('euro-update-time').innerText === "Yükleniyor...") {
-                const d = new Date();
-                document.getElementById('euro-update-time').innerText = `${String(d.getDate()).padStart(2,'0')}.${String(d.getMonth()+1).padStart(2,'0')} ${String(d.getHours()).padStart(2,'0')}:00`;
-            }
-        }
-    }
-
-    async function v8_fetchSanofiData() {
-        try {
-            const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent('https://www.google.com/finance/quote/SAN:EPA')}&_ts=${Date.now()}`;
-            const res = await fetch(proxyUrl);
-            if (!res.ok) throw new Error();
-            const data = await res.json();
-            const html = data.contents;
-
-            const priceRegex = /data-last-price="([0-9.]+)"/i;
-            const match = html.match(priceRegex);
-            
-            if (match && match[1]) {
-                v8_sanofiFiyati = parseFloat(match[1]);
-            } else {
-                const altMatch = html.match(/class="YMlAec">[^0-9]*([0-9,.]+)/i);
-                if(altMatch && altMatch[1]) v8_sanofiFiyati = parseFloat(altMatch[1].replace(/,/g, ''));
-            }
-
-            document.getElementById('last-update-time').innerText = v8_parseBorsaSaati(html);
-            document.getElementById('sanofi-price-box').innerText = "€" + v8_fmtPara.format(v8_sanofiFiyati);
-            
-            if(v8_trendVerisi[v8_trendVerisi.length - 1] !== v8_sanofiFiyati) {
-                v8_trendVerisi.push(v8_sanofiFiyati);
-                if(v8_trendVerisi.length > 8) v8_trendVerisi.shift();
-                v8_cachedData[v8_activeRange].trend = [...v8_trendVerisi];
-            }
-
-        } catch (e) {
-            v8_sanofiFiyati = 75.50;
-            document.getElementById('sanofi-price-box').innerText = "€" + v8_fmtPara.format(v8_sanofiFiyati);
-            const d = new Date();
-            document.getElementById('last-update-time').innerText = `${String(d.getDate()).padStart(2,'0')}.${String(d.getMonth()+1).padStart(2,'0')} 18:30`;
+        } catch(e) {
+            console.error("Yahoo Finance veri hattında anlık aksama:", e);
         }
         
         v8_arayuzHesapla();
@@ -654,10 +616,6 @@
         }
     }
 
-    function v8_veriMerkezi() {
-        Promise.all([v8_fetchEuroUri(), v8_fetchSanofiData()]);
-    }
-
     const grafikAlani = document.getElementById('chart-area');
     grafikAlani.addEventListener('mousemove', v8_grafikEtkilesimYoneticisi);
     grafikAlani.addEventListener('touchstart', v8_grafikEtkilesimYoneticisi, {passive: true});
@@ -668,6 +626,7 @@
         v8_grafikArayuzunuGuncelle();
     });
 
+    // İlk Başlatma ve 2 dakikalık otomatik döngü
     v8_veriMerkezi();
     setInterval(v8_veriMerkezi, 120000); 
     window.addEventListener('resize', () => v8_grafikCizici(v8_trendVerisi));
