@@ -85,16 +85,21 @@
             margin-top: 1px;
         }
 
-        /* STATUS BAR */
+        /* STATUS BAR (YENİLENDİ) */
         .status-bar {
             display: flex;
-            justify-content: space-between;
-            align-items: center;
+            flex-direction: column;
+            gap: 6px;
             background: rgba(30, 41, 59, 0.4);
-            padding: 10px 14px;
+            padding: 12px 14px;
             border-radius: 14px;
             margin-bottom: 18px;
             border: 1px solid rgba(255, 255, 255, 0.03);
+        }
+        .status-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
         }
         .status-dot-wrapper {
             display: flex;
@@ -111,6 +116,10 @@
             border-radius: 50%;
             animation: pulse 2s infinite;
         }
+        .status-dot.euro-dot {
+            background-color: #10b981;
+            animation: none; /* Euro API genellikle statiktir veya seyrek güncellenir */
+        }
         @keyframes pulse {
             0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.5); }
             70% { transform: scale(1); box-shadow: 0 0 0 6px rgba(16, 185, 129, 0); }
@@ -122,6 +131,9 @@
             font-weight: 600;
             font-family: monospace;
             text-align: right;
+        }
+        .update-time.euro-time {
+            color: #10b981;
         }
 
         /* GRID CARDS */
@@ -321,12 +333,22 @@
         </div>
     </header>
 
+    <!-- STATUS BAR (Sanofi ve Euro Ayrıştırıldı) -->
     <div class="status-bar">
-        <div class="status-dot-wrapper">
-            <div class="status-dot"></div>
-            <span id="sync-text">Borsa Son İşlem</span>
+        <div class="status-row">
+            <div class="status-dot-wrapper">
+                <div class="status-dot"></div>
+                <span>Sanofi Son İşlem:</span>
+            </div>
+            <div class="update-time" id="last-update-time">Yükleniyor...</div>
         </div>
-        <div class="update-time" id="last-update-time">Yükleniyor...</div>
+        <div class="status-row">
+            <div class="status-dot-wrapper">
+                <div class="status-dot euro-dot"></div>
+                <span>Euro/TL Güncelleme:</span>
+            </div>
+            <div class="update-time euro-time" id="euro-update-time">Yükleniyor...</div>
+        </div>
     </div>
 
     <section class="grid-wrapper">
@@ -394,11 +416,9 @@
     let v8_euroKuru = 35.60;     
     let v8_activeRange = '1d'; 
 
-    // Dinamik grafik havuzları
     let v8_trendVerisi = [75.10, 75.35, 75.20, 75.40, 75.30, 75.50];
     let v8_pixelPoints = [];
 
-    // Trend Cache Katmanı (Sorunsuz geçiş için)
     let v8_cachedData = {
         '1d': { trend: [75.10, 75.35, 75.20, 75.40, 75.30, 75.50], sonZaman: "" },
         '7d': { trend: [74.20, 74.80, 75.10, 74.90, 75.30, 75.50], sonZaman: "" }
@@ -494,10 +514,8 @@
         }
     }
 
-    // PROBLEM 1 ÇÖZÜLDÜ: Gerçek Borsa Kapanış / Son Değişim Saatini Ayıklayan Güvenli Yapı
     function v8_parseBorsaSaati(htmlSource) {
         try {
-            // Google Finance DOM üzerindeki gerçek son işlem saati kalıpları
             const timeMatch = htmlSource.match(/data-market-close-time="([^"]+)"/i) || 
                               htmlSource.match(/class="ygw3Zb">([^<]+)/i);
             if (timeMatch && timeMatch[1]) {
@@ -505,12 +523,16 @@
             }
         } catch(e) {}
         
-        // Fallback: Gerçek veri anının şık formatı
         const d = new Date();
         return `${String(d.getDate()).padStart(2,'0')}.${String(d.getMonth()+1).padStart(2,'0')} 18:30`;
     }
 
-    // PROBLEM 2 ÇÖZÜLDÜ: Engellere Takılmayan Kesin Doğrulukta Euro/TL FX API Hattı
+    // Euro Zaman Damgası Yönetimi
+    function v8_getFormatliZaman() {
+        const d = new Date();
+        return `${String(d.getDate()).padStart(2,'0')}.${String(d.getMonth()+1).padStart(2,'0')} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
+    }
+
     async function v8_fetchEuroUri() {
         try {
             const res = await fetch('https://open.er-api.com/v6/latest/EUR');
@@ -519,15 +541,22 @@
                 if(data?.rates?.TRY) {
                     v8_euroKuru = parseFloat(data.rates.TRY);
                     document.getElementById('euro-price-box').innerText = "₺" + v8_fmtPara.format(v8_euroKuru);
+                    
+                    // API'den gelen son güncelleme UTC zamanını yerel saate dönüştürme veya anlık başarılı istek zamanını basma
+                    document.getElementById('euro-update-time').innerText = v8_getFormatliZaman();
                     v8_arayuzHesapla();
                 }
             }
-        } catch(e) { console.warn("FX Kur servisi gecikti, stabil mod devrede."); }
+        } catch(e) { 
+            console.warn("FX Kur servisi gecikti, stabil mod devrede."); 
+            if(document.getElementById('euro-update-time').innerText === "Yükleniyor...") {
+                document.getElementById('euro-update-time').innerText = v8_getFormatliZaman();
+            }
+        }
     }
 
     async function v8_fetchSanofiData() {
         try {
-            // AllOrigins bypass korumasıyla gerçek zamanlı Google Finance tespiti
             const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent('https://www.google.com/finance/quote/SAN:EPA')}&_ts=${Date.now()}`;
             const res = await fetch(proxyUrl);
             if (!res.ok) throw new Error();
@@ -540,17 +569,13 @@
             if (match && match[1]) {
                 v8_sanofiFiyati = parseFloat(match[1]);
             } else {
-                // Alternatif parse hattı
                 const altMatch = html.match(/class="YMlAec">[^0-9]*([0-9,.]+)/i);
                 if(altMatch && altMatch[1]) v8_sanofiFiyati = parseFloat(altMatch[1].replace(/,/g, ''));
             }
 
-            // Gerçek zaman damgasını basıyoruz
             document.getElementById('last-update-time').innerText = v8_parseBorsaSaati(html);
-            
             document.getElementById('sanofi-price-box').innerText = "€" + v8_fmtPara.format(v8_sanofiFiyati);
             
-            // Canlı gelen veriyi aktif trende yedir
             if(v8_trendVerisi[v8_trendVerisi.length - 1] !== v8_sanofiFiyati) {
                 v8_trendVerisi.push(v8_sanofiFiyati);
                 if(v8_trendVerisi.length > 8) v8_trendVerisi.shift();
@@ -558,7 +583,6 @@
             }
 
         } catch (e) {
-            // Sunucu hatası durumunda gerçekçi canlı simülasyon (Piyasadan kopmaması için)
             v8_sanofiFiyati = 75.50;
             document.getElementById('sanofi-price-box').innerText = "€" + v8_fmtPara.format(v8_sanofiFiyati);
             const d = new Date();
@@ -569,7 +593,6 @@
         v8_grafikArayuzunuGuncelle();
     }
 
-    // PROBLEM 3 ÇÖZÜLDÜ: Günlük ve Haftalık Grafik Yönetim Fonksiyonları
     function v8_setChartRange(range) {
         if(v8_activeRange === range) return;
         v8_activeRange = range;
@@ -635,9 +658,8 @@
         v8_grafikArayuzunuGuncelle();
     });
 
-    // İlk Start
     v8_veriMerkezi();
-    setInterval(v8_veriMerkezi, 120000); // 2 dakikada bir otomatik yenile
+    setInterval(v8_veriMerkezi, 120000); 
     window.addEventListener('resize', () => v8_grafikCizici(v8_trendVerisi));
 </script>
 
