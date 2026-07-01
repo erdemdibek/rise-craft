@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>Sanofi Hisse Takip</title>
+    <title>Sanofi Hisse & Borç Yönetimi</title>
     <style>
         * { 
             box-sizing: border-box; 
@@ -13,7 +13,6 @@
             user-select: none; 
         }
         
-        /* Ekranı dikeyde tam kapla ve taşmayı engelle */
         html, body { 
             height: 100%; 
             width: 100%; 
@@ -28,31 +27,70 @@
             padding: 12px;
         }
 
-        /* Tüm uygulama konteyneri mobil ekran boyutuna kilitlendi */
         .app-container { 
             width: 100%; 
             max-width: 400px; 
             height: 100%;
-            max-height: 92vh; /* Telefonlardaki alt/üst barlar için emniyet payı */
+            max-height: 94vh; 
             background: linear-gradient(145deg, #0f1626 0%, #0b0f19 100%); 
             border-radius: 24px; 
             padding: 18px; 
             box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.6); 
             border: 1px solid rgba(255, 255, 255, 0.04); 
             display: flex;
-            flex-direction: column; /* İçerikleri dikeyde hizala */
+            flex-direction: column; 
         }
         
         /* HEADER */
         .header { 
             text-align: center; 
-            margin-bottom: 14px; 
+            margin-bottom: 12px; 
             border-bottom: 1px solid rgba(255, 255, 255, 0.06); 
-            padding-bottom: 10px;
-            flex-shrink: 0; /* Boyutunun küçülmesini engelle */
+            padding-bottom: 8px;
+            flex-shrink: 0;
         }
         .header h1 { font-size: 1.05rem; color: #fff; font-weight: 700; }
         .header p { font-size: 0.72rem; color: #38bdf8; text-transform: uppercase; letter-spacing: 0.05em; margin-top: 2px; }
+
+        /* NAV TABS */
+        .nav-tabs {
+            display: flex;
+            background: rgba(15, 23, 42, 0.6);
+            padding: 4px;
+            border-radius: 12px;
+            margin-bottom: 12px;
+            border: 1px solid rgba(255, 255, 255, 0.03);
+            flex-shrink: 0;
+        }
+        .tab-btn {
+            flex: 1;
+            background: transparent;
+            border: none;
+            color: #64748b;
+            font-size: 0.75rem;
+            font-weight: 700;
+            padding: 8px 0;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            text-transform: uppercase;
+        }
+        .tab-btn.active {
+            background: rgba(56, 189, 248, 0.12);
+            color: #38bdf8;
+            border: 1px solid rgba(56, 189, 248, 0.2);
+        }
+
+        /* SEKMELERİN İÇERİK ALANI */
+        .tab-content {
+            flex: 1;
+            display: none;
+            flex-direction: column;
+            overflow: hidden;
+        }
+        .tab-content.active {
+            display: flex;
+        }
 
         /* ÖZET KARTLARI */
         .summary-card { 
@@ -74,19 +112,20 @@
         .color-total { color: #ffffff; }
         .color-paid { color: #10b981; }
         .color-remaining { color: #f59e0b; }
+        .color-asset { color: #38bdf8; text-shadow: 0 0 10px rgba(56, 189, 248, 0.2); }
 
         /* İLERLEME ÇUBUĞU */
         .progress-container { 
-            margin: 10px 0; 
+            margin: 6px 0 10px 0; 
             flex-shrink: 0;
         }
         .progress-bar-bg { width: 100%; height: 8px; background: rgba(255,255,255,0.05); border-radius: 4px; overflow: hidden; }
         .progress-bar-fill { height: 100%; width: 0%; background: linear-gradient(90deg, #10b981, #3b82f6); transition: width 0.5s ease; }
         .progress-text { display: flex; justify-content: space-between; font-size: 0.7rem; color: #94a3b8; margin-top: 4px; font-weight: 600; }
 
-        /* AY LİSTESİ (Sadece burası kaydırılabilir) */
+        /* KAYDIRILABİLİR AY LİSTESİ */
         .list-wrapper {
-            flex: 1; /* Kalan tüm dikey alanı bu listeye ver */
+            flex: 1; 
             display: flex;
             flex-direction: column;
             overflow: hidden;
@@ -95,12 +134,11 @@
         .list-title { font-size: 0.75rem; color: #94a3b8; text-transform: uppercase; margin-bottom: 6px; font-weight: 600; }
         .history-list { 
             flex: 1;
-            overflow-y: auto; /* Dikey kaydırmayı sadece listede aktif et */
+            overflow-y: auto; 
             display: flex; 
             flex-direction: column; 
             gap: 6px; 
-            padding-right: 2px;
-            -webkit-overflow-scrolling: touch; /* Mobil akıcı kaydırma */
+            -webkit-overflow-scrolling: touch; 
         }
         .history-list::-webkit-scrollbar { width: 4px; }
         .history-list::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 2px; }
@@ -109,18 +147,39 @@
         .month-name { font-weight: 600; color: #cbd5e1; }
         .month-val { font-family: monospace; font-weight: 700; color: #fff; }
 
-        /* YENİ AY EKLEME FORMU */
-        .add-form { 
+        /* ALTLIK INPUT FORMLARI */
+        .bottom-form { 
             padding-top: 12px; 
             border-top: 1px dashed rgba(255, 255, 255, 0.1); 
             display: flex; 
             gap: 6px; 
             flex-shrink: 0;
         }
-        .add-form input, .add-form select { background: #111827; border: 1px solid rgba(255,255,255,0.08); border-radius: 8px; color: #fff; padding: 10px; font-size: 0.85rem; outline: none; }
-        .add-form select { flex: 1.2; }
-        .add-form input { flex: 1; font-family: monospace; text-align: right; }
-        .add-btn { background: #38bdf8; color: #070a12; border: none; padding: 0 14px; border-radius: 8px; font-weight: 700; cursor: pointer; }
+        .bottom-form input, .bottom-form select { background: #111827; border: 1px solid rgba(255,255,255,0.08); border-radius: 8px; color: #fff; padding: 10px; font-size: 0.85rem; outline: none; }
+        .bottom-form select { flex: 1.2; }
+        .bottom-form input { flex: 1; font-family: monospace; text-align: right; }
+        .action-btn { background: #38bdf8; color: #070a12; border: none; padding: 0 14px; border-radius: 8px; font-weight: 700; cursor: pointer; }
+        .action-btn.green { background: #10b981; color: #fff; }
+
+        /* HESAPLAYICI INPUT GRUBU */
+        .calc-inputs {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            margin-bottom: 12px;
+            flex-shrink: 0;
+        }
+        .input-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            background: rgba(255,255,255,0.02);
+            padding: 8px 12px;
+            border-radius: 12px;
+            border: 1px solid rgba(255,255,255,0.04);
+        }
+        .input-row label { font-size: 0.8rem; color: #cbd5e1; font-weight: 500; }
+        .input-row input { width: 110px; background: #111827; border: 1px solid rgba(255,255,255,0.1); border-radius: 6px; color: #fff; padding: 6px 8px; font-family: monospace; text-align: right; font-size: 0.9rem; outline: none; }
     </style>
 </head>
 <body>
@@ -128,66 +187,115 @@
 <div class="app-container">
     <div class="header">
         <h1>Sanofi Hisse Hakları</h1>
-        <p>88 Adet Hisse - Kesinti Takibi</p>
+        <p>Bütçe & Varlık Hesaplama Sistemi</p>
     </div>
 
-    <div class="summary-card">
-        <div class="label">Toplam Sözleşme Tutarı</div>
-        <div class="value color-total" id="ui-toplam-odenecek">₺274.008,00</div>
+    <!-- SEKMELER (TAB MENU) -->
+    <div class="nav-tabs">
+        <button class="tab-btn active" id="btn-borc" onclick="v11_switchTab('borc')">Borç Takibi</button>
+        <button class="tab-btn" id="btn-varlik" onclick="v11_switchTab('varlik')">Varlık Hesaplayıcı</button>
     </div>
 
-    <div class="grid-cards">
+    <!-- SEKME 1: BORÇ TAKİBİ -->
+    <div id="content-borc" class="tab-content active">
         <div class="summary-card">
-            <div class="label">Toplam Ödenen</div>
-            <div class="value color-paid" id="ui-toplam-odenen">₺0,00</div>
+            <div class="label">Toplam Sözleşme Tutarı</div>
+            <div class="value color-total">₺274.008</div>
         </div>
+
+        <div class="grid-cards">
+            <div class="summary-card">
+                <div class="label">Toplam Ödenen</div>
+                <div class="value color-paid" id="ui-toplam-odenen">₺0</div>
+            </div>
+            <div class="summary-card">
+                <div class="label">Kalan Net Borç</div>
+                <div class="value color-remaining" id="ui-kalan-borc">₺0</div>
+            </div>
+        </div>
+
+        <div class="progress-container">
+            <div class="progress-bar-bg">
+                <div class="progress-bar-fill" id="ui-progress-fill"></div>
+            </div>
+            <div class="progress-text">
+                <span>Ödeme İlerlemesi</span>
+                <span id="ui-progress-percent">%0</span>
+            </div>
+        </div>
+
+        <div class="list-wrapper">
+            <div class="list-title">Maaş Kesinti Geçmişi</div>
+            <div class="history-list" id="ui-history-list">
+                <!-- JS dolduracak -->
+            </div>
+        </div>
+
+        <div class="bottom-form">
+            <select id="input-ay">
+                <option value="TEMMUZ">TEMMUZ</option>
+                <option value="AĞUSTOS">AĞUSTOS</option>
+                <option value="EYLÜL">EYLÜL</option>
+                <option value="EKİM">EKİM</option>
+                <option value="KASIM">KASIM</option>
+                <option value="ARALIK">ARALIK</option>
+                <option value="OCAK">OCAK</option>
+                <option value="ŞUBAT">ŞUBAT</option>
+                <option value="MART">MART</option>
+                <option value="NİSAN">NİSAN</option>
+                <option value="MAYIS">MAYIS</option>
+                <option value="HAZİRAN">HAZİRAN</option>
+            </select>
+            <input type="number" id="input-tutar" placeholder="Tutar (TL)" inputmode="numeric">
+            <button class="action-btn" onclick="v11_yeniAyEkle()">Ekle</button>
+        </div>
+    </div>
+
+    <!-- SEKME 2: VARLIK HESAPLAYICI -->
+    <div id="content-varlik" class="tab-content">
         <div class="summary-card">
-            <div class="label">Kalan Net Borç</div>
-            <div class="value color-remaining" id="ui-kalan-borc">₺0,00</div>
+            <div class="label">Toplam Tahsis Edilen Hisse</div>
+            <div class="value color-total" style="color: #a855f7;">88 Adet Hisse</div>
         </div>
-    </div>
 
-    <div class="progress-container">
-        <div class="progress-bar-bg">
-            <div class="progress-bar-fill" id="ui-progress-fill"></div>
+        <!-- ANLIK VERİ GİRİŞ ALANLARI -->
+        <div class="calc-inputs">
+            <div class="input-row">
+                <label>Sanofi Hisse Fiyatı (EUR):</label>
+                <input type="number" id="calc-hisse-eur" step="0.01" value="75.08" inputmode="decimal" oninput="v11_varlikHesapla()">
+            </div>
+            <div class="input-row">
+                <label>Euro / TL Kuru (₺):</label>
+                <input type="number" id="calc-euro-tl" step="0.01" value="53.33" inputmode="decimal" oninput="v11_varlikHesapla()">
+            </div>
         </div>
-        <div class="progress-text">
-            <span>Ödeme İlerlemesi</span>
-            <span id="ui-progress-percent">%0</span>
-        </div>
-    </div>
 
-    <div class="list-wrapper">
-        <div class="list-title">Maaş Kesinti Geçmişi</div>
-        <div class="history-list" id="ui-history-list">
-            <!-- JS dinamik dolduracak -->
+        <!-- HESAPLAMA SONUÇLARI -->
+        <div class="list-wrapper" style="justify-content: flex-start; gap: 8px;">
+            <div class="list-title">Anlık Hesaplama Sonuçları</div>
+            
+            <div class="month-row">
+                <span class="month-name">1 Hisse Değeri (TL)</span>
+                <span class="month-val" id="res-tek-hisse-tl" style="color: #cbd5e1;">₺0</span>
+            </div>
+            <div class="month-row">
+                <span class="month-name">Toplam Portföy (EUR)</span>
+                <span class="month-val" id="res-toplam-eur" style="color: #e2e8f0;">€0</span>
+            </div>
+            
+            <div class="summary-card" style="margin-top: 10px; background: rgba(56, 189, 248, 0.05); border: 1px solid rgba(56, 189, 248, 0.15);">
+                <div class="label" style="color: #38bdf8;">Toplam Varlık Net TL Değeri</div>
+                <div class="value color-asset" id="res-toplam-tl">₺0</div>
+            </div>
         </div>
-    </div>
-
-    <div class="add-form">
-        <select id="input-ay">
-            <option value="TEMMUZ">TEMMUZ</option>
-            <option value="AĞUSTOS">AĞUSTOS</option>
-            <option value="EYLÜL">EYLÜL</option>
-            <option value="EKİM">EKİM</option>
-            <option value="KASIM">KASIM</option>
-            <option value="ARALIK">ARALIK</option>
-            <option value="OCAK">OCAK</option>
-            <option value="ŞUBAT">ŞUBAT</option>
-            <option value="MART">MART</option>
-            <option value="NİSAN">NİSAN</option>
-            <option value="MAYIS">MAYIS</option>
-            <option value="HAZİRAN">HAZİRAN</option>
-        </select>
-        <input type="number" id="input-tutar" placeholder="Tutar (TL)" inputmode="numeric">
-        <button class="add-btn" onclick="v10_yeniAyEkle()">Ekle</button>
     </div>
 </div>
 
 <script>
-    const v10_sabitToplamBorc = 274008;
+    const v11_sabitToplamBorc = 274008;
+    const v11_sabitHisseAdedi = 92.8009;
 
-    let v10_kesintiVerileri = [
+    let v11_kesintiVerileri = [
         { ay: "TEMMUZ", tutar: 8383 },
         { ay: "AĞUSTOS", tutar: 11707 },
         { ay: "EYLÜL", tutar: 11308 },
@@ -202,15 +310,29 @@
         { ay: "HAZİRAN", tutar: 17603 }
     ];
 
-    const v10_fmtTL = new Intl.NumberFormat('tr-TR', { style: 'currency', currency: 'TRY', minimumFractionDigits: 0, maximumFractionDigits: 0 });
+    const v11_fmtTL = new Intl.NumberFormat('tr-TR', { style: 'currency', currency: 'TRY', minimumFractionDigits: 0, maximumFractionDigits: 0 });
+    const v11_fmtTLDesi = new Intl.NumberFormat('tr-TR', { style: 'currency', currency: 'TRY', minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    const v11_fmtEUR = new Intl.NumberFormat('de-DE', { style: 'currency', currency: 'EUR' });
 
-    function v10_paneliGuncelle() {
-        const toplamOdenen = v10_kesintiVerileri.reduce((sum, item) => sum + item.tutar, 0);
-        const kalanBorc = v10_sabitToplamBorc - toplamOdenen;
-        const odemeYuzdesi = (toplamOdenen / v10_sabitToplamBorc) * 100;
+    function v11_switchTab(tabName) {
+        document.getElementById('btn-borc').classList.toggle('active', tabName === 'borc');
+        document.getElementById('btn-varlik').classList.toggle('active', tabName === 'varlik');
+        
+        document.getElementById('content-borc').classList.toggle('active', tabName === 'borc');
+        document.getElementById('content-varlik').classList.toggle('active', tabName === 'varlik');
 
-        document.getElementById('ui-toplam-odenen').innerText = v10_fmtTL.format(toplamOdenen);
-        document.getElementById('ui-kalan-borc').innerText = v10_fmtTL.format(kalanBorc >= 0 ? kalanBorc : 0);
+        if(tabName === 'varlik') {
+            v11_varlikHesapla();
+        }
+    }
+
+    function v11_paneliGuncelle() {
+        const toplamOdenen = v11_kesintiVerileri.reduce((sum, item) => sum + item.tutar, 0);
+        const kalanBorc = v11_sabitToplamBorc - toplamOdenen;
+        const odemeYuzdesi = (toplamOdenen / v11_sabitToplamBorc) * 100;
+
+        document.getElementById('ui-toplam-odenen').innerText = v11_fmtTL.format(toplamOdenen);
+        document.getElementById('ui-kalan-borc').innerText = v11_fmtTL.format(kalanBorc >= 0 ? kalanBorc : 0);
         
         document.getElementById('ui-progress-fill').style.width = `${Math.min(odemeYuzdesi, 100)}%`;
         document.getElementById('ui-progress-percent').innerText = `%${odemeYuzdesi.toFixed(1)}`;
@@ -218,23 +340,22 @@
         const listContainer = document.getElementById('ui-history-list');
         listContainer.innerHTML = "";
         
-        v10_kesintiVerileri.forEach(item => {
+        v11_kesintiVerileri.forEach(item => {
             const row = document.createElement('div');
             row.className = 'month-row';
             row.innerHTML = `
                 <span class="month-name">${item.ay}</span>
-                <span class="month-val">${v10_fmtTL.format(item.tutar)}</span>
+                <span class="month-val">${v11_fmtTL.format(item.tutar)}</span>
             `;
             listContainer.appendChild(row);
         });
         
-        // Yeni veri eklendikten sonra listeyi otomatik olarak en güncel aya (en aşağıya) odaklar
         setTimeout(() => {
             listContainer.scrollTop = listContainer.scrollHeight;
         }, 50);
     }
 
-    function v10_yeniAyEkle() {
+    function v11_yeniAyEkle() {
         const aySelect = document.getElementById('input-ay');
         const tutarInput = document.getElementById('input-tutar');
 
@@ -246,12 +367,29 @@
             return;
         }
 
-        v10_kesintiVerileri.push({ ay: secilenAy, tutar: girilenTutar });
+        v11_kesintiVerileri.push({ ay: secilenAy, tutar: girilenTutar });
         tutarInput.value = "";
-        v10_paneliGuncelle();
+        v11_paneliGuncelle();
     }
 
-    v10_paneliGuncelle();
+    // YENİ: VARLIK HESAPLAMA MATEMATİĞİ
+    function v11_varlikHesapla() {
+        const hisseFiyatiEur = parseFloat(document.getElementById('calc-hisse-eur').value) || 0;
+        const euroTlKuru = parseFloat(document.getElementById('calc-euro-tl').value) || 0;
+
+        // Hesaplamalar
+        const tekHisseTl = hisseFiyatiEur * euroTlKuru;
+        const toplamEur = v11_sabitHisseAdedi * hisseFiyatiEur;
+        const toplamTl = toplamEur * euroTlKuru;
+
+        // Ekran Giydirme
+        document.getElementById('res-tek-hisse-tl').innerText = v11_fmtTLDesi.format(tekHisseTl);
+        document.getElementById('res-toplam-eur').innerText = v11_fmtEUR.format(toplamEur);
+        document.getElementById('res-toplam-tl').innerText = v11_fmtTL.format(toplamTl);
+    }
+
+    // İlk kurulum çalıştırması
+    v11_paneliGuncelle();
 </script>
 
 </body>
