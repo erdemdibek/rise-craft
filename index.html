@@ -24,17 +24,17 @@
             display: flex; 
             justify-content: center; 
             align-items: center; 
-            padding: 12px;
+            padding: 8px; /* Ekran kenar boşluğu azaltıldı */
         }
 
         .app-container { 
             width: 100%; 
-            max-width: 400px; 
+            max-width: 380px; 
             height: 100%;
-            max-height: 94vh; 
+            max-height: 96vh; /* Daha esnek dikey alan */
             background: linear-gradient(145deg, #0f1626 0%, #0b0f19 100%); 
-            border-radius: 24px; 
-            padding: 18px; 
+            border-radius: 20px; 
+            padding: 14px; /* İç boşluklar daraltıldı */
             box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.6); 
             border: 1px solid rgba(255, 255, 255, 0.04); 
             display: flex;
@@ -44,21 +44,21 @@
         /* HEADER */
         .header { 
             text-align: center; 
-            margin-bottom: 12px; 
+            margin-bottom: 10px; 
             border-bottom: 1px solid rgba(255, 255, 255, 0.06); 
-            padding-bottom: 8px;
+            padding-bottom: 6px;
             flex-shrink: 0;
         }
-        .header h1 { font-size: 1.05rem; color: #fff; font-weight: 700; }
-        .header p { font-size: 0.72rem; color: #38bdf8; text-transform: uppercase; letter-spacing: 0.05em; margin-top: 2px; }
+        .header h1 { font-size: 1rem; color: #fff; font-weight: 700; }
+        .header p { font-size: 0.68rem; color: #38bdf8; text-transform: uppercase; letter-spacing: 0.05em; margin-top: 2px; }
 
         /* NAV TABS */
         .nav-tabs {
             display: flex;
             background: rgba(15, 23, 42, 0.6);
-            padding: 4px;
-            border-radius: 12px;
-            margin-bottom: 12px;
+            padding: 3px;
+            border-radius: 10px;
+            margin-bottom: 10px;
             border: 1px solid rgba(255, 255, 255, 0.03);
             flex-shrink: 0;
         }
@@ -67,10 +67,10 @@
             background: transparent;
             border: none;
             color: #64748b;
-            font-size: 0.75rem;
+            font-size: 0.72rem;
             font-weight: 700;
-            padding: 8px 0;
-            border-radius: 8px;
+            padding: 6px 0;
+            border-radius: 6px;
             cursor: pointer;
             transition: all 0.2s ease;
             text-transform: uppercase;
@@ -96,19 +96,19 @@
         .summary-card { 
             background: rgba(30, 41, 59, 0.3); 
             border: 1px solid rgba(255, 255, 255, 0.04); 
-            border-radius: 14px; 
-            padding: 12px; 
-            margin-bottom: 8px;
+            border-radius: 12px; 
+            padding: 10px; 
+            margin-bottom: 6px;
             flex-shrink: 0;
         }
         .grid-cards {
             display: grid; 
             grid-template-columns: 1fr 1fr; 
-            gap: 8px;
+            gap: 6px;
             flex-shrink: 0;
         }
-        .label { font-size: 0.68rem; color: #64748b; text-transform: uppercase; font-weight: 600; }
-        .value { font-size: 1.25rem; font-weight: 800; margin-top: 2px; }
+        .label { font-size: 0.65rem; color: #64748b; text-transform: uppercase; font-weight: 600; }
+        .value { font-size: 1.15rem; font-weight: 800; margin-top: 2px; }
         .color-total { color: #ffffff; }
         .color-paid { color: #10b981; }
         .color-remaining { color: #f59e0b; }
@@ -116,12 +116,12 @@
 
         /* İLERLEME ÇUBUĞU */
         .progress-container { 
-            margin: 6px 0 10px 0; 
+            margin: 4px 0 8px 0; 
             flex-shrink: 0;
         }
-        .progress-bar-bg { width: 100%; height: 8px; background: rgba(255,255,255,0.05); border-radius: 4px; overflow: hidden; }
+        .progress-bar-bg { width: 100%; height: 6px; background: rgba(255,255,255,0.05); border-radius: 3px; overflow: hidden; }
         .progress-bar-fill { height: 100%; width: 0%; background: linear-gradient(90deg, #10b981, #3b82f6); transition: width 0.5s ease; }
-        .progress-text { display: flex; justify-content: space-between; font-size: 0.7rem; color: #94a3b8; margin-top: 4px; font-weight: 600; }
+        .progress-text { display: flex; justify-content: space-between; font-size: 0.68rem; color: #94a3b8; margin-top: 3px; font-weight: 600; }
 
         /* KAYDIRILABİLİR AY LİSTESİ */
         .list-wrapper {
@@ -129,44 +129,43 @@
             display: flex;
             flex-direction: column;
             overflow: hidden;
-            margin-bottom: 10px;
+            margin-bottom: 8px;
         }
-        .list-title { font-size: 0.75rem; color: #94a3b8; text-transform: uppercase; margin-bottom: 6px; font-weight: 600; }
+        .list-title { font-size: 0.7rem; color: #94a3b8; text-transform: uppercase; margin-bottom: 4px; font-weight: 600; }
         .history-list { 
             flex: 1;
             overflow-y: auto; 
             display: flex; 
             flex-direction: column; 
-            gap: 6px; 
+            gap: 5px; 
             -webkit-overflow-scrolling: touch; 
         }
-        .history-list::-webkit-scrollbar { width: 4px; }
+        .history-list::-webkit-scrollbar { width: 3px; }
         .history-list::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 2px; }
         
-        .month-row { display: flex; justify-content: space-between; background: rgba(255,255,255,0.02); padding: 8px 12px; border-radius: 8px; font-size: 0.85rem; border: 1px solid rgba(255,255,255,0.01); }
+        .month-row { display: flex; justify-content: space-between; background: rgba(255,255,255,0.02); padding: 6px 10px; border-radius: 6px; font-size: 0.8rem; border: 1px solid rgba(255,255,255,0.01); }
         .month-name { font-weight: 600; color: #cbd5e1; }
         .month-val { font-family: monospace; font-weight: 700; color: #fff; }
 
         /* ALTLIK INPUT FORMLARI */
         .bottom-form { 
-            padding-top: 12px; 
+            padding-top: 8px; 
             border-top: 1px dashed rgba(255, 255, 255, 0.1); 
             display: flex; 
             gap: 6px; 
             flex-shrink: 0;
         }
-        .bottom-form input, .bottom-form select { background: #111827; border: 1px solid rgba(255,255,255,0.08); border-radius: 8px; color: #fff; padding: 10px; font-size: 0.85rem; outline: none; }
+        .bottom-form input, .bottom-form select { background: #111827; border: 1px solid rgba(255,255,255,0.08); border-radius: 6px; color: #fff; padding: 8px; font-size: 0.8rem; outline: none; }
         .bottom-form select { flex: 1.2; }
         .bottom-form input { flex: 1; font-family: monospace; text-align: right; }
-        .action-btn { background: #38bdf8; color: #070a12; border: none; padding: 0 14px; border-radius: 8px; font-weight: 700; cursor: pointer; }
-        .action-btn.green { background: #10b981; color: #fff; }
+        .action-btn { background: #38bdf8; color: #070a12; border: none; padding: 0 12px; border-radius: 6px; font-weight: 700; cursor: pointer; font-size: 0.8rem; }
 
         /* HESAPLAYICI INPUT GRUBU */
         .calc-inputs {
             display: flex;
             flex-direction: column;
-            gap: 10px;
-            margin-bottom: 12px;
+            gap: 6px;
+            margin-bottom: 8px;
             flex-shrink: 0;
         }
         .input-row {
@@ -174,12 +173,12 @@
             align-items: center;
             justify-content: space-between;
             background: rgba(255,255,255,0.02);
-            padding: 8px 12px;
-            border-radius: 12px;
+            padding: 6px 10px;
+            border-radius: 8px;
             border: 1px solid rgba(255,255,255,0.04);
         }
-        .input-row label { font-size: 0.8rem; color: #cbd5e1; font-weight: 500; }
-        .input-row input { width: 110px; background: #111827; border: 1px solid rgba(255,255,255,0.1); border-radius: 6px; color: #fff; padding: 6px 8px; font-family: monospace; text-align: right; font-size: 0.9rem; outline: none; }
+        .input-row label { font-size: 0.75rem; color: #cbd5e1; font-weight: 500; }
+        .input-row input { width: 110px; background: #111827; border: 1px solid rgba(255,255,255,0.1); border-radius: 4px; color: #fff; padding: 4px 6px; font-family: monospace; text-align: right; font-size: 0.85rem; outline: none; }
     </style>
 </head>
 <body>
@@ -192,8 +191,8 @@
 
     <!-- SEKMELER (TAB MENU) -->
     <div class="nav-tabs">
-        <button class="tab-btn active" id="btn-borc" onclick="v11_switchTab('borc')">Borç Takibi</button>
-        <button class="tab-btn" id="btn-varlik" onclick="v11_switchTab('varlik')">Varlık Hesaplayıcı</button>
+        <button class="tab-btn active" id="btn-borc" onclick="v12_switchTab('borc')">Borç Takibi</button>
+        <button class="tab-btn" id="btn-varlik" onclick="v12_switchTab('varlik')">Varlık Hesaplayıcı</button>
     </div>
 
     <!-- SEKME 1: BORÇ TAKİBİ -->
@@ -247,31 +246,34 @@
                 <option value="HAZİRAN">HAZİRAN</option>
             </select>
             <input type="number" id="input-tutar" placeholder="Tutar (TL)" inputmode="numeric">
-            <button class="action-btn" onclick="v11_yeniAyEkle()">Ekle</button>
+            <button class="action-btn" onclick="v12_yeniAyEkle()">Ekle</button>
         </div>
     </div>
 
     <!-- SEKME 2: VARLIK HESAPLAYICI -->
     <div id="content-varlik" class="tab-content">
-        <div class="summary-card">
-            <div class="label">Toplam Tahsis Edilen Hisse</div>
-            <div class="value color-total" style="color: #a855f7;">88 Adet Hisse</div>
+        <!-- DİNAMİK HİSSE ADETİ GİRİŞİ -->
+        <div class="summary-card" style="background: rgba(168, 85, 247, 0.05); border: 1px solid rgba(168, 85, 247, 0.15);">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+                <div class="label" style="color: #c084fc;">Hisse Adetiniz</div>
+                <input type="number" id="calc-hisse-adedi" step="0.0001" value="92.8004" inputmode="decimal" oninput="v12_varlikHesapla()" style="width: 120px; background: #111827; border: 1px solid rgba(168, 85, 247, 0.3); border-radius: 6px; color: #fff; padding: 4px 8px; font-family: monospace; text-align: right; font-weight: 700; outline: none;">
+            </div>
         </div>
 
         <!-- ANLIK VERİ GİRİŞ ALANLARI -->
         <div class="calc-inputs">
             <div class="input-row">
                 <label>Sanofi Hisse Fiyatı (EUR):</label>
-                <input type="number" id="calc-hisse-eur" step="0.01" value="75.08" inputmode="decimal" oninput="v11_varlikHesapla()">
+                <input type="number" id="calc-hisse-eur" step="0.01" value="75.08" inputmode="decimal" oninput="v12_varlikHesapla()">
             </div>
             <div class="input-row">
                 <label>Euro / TL Kuru (₺):</label>
-                <input type="number" id="calc-euro-tl" step="0.01" value="53.33" inputmode="decimal" oninput="v11_varlikHesapla()">
+                <input type="number" id="calc-euro-tl" step="0.01" value="53.33" inputmode="decimal" oninput="v12_varlikHesapla()">
             </div>
         </div>
 
         <!-- HESAPLAMA SONUÇLARI -->
-        <div class="list-wrapper" style="justify-content: flex-start; gap: 8px;">
+        <div class="list-wrapper" style="justify-content: flex-start; gap: 6px;">
             <div class="list-title">Anlık Hesaplama Sonuçları</div>
             
             <div class="month-row">
@@ -283,19 +285,18 @@
                 <span class="month-val" id="res-toplam-eur" style="color: #e2e8f0;">€0</span>
             </div>
             
-            <div class="summary-card" style="margin-top: 10px; background: rgba(56, 189, 248, 0.05); border: 1px solid rgba(56, 189, 248, 0.15);">
+            <div class="summary-card" style="margin-top: 6px; background: rgba(56, 189, 248, 0.05); border: 1px solid rgba(56, 189, 248, 0.15); padding: 8px 10px;">
                 <div class="label" style="color: #38bdf8;">Toplam Varlık Net TL Değeri</div>
-                <div class="value color-asset" id="res-toplam-tl">₺0</div>
+                <div class="value color-asset" id="res-toplam-tl" style="font-size: 1.2rem;">₺0</div>
             </div>
         </div>
     </div>
 </div>
 
 <script>
-    const v11_sabitToplamBorc = 274008;
-    const v11_sabitHisseAdedi = 92.8009;
+    const v12_sabitToplamBorc = 274008;
 
-    let v11_kesintiVerileri = [
+    let v12_kesintiVerileri = [
         { ay: "TEMMUZ", tutar: 8383 },
         { ay: "AĞUSTOS", tutar: 11707 },
         { ay: "EYLÜL", tutar: 11308 },
@@ -310,11 +311,11 @@
         { ay: "HAZİRAN", tutar: 17603 }
     ];
 
-    const v11_fmtTL = new Intl.NumberFormat('tr-TR', { style: 'currency', currency: 'TRY', minimumFractionDigits: 0, maximumFractionDigits: 0 });
-    const v11_fmtTLDesi = new Intl.NumberFormat('tr-TR', { style: 'currency', currency: 'TRY', minimumFractionDigits: 2, maximumFractionDigits: 2 });
-    const v11_fmtEUR = new Intl.NumberFormat('de-DE', { style: 'currency', currency: 'EUR' });
+    const v12_fmtTL = new Intl.NumberFormat('tr-TR', { style: 'currency', currency: 'TRY', minimumFractionDigits: 0, maximumFractionDigits: 0 });
+    const v12_fmtTLDesi = new Intl.NumberFormat('tr-TR', { style: 'currency', currency: 'TRY', minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    const v12_fmtEUR = new Intl.NumberFormat('de-DE', { style: 'currency', currency: 'EUR' });
 
-    function v11_switchTab(tabName) {
+    function v12_switchTab(tabName) {
         document.getElementById('btn-borc').classList.toggle('active', tabName === 'borc');
         document.getElementById('btn-varlik').classList.toggle('active', tabName === 'varlik');
         
@@ -322,17 +323,17 @@
         document.getElementById('content-varlik').classList.toggle('active', tabName === 'varlik');
 
         if(tabName === 'varlik') {
-            v11_varlikHesapla();
+            v12_varlikHesapla();
         }
     }
 
-    function v11_paneliGuncelle() {
-        const toplamOdenen = v11_kesintiVerileri.reduce((sum, item) => sum + item.tutar, 0);
-        const kalanBorc = v11_sabitToplamBorc - toplamOdenen;
-        const odemeYuzdesi = (toplamOdenen / v11_sabitToplamBorc) * 100;
+    function v12_paneliGuncelle() {
+        const toplamOdenen = v12_kesintiVerileri.reduce((sum, item) => sum + item.tutar, 0);
+        const kalanBorc = v12_sabitToplamBorc - toplamOdenen;
+        const odemeYuzdesi = (toplamOdenen / v12_sabitToplamBorc) * 100;
 
-        document.getElementById('ui-toplam-odenen').innerText = v11_fmtTL.format(toplamOdenen);
-        document.getElementById('ui-kalan-borc').innerText = v11_fmtTL.format(kalanBorc >= 0 ? kalanBorc : 0);
+        document.getElementById('ui-toplam-odenen').innerText = v12_fmtTL.format(toplamOdenen);
+        document.getElementById('ui-kalan-borc').innerText = v12_fmtTL.format(kalanBorc >= 0 ? kalanBorc : 0);
         
         document.getElementById('ui-progress-fill').style.width = `${Math.min(odemeYuzdesi, 100)}%`;
         document.getElementById('ui-progress-percent').innerText = `%${odemeYuzdesi.toFixed(1)}`;
@@ -340,12 +341,12 @@
         const listContainer = document.getElementById('ui-history-list');
         listContainer.innerHTML = "";
         
-        v11_kesintiVerileri.forEach(item => {
+        v12_kesintiVerileri.forEach(item => {
             const row = document.createElement('div');
             row.className = 'month-row';
             row.innerHTML = `
                 <span class="month-name">${item.ay}</span>
-                <span class="month-val">${v11_fmtTL.format(item.tutar)}</span>
+                <span class="month-val">${v12_fmtTL.format(item.tutar)}</span>
             `;
             listContainer.appendChild(row);
         });
@@ -355,7 +356,7 @@
         }, 50);
     }
 
-    function v11_yeniAyEkle() {
+    function v12_yeniAyEkle() {
         const aySelect = document.getElementById('input-ay');
         const tutarInput = document.getElementById('input-tutar');
 
@@ -367,29 +368,26 @@
             return;
         }
 
-        v11_kesintiVerileri.push({ ay: secilenAy, tutar: girilenTutar });
+        v12_kesintiVerileri.push({ ay: secilenAy, tutar: girilenTutar });
         tutarInput.value = "";
-        v11_paneliGuncelle();
+        v12_paneliGuncelle();
     }
 
-    // YENİ: VARLIK HESAPLAMA MATEMATİĞİ
-    function v11_varlikHesapla() {
+    function v12_varlikHesapla() {
+        const dinamikHisseAdedi = parseFloat(document.getElementById('calc-hisse-adedi').value) || 0;
         const hisseFiyatiEur = parseFloat(document.getElementById('calc-hisse-eur').value) || 0;
         const euroTlKuru = parseFloat(document.getElementById('calc-euro-tl').value) || 0;
 
-        // Hesaplamalar
         const tekHisseTl = hisseFiyatiEur * euroTlKuru;
-        const toplamEur = v11_sabitHisseAdedi * hisseFiyatiEur;
+        const toplamEur = dinamikHisseAdedi * hisseFiyatiEur;
         const toplamTl = toplamEur * euroTlKuru;
 
-        // Ekran Giydirme
-        document.getElementById('res-tek-hisse-tl').innerText = v11_fmtTLDesi.format(tekHisseTl);
-        document.getElementById('res-toplam-eur').innerText = v11_fmtEUR.format(toplamEur);
-        document.getElementById('res-toplam-tl').innerText = v11_fmtTL.format(toplamTl);
+        document.getElementById('res-tek-hisse-tl').innerText = v12_fmtTLDesi.format(tekHisseTl);
+        document.getElementById('res-toplam-eur').innerText = v12_fmtEUR.format(toplamEur);
+        document.getElementById('res-toplam-tl').innerText = v12_fmtTL.format(toplamTl);
     }
 
-    // İlk kurulum çalıştırması
-    v11_paneliGuncelle();
+    v12_paneliGuncelle();
 </script>
 
 </body>
