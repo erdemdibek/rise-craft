@@ -5,7 +5,7 @@ import { blacksmithingRecipes, calculateBlacksmithingChain } from './recipes/bla
 import { carpentryRecipes, calculateCarpentryChain } from './recipes/carpentry.js';
 import { cookingRecipes } from './recipes/cooking.js';
 import { jewelCraftingRecipes } from './recipes/jewel_crafting.js';
-import { leatherworkingRecipes } from './recipes/leatherworking.js';
+import { leatherworkingRecipes, calculateLeatherworkingChain } from './recipes/leatherworking.js';
 import { stonemasonryRecipes } from './recipes/stonemasonry.js';
 import { tailoringRecipes, calculateTailoringChain } from './recipes/tailoring.js';
 import { weaponSmithingRecipes } from './recipes/weapon_smithing.js';
@@ -215,6 +215,9 @@ function runCalculation(index) {
     else if (prof.id === "blacksmithing" && selectedRecipe.isChain) {
         resultDiv.innerHTML = calculateBlacksmithingChain(neededXp, selectedRecipe, currentRecipes);
     } 
+    else if (prof.id === "leatherworking" && selectedRecipe.isChain) {
+        resultDiv.innerHTML = calculateLeatherworkingChain(neededXp, selectedRecipe, currentRecipes);
+    }
     // --- GENEL DİNAMİK MATERYAL HESAPLAYICI (FALLBACK) ---
     else if (selectedRecipe.materials) {
         const craftCount = Math.ceil(neededXp / selectedRecipe.xpGiven);
