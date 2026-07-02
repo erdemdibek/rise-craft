@@ -12,21 +12,33 @@ const recipes = {
         { id: "cotton_process", name: "Cotton (İşleme)", levelRequired: 1, xpGiven: 52, isChain: false },
         { id: "cotton_yarn", name: "Cotton Yarn", levelRequired: 1, xpGiven: 104, isChain: false },
         { id: "fabric", name: "Fabric", levelRequired: 1, xpGiven: 208, isChain: false },
-        { id: "lvl4_boots_gloves", name: "Lv4 - Leather Boots / Gloves (+1300 XP)", levelRequired: 4, xpGiven: 1300, isChain: true, fabricNeed: 2, stagNeed: 2, boarNeed: 0, tigerNeed: 0, copperNeed: 0 },
-        { id: "lvl8_heavy_gear", name: "Lv8 - Heavy Leather Boots / Gloves (+2600 XP)", levelRequired: 8, xpGiven: 2600, isChain: true, fabricNeed: 3, stagNeed: 2, boarNeed: 1, tigerNeed: 0, copperNeed: 1 },
-        { id: "lvl12_helmets", name: "Lv12 - Leather Helmets (+4160 XP)", levelRequired: 12, xpGiven: 4160, isChain: true, fabricNeed: 4, stagNeed: 2, boarNeed: 2, tigerNeed: 0, copperNeed: 0 },
-        { id: "lvl16_heavy_helmets", name: "Lv16 - Heavy Leather Helmets (+5200 XP)", levelRequired: 16, xpGiven: 5200, isChain: true, fabricNeed: 4, stagNeed: 2, boarNeed: 1, tigerNeed: 1, copperNeed: 1 }
+        { id: "lvl4_boots_gloves", name: "Lv4 - Leather Boots / Gloves (+1300 XP)", levelRequired: 4, xpGiven: 1300, isChain: true, fabricNeed: 2, stagNeed: 2, boarNeed: 0, tigerNeed: 0, copperNeed: 0 }
     ],
     cooking: [
-        // Seviye 1
         { id: "butter", name: "Lv1 - Butter (+10 XP)", levelRequired: 1, xpGiven: 10, isChain: false },
         { id: "roasted_corn", name: "Lv1 - Roasted Corn (+52 XP)", levelRequired: 1, xpGiven: 52, isChain: false },
         { id: "roasted_potato", name: "Lv1 - Roasted Potato (+52 XP)", levelRequired: 1, xpGiven: 52, isChain: false },
-        
-        // Seviye 4
         { id: "carrot_soup", name: "Lv4 - Carrot Soup (+124 XP)", levelRequired: 4, xpGiven: 124, isChain: false },
         { id: "omlette", name: "Lv4 - Omlette (+124 XP)", levelRequired: 4, xpGiven: 124, isChain: false },
         { id: "tomato_soup", name: "Lv4 - Tomato Soup (+124 XP)", levelRequired: 4, xpGiven: 124, isChain: false }
+    ],
+    armor_smithing: [
+        { 
+            id: "lvl1_elite_gear", 
+            name: "Lv1 - Elite Boots / Gloves (+13000 XP)", 
+            levelRequired: 1, 
+            xpGiven: 13000, 
+            isChain: false,
+            materials: { stag: 4, boar: 0, zebra: 0, copper: 4, iron: 0, baseItem: 1 }
+        },
+        { 
+            id: "lvl10_imperial_gear", 
+            name: "Lv10 - Imperial Boots / Gloves (+26000 XP)", 
+            levelRequired: 10, 
+            xpGiven: 26000, 
+            isChain: false,
+            materials: { stag: 4, boar: 2, zebra: 1, copper: 4, iron: 2, baseItem: 1 }
+        }
     ]
 };
 
@@ -209,6 +221,7 @@ window.runCalculation = function(index) {
     if (!selectedRecipe) return;
 
     if (prof.id === "tailoring" && selectedRecipe.isChain) {
+        // Tailoring Özel Zincir Hesaplaması
         const xpPerFabricChain = 208 + 312 + 468;
         const fabricBonusXpPerCraft = selectedRecipe.fabricNeed * xpPerFabricChain;
         const totalXpPerFullChainLoop = selectedRecipe.xpGiven + fabricBonusXpPerCraft;
@@ -249,7 +262,31 @@ window.runCalculation = function(index) {
 
         materialListHtml += `</div>`;
         resultDiv.innerHTML = materialListHtml;
-    } else {
+    } 
+    else if (prof.id === "armor_smithing" && selectedRecipe.materials) {
+        // Armor Smithing için Materyal Hesaplama Ekranı
+        const craftCount = Math.ceil(neededXp / selectedRecipe.xpGiven);
+        const mats = selectedRecipe.materials;
+
+        resultDiv.innerHTML = `
+            <div class="text-white font-bold border-b border-gray-950 pb-1.5 mb-2 text-center text-[10px] tracking-wider text-amber-500 uppercase">🛡️ Gereken Toplam Materyaller</div>
+            <div class="mb-2">🎯 Hedefe Kalan Net XP: <span class="text-white font-bold">${neededXp.toLocaleString()} XP</span></div>
+            <div class="mb-3 flex justify-between items-center bg-gray-950 p-2 rounded border border-gray-800">
+                <span class="text-gray-400 text-xs">Toplam Üretim Adedi:</span>
+                <span class="text-sm font-black text-amber-400">${craftCount.toLocaleString()} Adet</span>
+            </div>
+            <div class="space-y-1 text-xs text-gray-300">
+                <div class="flex justify-between border-b border-gray-900/40 pb-1"><span>🦌 Tanned Leather (Stag):</span> <span class="font-bold text-white">${(mats.stag * craftCount).toLocaleString()} Adet</span></div>
+                ${mats.boar > 0 ? `<div class="flex justify-between border-b border-gray-900/40 pb-1"><span>🐗 Tanned Leather (Boar):</span> <span class="font-bold text-white">${(mats.boar * craftCount).toLocaleString()} Adet</span></div>` : ''}
+                ${mats.zebra > 0 ? `<div class="flex justify-between border-b border-gray-900/40 pb-1"><span>🦓 Tanned Leather (Zebra):</span> <span class="font-bold text-white">${(mats.zebra * craftCount).toLocaleString()} Adet</span></div>` : ''}
+                <div class="flex justify-between border-b border-gray-900/40 pb-1 text-orange-400"><span>🪙 Copper Plate:</span> <span class="font-bold text-white">${(mats.copper * craftCount).toLocaleString()} Adet</span></div>
+                ${mats.iron > 0 ? `<div class="flex justify-between border-b border-gray-900/40 pb-1 text-blue-400"><span>⛓️ Iron Plate:</span> <span class="font-bold text-white">${(mats.iron * craftCount).toLocaleString()} Adet</span></div>` : ''}
+                <div class="flex justify-between text-amber-500 font-bold mt-1 pt-1 border-t border-gray-950"><span>📦 Craftsız Temel Eşya (+1):</span> <span class="text-white font-black">${(mats.baseItem * craftCount).toLocaleString()} Adet</span></div>
+            </div>
+        `;
+    } 
+    else {
+        // Cooking vb. Düz Tarifler
         const xpPerCraft = selectedRecipe.xpGiven;
         const craftCount = Math.ceil(neededXp / xpPerCraft);
         resultDiv.innerHTML = `
