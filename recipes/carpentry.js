@@ -12,7 +12,8 @@ export const carpentryRecipes = [
 ];
 
 export function calculateCarpentryChain(neededXp, selectedRecipe, allRecipes) {
-    const parentTimber = allRecipes.find(r => r.id === selectedRecipe.parentTimberId);
+    // Esneklik ve koruma fallback yapısı eklendi
+    const parentTimber = allRecipes.find(r => r.id === selectedRecipe.parentTimberId) || { xpGiven: 41 };
     
     // 1 adet Plank döngüsünün getireceği toplam XP (Plank XP + 3 adet Timber XP)
     const xpPerTimberLoop = parentTimber.xpGiven * selectedRecipe.timberMultiplier;
@@ -22,7 +23,7 @@ export function calculateCarpentryChain(neededXp, selectedRecipe, allRecipes) {
     const totalTimberNeeded = craftCount * selectedRecipe.timberMultiplier;
     
     // Ham odun çarpanı (Her timber için 3 adet wood gerekiyor)
-    const totalWoodNeeded = totalTimberNeeded * 3; // <-- Doğru tanım
+    const totalWoodNeeded = totalTimberNeeded * 3;
     
     const isOak = selectedRecipe.id === "oak_plank";
     const woodName = isOak ? "Oak Wood" : "Pine Wood";
@@ -42,5 +43,5 @@ export function calculateCarpentryChain(neededXp, selectedRecipe, allRecipes) {
             <div class="flex justify-between border-b border-gray-900/40 pb-1 text-amber-500/80"><span>🪵 Hazırlanacak Ara Ürün (${timberName}):</span> <span class="font-bold text-white">${totalTimberNeeded.toLocaleString()} Adet</span></div>
             <div class="flex justify-between text-orange-300"><span>🌲 Gerekli Ham Tomruk (${woodName}):</span> <span class="font-bold text-emerald-400">${totalWoodNeeded.toLocaleString()} Adet</span></div>
         </div>
-    `; // <-- woodNeeded yerine totalWoodNeeded olarak düzeltildi!
+    `;
 }
