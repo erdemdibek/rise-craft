@@ -6,13 +6,24 @@ const xpGroups = {
     easy: [0, 3000, 6000, 9000, 12000, 15000, 18000, 24000, 30000, 36000, 48000, 60000, 72000, 90000, 108000, 126000, 150000, 174000, 198000, 228000, 258000, 288000, 324000, 360000, 396000, 438000, 480000, 540000, 600000, 720000, 840000, 1020000, 1200000, 1440000, 1680000, 1980000, 2280000, 2640000, 3060000, 3600000, 4200000]
 };
 
-// Detaylı Reçete İlişkileri ve Girdileri (v2.1 Zincirleme Hesaplama İçin)
+// Seviye 1-20 Arası Güncellenmiş Tüm Tailoring Reçeteleri ve Girdileri
 const recipes = {
     tailoring: [
         { id: "cotton_process", name: "Cotton (İşleme)", levelRequired: 1, xpGiven: 52, isChain: false },
         { id: "cotton_yarn", name: "Cotton Yarn", levelRequired: 1, xpGiven: 104, isChain: false },
         { id: "fabric", name: "Fabric", levelRequired: 1, xpGiven: 208, isChain: false },
-        { id: "priest_boots", name: "Priest Leather Boots (Zincirleme Üretim)", levelRequired: 4, xpGiven: 1300, isChain: true }
+        
+        // Seviye 4 Üretimleri (Bot ve Kolluklar)
+        { id: "lvl4_boots_gloves", name: "Lv4 - Leather Boots / Gloves (Zincirleme)", levelRequired: 4, xpGiven: 1300, isChain: true, fabricNeed: 2, stagNeed: 2, boarNeed: 0, tigerNeed: 0, copperNeed: 0 },
+        
+        // Seviye 8 Üretimleri (Heavy Bot ve Kolluklar)
+        { id: "lvl8_heavy_gear", name: "Lv8 - Heavy Leather Boots / Gloves (Zincirleme)", levelRequired: 8, xpGiven: 2600, isChain: true, fabricNeed: 3, stagNeed: 2, boarNeed: 1, tigerNeed: 0, copperNeed: 1 },
+        
+        // Seviye 12 Üretimleri (Kafalıklar)
+        { id: "lvl12_helmets", name: "Lv12 - Leather Helmets (Zincirleme)", levelRequired: 12, xpGiven: 4160, isChain: true, fabricNeed: 4, stagNeed: 2, boarNeed: 2, tigerNeed: 0, copperNeed: 0 },
+        
+        // Seviye 16 Üretimleri (Heavy Kafalıklar)
+        { id: "lvl16_heavy_helmets", name: "Lv16 - Heavy Leather Helmets (Zincirleme)", levelRequired: 16, xpGiven: 5200, isChain: true, fabricNeed: 4, stagNeed: 2, boarNeed: 1, tigerNeed: 1, copperNeed: 1 }
     ]
 };
 
@@ -147,63 +158,106 @@ window.runCalculation = function(index) {
     }
 
     const neededXp = getXpRequired(prof.group, prof.level, targetLvl, prof.currentXp);
+    const tailoringRecipes = recipes[prof.id] || [];
+    const selectedRecipe = tailoringRecipes.find(r => r.id === recipeId);
 
-    // ÖZEL DURUM: Priest Leather Boots Zincirleme Hesaplama
-    if (prof.id === "tailoring" && recipeId === "priest_boots") {
-        if (prof.level < 4) {
-            alert("Priest Leather Boots üretebilmek için mevcut seviyeniz en az 4 olmalıdır!");
+    if (!selectedRecipe) return;
+
+    // TAILORING PIPELINE (ZİNCİRLEME HESAPLAMA) MOTORU
+    if (prof.id === "tailoring" && selectedRecipe.isChain) {
+        if (prof.level < selectedRecipe.levelRequired) {
+            alert(`Bu reçeteyi üretebilmek için seviyeniz en az ${selectedRecipe.levelRequired} olmalıdır!`);
             return;
         }
 
-        /* MATEMATİKSEL ZİNCİR YAPISI:
-           1 Bot = 1300 XP (Saf üretim)
-           Bot girdisi: 2 Fabric + 2 Leather
-           2 Fabric üretmek için:
-             - 2 Fabric üretimi = 2 * 208 XP = 416 XP
-             - 6 Cotton Yarn üretimi = 6 * 104 XP = 624 XP
-             - 18 Cotton İşleme üretimi = 18 * 52 XP = 936 XP
-           Yani sıfırdan hammaddelerle gelen 1 adet Bot üretildiğinde kazanılan toplam XP:
-           1300 (Bot) + 416 (Fabric) + 624 (Yarn) + 936 (Cotton) = 3276 XP yapar!
-           Gereken pamuk: 18 * 3 = 54 adet ham pamuk.
+        /* Matematiksel Zincirleme Mantığı (Gelişmiş Pipeline v2.3):
+           1 Adet Fabric Üretim Döngüsü:
+             - 1 Fabric üretimi = 208 XP
+             - 3 Cotton Yarn üretimi = 3 * 104 XP = 312 XP
+             - 9 Cotton İşleme üretimi = 9 * 52 XP = 468 XP
+             ==> Toplam: 1 Fabric sıfırdan üretildiğinde yolda tam 988 XP kazandırır!
+             ==> 1 Fabric için gereken ham pamuk: 9 * 3 = 27 adet.
         */
-        const xpPerFullChain = 1300 + 416 + 624 + 936; // 3276 XP
-        const chainCount = Math.ceil(neededXp / xpPerFullChain);
+        const xpPerFabricChain = 208 + 312 + 468; // 988 XP
         
-        const totalFabric = chainCount * 2;
-        const totalYarn = chainCount * 6;
-        const totalProcessedCotton = chainCount * 18;
+        // Seçilen eşyanın toplam Fabric ihtiyacının getireceği ara XP:
+        const fabricBonusXpPerCraft = selectedRecipe.fabricNeed * xpPerFabricChain;
+        
+        // Eşyanın kendi saf üretim XP'si ile Fabric zincirinden gelen XP toplamı:
+        const totalXpPerFullChainLoop = selectedRecipe.xpGiven + fabricBonusXpPerCraft;
+        
+        // Hedefe ulaşmak için kaç tam döngü (üretim) gerekiyor?
+        const chainCount = Math.ceil(neededXp / totalXpPerFullChainLoop);
+        
+        // Toplam Malzeme Girdileri Hesaplaması
+        const totalFabric = chainCount * selectedRecipe.fabricNeed;
+        const totalYarn = totalFabric * 3;
+        const totalProcessedCotton = totalYarn * 3;
         const totalRawCottonInput = totalProcessedCotton * 3;
-        const totalLeather = chainCount * 2;
+        
+        const totalStag = chainCount * selectedRecipe.stagNeed;
+        const totalBoar = chainCount * selectedRecipe.boarNeed;
+        const totalTiger = chainCount * selectedRecipe.tigerNeed;
+        const totalCopper = chainCount * selectedRecipe.copperNeed;
 
-        resultDiv.innerHTML = `
-            <div class="text-white font-bold border-b border-gray-800 pb-1 mb-1 text-center">ZİNCİRLEME ÜRETİM ÖZETİ</div>
-            <div>🎯 Hedefe Kalan Net XP: <span class="text-white font-bold">${neededXp.toLocaleString()}</span></div>
-            <div class="text-gray-400 mt-1">Sıfırdan toplanan pamuklarla üretilecek miktar:</div>
-            <div class="pl-2 border-l border-amber-500/50 my-1 text-white">
-                • <span class="text-amber-400 font-bold">${chainCount.toLocaleString()} Adet</span> Priest Leather Boots<br>
+        // Arayüz Çıktısı Tasarımı
+        let materialListHtml = `
+            <div class="text-white font-bold border-b border-gray-800 pb-1 mb-1 text-center text-[10px] tracking-wider text-amber-500 uppercase">🔗 Pipelined Üretim Ağacı</div>
+            <div>🎯 Hedef Seviyeye Kalan XP: <span class="text-white font-bold">${neededXp.toLocaleString()}</span></div>
+            <div class="text-gray-400 mt-1">Gerekli ara üretimler (Kazanılacak tüm ara XP'ler düşülmüştür):</div>
+            <div class="pl-2 border-l-2 border-amber-500 my-1.5 space-y-0.5 text-white bg-black/30 p-1.5 rounded">
+                • <span class="text-amber-400 font-bold">${chainCount.toLocaleString()} Adet</span> Nihai Eşya Üretimi<br>
                 • <span class="text-amber-400 font-bold">${totalFabric.toLocaleString()} Adet</span> Fabric<br>
                 • <span class="text-amber-400 font-bold">${totalYarn.toLocaleString()} Adet</span> Cotton Yarn<br>
-                • <span class="text-amber-400 font-bold">${totalProcessedCotton.toLocaleString()} Kez</span> Cotton İşleme
+                • <span class="text-amber-400 font-bold">${totalProcessedCotton.toLocaleString()} Kez</span> Cotton Materyal İşleme
             </div>
-            <div class="border-t border-gray-800 pt-1 mt-1 font-bold text-green-400">
-                🌿 Toplam Gereken Ham Pamuk: ${totalRawCottonInput.toLocaleString()} Adet
-            </div>
-            <div class="font-bold text-gray-300">
-                🧳 Toplam Gereken Deri (Leather): ${totalLeather.toLocaleString()} Adet
-            </div>
-        `;
-    } else {
-        // Standart Tekli Hesaplama Düzeni
-        const tailoringRecipes = recipes[prof.id] || [];
-        const selectedRecipe = tailoringRecipes.find(r => r.id === recipeId);
-        const xpPerCraft = selectedRecipe ? selectedRecipe.xpGiven : 0;
+            <div class="border-t border-gray-800/80 pt-1.5 mt-1 space-y-1 font-semibold text-gray-300">
+                <div class="flex justify-between text-emerald-400">
+                    <span>🌿 Toplam Ham Pamuk:</span>
+                    <span class="font-extrabold text-white bg-emerald-950 px-1.5 rounded border border-emerald-800/40">${totalRawCottonInput.toLocaleString()} Adet</span>
+                </div>
+                <div class="flex justify-between">
+                    <span>🦌 Tanned Leather (Stag):</span>
+                    <span class="font-bold text-white">${totalStag > 0 ? totalStag.toLocaleString() + ' Adet' : '-'}</span>
+                </div>`;
 
-        if (!xpPerCraft) return;
+        if (totalBoar > 0) {
+            materialListHtml += `
+                <div class="flex justify-between">
+                    <span>🐗 Tanned Leather (Boar):</span>
+                    <span class="font-bold text-white">${totalBoar.toLocaleString()} Adet</span>
+                </div>`;
+        }
+        if (totalTiger > 0) {
+            materialListHtml += `
+                <div class="flex justify-between">
+                    <span>🐅 Tanned Leather (Tiger):</span>
+                    <span class="font-bold text-white">${totalTiger.toLocaleString()} Adet</span>
+                </div>`;
+        }
+        if (totalCopper > 0) {
+            materialListHtml += `
+                <div class="flex justify-between text-orange-400">
+                    <span>🪙 Copper Plate:</span>
+                    <span class="font-bold text-white">${totalCopper.toLocaleString()} Adet</span>
+                </div>`;
+        }
+
+        materialListHtml += `</div>`;
+        resultDiv.innerHTML = materialListHtml;
+
+    } else {
+        // Standart Tekli Hesaplama Düzeni (Ara hammaddeler için düz mantık)
+        const xpPerCraft = selectedRecipe.xpGiven;
         const craftCount = Math.ceil(neededXp / xpPerCraft);
 
         resultDiv.innerHTML = `
-            <div>🎯 Hedefe Kalan XP: <span class="text-white">${neededXp.toLocaleString()}</span></div>
-            <div>🔨 Gereken Üretim Sayısı: <span class="text-white text-sm font-bold">${craftCount.toLocaleString()} Adet</span></div>
+            <div class="text-white font-bold border-b border-gray-800 pb-1 mb-1 text-center text-[10px] tracking-wider text-gray-400 uppercase">🔨 Tekil Üretim Detayı</div>
+            <div>🎯 Hedefe Kalan Net XP: <span class="text-white font-bold">${neededXp.toLocaleString()}</span></div>
+            <div class="mt-1 flex justify-between items-center bg-gray-950 p-2 rounded border border-gray-800">
+                <span class="text-gray-400">Gereken Toplam Üretim:</span>
+                <span class="text-sm font-extrabold text-amber-400">${craftCount.toLocaleString()} Adet</span>
+            </div>
         `;
     }
     
