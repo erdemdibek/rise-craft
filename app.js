@@ -12,10 +12,21 @@ const recipes = {
         { id: "cotton_process", name: "Cotton (İşleme)", levelRequired: 1, xpGiven: 52, isChain: false },
         { id: "cotton_yarn", name: "Cotton Yarn", levelRequired: 1, xpGiven: 104, isChain: false },
         { id: "fabric", name: "Fabric", levelRequired: 1, xpGiven: 208, isChain: false },
-        { id: "lvl4_boots_gloves", name: "Lv4 - Leather Boots / Gloves (Zincirleme)", levelRequired: 4, xpGiven: 1300, isChain: true, fabricNeed: 2, stagNeed: 2, boarNeed: 0, tigerNeed: 0, copperNeed: 0 },
-        { id: "lvl8_heavy_gear", name: "Lv8 - Heavy Leather Boots / Gloves (Zincirleme)", levelRequired: 8, xpGiven: 2600, isChain: true, fabricNeed: 3, stagNeed: 2, boarNeed: 1, tigerNeed: 0, copperNeed: 1 },
-        { id: "lvl12_helmets", name: "Lv12 - Leather Helmets (Zincirleme)", levelRequired: 12, xpGiven: 4160, isChain: true, fabricNeed: 4, stagNeed: 2, boarNeed: 2, tigerNeed: 0, copperNeed: 0 },
-        { id: "lvl16_heavy_helmets", name: "Lv16 - Heavy Leather Helmets (Zincirleme)", levelRequired: 16, xpGiven: 5200, isChain: true, fabricNeed: 4, stagNeed: 2, boarNeed: 1, tigerNeed: 1, copperNeed: 1 }
+        { id: "lvl4_boots_gloves", name: "Lv4 - Leather Boots / Gloves (+1300 XP)", levelRequired: 4, xpGiven: 1300, isChain: true, fabricNeed: 2, stagNeed: 2, boarNeed: 0, tigerNeed: 0, copperNeed: 0 },
+        { id: "lvl8_heavy_gear", name: "Lv8 - Heavy Leather Boots / Gloves (+2600 XP)", levelRequired: 8, xpGiven: 2600, isChain: true, fabricNeed: 3, stagNeed: 2, boarNeed: 1, tigerNeed: 0, copperNeed: 1 },
+        { id: "lvl12_helmets", name: "Lv12 - Leather Helmets (+4160 XP)", levelRequired: 12, xpGiven: 4160, isChain: true, fabricNeed: 4, stagNeed: 2, boarNeed: 2, tigerNeed: 0, copperNeed: 0 },
+        { id: "lvl16_heavy_helmets", name: "Lv16 - Heavy Leather Helmets (+5200 XP)", levelRequired: 16, xpGiven: 5200, isChain: true, fabricNeed: 4, stagNeed: 2, boarNeed: 1, tigerNeed: 1, copperNeed: 1 }
+    ],
+    cooking: [
+        // Seviye 1
+        { id: "butter", name: "Lv1 - Butter (+10 XP)", levelRequired: 1, xpGiven: 10, isChain: false },
+        { id: "roasted_corn", name: "Lv1 - Roasted Corn (+52 XP)", levelRequired: 1, xpGiven: 52, isChain: false },
+        { id: "roasted_potato", name: "Lv1 - Roasted Potato (+52 XP)", levelRequired: 1, xpGiven: 52, isChain: false },
+        
+        // Seviye 4
+        { id: "carrot_soup", name: "Lv4 - Carrot Soup (+124 XP)", levelRequired: 4, xpGiven: 124, isChain: false },
+        { id: "omlette", name: "Lv4 - Omlette (+124 XP)", levelRequired: 4, xpGiven: 124, isChain: false },
+        { id: "tomato_soup", name: "Lv4 - Tomato Soup (+124 XP)", levelRequired: 4, xpGiven: 124, isChain: false }
     ]
 };
 
@@ -43,7 +54,7 @@ const initialProfessions = [
 let userProgress = JSON.parse(localStorage.getItem('rise_craft_progress')) || 
     initialProfessions.map(p => ({ ...p, level: 1, currentXp: 0 }));
 
-let selectedProfessionId = null; // Tıklanan kartı hafızada tutmak için
+let selectedProfessionId = null;
 
 function saveProgress() {
     localStorage.setItem('rise_craft_progress', JSON.stringify(userProgress));
@@ -62,7 +73,6 @@ function calculateGrandMasterStatus() {
     document.getElementById('gm-status').innerText = statusText;
 }
 
-// ANA SAYFADAKİ MİNİMALİST GRID KARTLARINI BASAR
 function renderGridDashboard() {
     const gridContainer = document.getElementById('professions-grid');
     gridContainer.innerHTML = '';
@@ -100,10 +110,9 @@ function renderGridDashboard() {
     });
 }
 
-// BİR KARTA TIKLANDIĞINDA ALT DETAY PANELİNİ AÇAR
 function selectProfession(id) {
     selectedProfessionId = id;
-    renderGridDashboard(); // Seçim stilini güncellemek için grid'i tekrar bas
+    renderGridDashboard();
 
     const detailPanel = document.getElementById('active-detail-panel');
     const profIndex = userProgress.findIndex(p => p.id === id);
@@ -159,7 +168,7 @@ function selectProfession(id) {
                         ${recipeOptions}
                     </select>
                 </div>
-                <button onclick="runCalculation(${profIndex})" class="w-full bg-amber-600 hover:bg-amber-500 text-white font-bold text-xs py-2 rounded-lg transition duration-150 shadow-md shadow-amber-900/20">
+                <button onclick="runCalculation(${profIndex})" class="w-full bg-amber-600 hover:bg-amber-500 text-white font-bold text-xs py-2 rounded-lg transition duration-150 shadow-md">
                     Hesaplamayı Başlat
                 </button>
                 <div id="result-${profIndex}" class="text-xs text-left mt-3 p-3 bg-black/80 rounded-xl border border-gray-950 text-amber-400 font-medium hidden space-y-1"></div>
@@ -189,19 +198,18 @@ window.runCalculation = function(index) {
         alert("Lütfen bir reçete seçin."); return;
     }
 
-    // Gerekli net XP bulma fonksiyonu
     const table = xpGroups[prof.group];
     let neededXp = 0;
     for (let i = prof.level; i < targetLvl; i++) { neededXp += table[i] || 0; }
     neededXp = neededXp - prof.currentXp;
     if (neededXp < 0) neededXp = 0;
 
-    const tailoringRecipes = recipes[prof.id] || [];
-    const selectedRecipe = tailoringRecipes.find(r => r.id === recipeId);
+    const currentRecipes = recipes[prof.id] || [];
+    const selectedRecipe = currentRecipes.find(r => r.id === recipeId);
     if (!selectedRecipe) return;
 
     if (prof.id === "tailoring" && selectedRecipe.isChain) {
-        const xpPerFabricChain = 208 + 312 + 468; // 988 XP
+        const xpPerFabricChain = 208 + 312 + 468;
         const fabricBonusXpPerCraft = selectedRecipe.fabricNeed * xpPerFabricChain;
         const totalXpPerFullChainLoop = selectedRecipe.xpGiven + fabricBonusXpPerCraft;
         const chainCount = Math.ceil(neededXp / totalXpPerFullChainLoop);
@@ -220,7 +228,7 @@ window.runCalculation = function(index) {
             <div class="text-white font-bold border-b border-gray-950 pb-1.5 mb-2 text-center text-[10px] tracking-widest text-amber-500 uppercase">🔗 Pipelined Üretim Ağacı</div>
             <div class="mb-2">🎯 Eksik Kalan Deneyim: <span class="text-white font-extrabold">${neededXp.toLocaleString()} XP</span></div>
             <div class="pl-2 border-l-2 border-amber-500 my-2 space-y-1 text-white bg-black/40 p-2 rounded-lg">
-                • <span class="text-amber-400 font-bold">${chainCount.toLocaleString()} Adet</span> Üretilecek Eşya<br>
+                • <span class="text-amber-400 font-bold">${chainCount.toLocaleString()} Adet</span> Nihai Üretim<br>
                 • <span class="text-amber-400 font-bold">${totalFabric.toLocaleString()} Adet</span> Fabric<br>
                 • <span class="text-amber-400 font-bold">${totalYarn.toLocaleString()} Adet</span> Cotton Yarn<br>
                 • <span class="text-amber-400 font-bold">${totalProcessedCotton.toLocaleString()} Kez</span> Cotton İşleme
@@ -241,6 +249,17 @@ window.runCalculation = function(index) {
 
         materialListHtml += `</div>`;
         resultDiv.innerHTML = materialListHtml;
+    } else {
+        const xpPerCraft = selectedRecipe.xpGiven;
+        const craftCount = Math.ceil(neededXp / xpPerCraft);
+        resultDiv.innerHTML = `
+            <div class="text-white font-bold border-b border-gray-950 pb-1 mb-1 text-center text-[10px] tracking-wider text-amber-500 uppercase">🍳 Üretim Detayı</div>
+            <div class="mb-2">🎯 Hedefe Kalan Net XP: <span class="text-white font-bold">${neededXp.toLocaleString()} XP</span></div>
+            <div class="mt-1 flex justify-between items-center bg-gray-950 p-2 rounded border border-gray-800">
+                <span class="text-gray-400">Gereken Toplam Üretim:</span>
+                <span class="text-sm font-extrabold text-amber-400">${craftCount.toLocaleString()} Adet</span>
+            </div>
+        `;
     }
     resultDiv.classList.remove('hidden');
 }
@@ -251,7 +270,6 @@ window.updateLevel = function(index, value) {
     userProgress[index].level = lvl;
     saveProgress();
     renderGridDashboard();
-    // Seviye değiştiğinde alt paneldeki XP sınırlarını yenilemek için paneli tekrar tetikle
     selectProfession(userProgress[index].id);
 }
 
