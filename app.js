@@ -271,7 +271,7 @@ function renderMilestonesDashboard() {
         // Seviye 40 ve üstü ise hesaplama alanını kapat
         if (prof.level >= 40) {
             const maxCard = document.createElement('div');
-            maxCard.className = "bg-black/40 border border-gray-950 p-4 rounded-xl flex flex-col justify-between opacity-60";
+            maxCard.className = "bg-black/40 border border-gray-950 p-3 rounded-xl flex flex-col justify-between opacity-60";
             maxCard.innerHTML = `
                 <div class="flex justify-between items-center mb-1">
                     <span class="text-xs font-bold text-gray-400">${prof.name}</span>
@@ -363,7 +363,7 @@ function renderMilestonesDashboard() {
 
         // Kart Arayüz Elementinin İnşa Edilmesi
         const card = document.createElement('div');
-        card.className = "bg-black/50 border border-gray-950 p-4 rounded-xl flex flex-col justify-between hover:border-gray-800 transition duration-150 shadow-inner";
+        card.className = "bg-black/50 border border-gray-950 p-3.5 rounded-xl flex flex-col justify-between hover:border-gray-800 transition duration-150 shadow-inner";
         card.innerHTML = `
             <div>
                 <div class="flex justify-between items-center mb-1">
@@ -399,6 +399,7 @@ window.updateLevel = function(index, value) {
     userProgress[index].level = lvl;
     saveProgress();
     renderGridDashboard();
+    renderMilestonesDashboard(); // Anlık hedef kartı yenileme tetikleyicisi
     selectProfession(userProgress[index].id);
 }
 
@@ -409,6 +410,7 @@ window.updateXp = function(index, value) {
     userProgress[index].currentXp = xp;
     saveProgress();
     renderGridDashboard();
+    renderMilestonesDashboard(); // Anlık hedef kartı yenileme tetikleyicisi
 }
 
 window.addEventListener('DOMContentLoaded', () => {
