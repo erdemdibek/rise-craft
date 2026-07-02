@@ -60,6 +60,7 @@ let selectedProfessionId = null;
 function saveProgress() {
     localStorage.setItem('rise_craft_progress', JSON.stringify(userProgress));
     calculateGrandMasterStatus();
+    renderGridDashboard(); // Grid arayüzünün anlık güncellenmesi sağlandı
     renderMilestonesDashboard();
 }
 
@@ -77,6 +78,7 @@ function calculateGrandMasterStatus() {
 
 function renderGridDashboard() {
     const gridContainer = document.getElementById('professions-grid');
+    if (!gridContainer) return;
     gridContainer.innerHTML = '';
 
     userProgress.forEach((prof) => {
@@ -156,6 +158,7 @@ function selectProfession(id) {
                 <div>
                     <label class="block text-[10px] uppercase font-bold text-gray-500 mb-1 tracking-wider">Mevcut XP</label>
                     <input type="number" min="0" max="${nextLevelXp}" value="${prof.currentXp}" 
+                        id="xp-input-${profIndex}"
                         class="w-full bg-black border border-gray-800 rounded-lg p-2 text-gray-300 text-sm text-center focus:border-amber-500 outline-none"
                         onchange="updateXp(${profIndex}, this.value)">
                 </div>
@@ -397,10 +400,36 @@ window.updateLevel = function(index, value) {
     let lvl = parseInt(value) || 1;
     if (lvl < 1) lvl = 1; if (lvl > 40) lvl = 40;
     userProgress[index].level = lvl;
+    
+    // XP input max değer sınırını yeni seviyeye göre dinamik güncellemek içinDOM'u koru
+    const maxVal = xpGroups[userProgress[index].group][lvl] || 0;
+    if (userProgress[index].currentXp > maxVal) {
+        userProgress[index].currentXp = maxVal;
+    }
+    
     saveProgress();
-    renderGridDashboard();
-    renderMilestonesDashboard(); // Anlık hedef kartı yenileme tetikleyicisi
-    selectProfession(userProgress[index].id);
+    
+    // Panel sıçramasını engellemek için selectProfession yerine doğrudan iç metni tazele
+    const xpInput = document.getElementById(`xp-input-${index}`);
+    if (xpInput) {
+        xpInput.max = maxVal;
+        if(userProgress[index].currentXp === maxVal) xpInput.value = maxVal;
+    }
+    
+    // Seçenek listesini (reçeteleri) yeni levele göre güncelle
+    const selectEl = document.getElementById(`select-${index}`);
+    if (selectEl) {
+        let recipeOptions = `<option value="">-- Reçete Seçin --</option>`;
+        const prof = userProgress[index];
+        if (recipes[prof.id] && recipes[prof.id].length > 0) {
+            recipes[prof.id].forEach(r => {
+                if (prof.level >= r.levelRequired) {
+                    recipeOptions += `<option value="${r.id}">${r.name}</option>`;
+                }
+            });
+        }
+        selectEl.innerHTML = recipeOptions;
+    }
 }
 
 window.updateXp = function(index, value) {
@@ -409,8 +438,6 @@ window.updateXp = function(index, value) {
     if (xp < 0) xp = 0; if (xp > maxVal) xp = maxVal;
     userProgress[index].currentXp = xp;
     saveProgress();
-    renderGridDashboard();
-    renderMilestonesDashboard(); // Anlık hedef kartı yenileme tetikleyicisi
 }
 
 window.addEventListener('DOMContentLoaded', () => {
