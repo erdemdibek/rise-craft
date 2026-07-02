@@ -3,447 +3,73 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Rise Online Crafting Tracker</title>
-    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+    <title>Rise Online - Crafting Tracker v2.0</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
-        body { background-color: #0d0f12; color: #e2e8f0; }
+        body {
+            background-color: #030712;
+            font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+        }
+        /* İnce kaydırma çubuğu tasarımı */
+        ::-webkit-scrollbar {
+            width: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #030712;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #1f2937;
+            border-radius: 3px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #374151;
+        }
     </style>
 </head>
-<body class="p-4 md:p-8">
-    <div class="max-w-6xl mx-auto">
-        <header class="bg-gray-900 border border-amber-500/30 rounded-xl p-6 mb-8 text-center shadow-lg shadow-amber-500/5">
-            <h1 class="text-3xl font-extrabold text-amber-500 tracking-wide uppercase">Rise Online Crafting Tracker</h1>
-            <p class="text-gray-400 mt-2 text-sm">Gelişimini takip et, GrandMaster unvanına ulaş!</p>
-            
-            <div class="mt-6 inline-block bg-black/40 border border-gray-700 rounded-full px-6 py-2">
-                <span class="text-gray-400 text-sm font-semibold">Mevcut Durum:</span>
-                <span id="gm-status" class="text-amber-400 font-bold ml-2 text-lg">Hesaplanıyor...</span>
-            </div>
-        </header>
+<body class="text-gray-100 min-h-screen pb-12">
 
-        <main id="professions-container" class="grid grid-cols-1 md:grid-cols-2 gap-6">
-            </main>
-    </div>
+    <header class="bg-gray-950 border-b border-gray-900 sticky top-0 z-50 shadow-md">
+        <div class="max-w-md mx-auto px-4 py-4 flex justify-between items-center">
+            <div class="flex items-center space-x-3">
+                <div class="bg-amber-500/10 text-amber-500 p-2 rounded-lg border border-amber-500/20">
+                    <i class="fa-solid fa-hammer text-lg"></i>
+                </div>
+                <div>
+                    <h1 class="text-md font-extrabold tracking-wide text-white uppercase">Rise Craft</h1>
+                    <p class="text-[10px] text-gray-500 font-medium tracking-wider uppercase">Hesaplayıcı & Tracker v2.0</p>
+                </div>
+            </div>
+            <div class="bg-amber-500/10 border border-amber-500/30 rounded-xl px-3 py-1.5 text-right">
+                <p class="text-[9px] uppercase tracking-wider text-amber-400/70 font-semibold">Genel Ünvan</p>
+                <p id="gm-status" class="text-xs font-bold text-amber-400">Yükleniyor...</p>
+            </div>
+        </div>
+    </header>
+
+    <main class="max-w-md mx-auto px-4 mt-6">
+        
+        <div class="bg-blue-950/20 border border-blue-900/30 rounded-xl p-3.5 mb-6 flex space-x-3 items-start">
+            <i class="fa-solid fa-circle-info text-blue-400 mt-0.5 text-sm"></i>
+            <p class="text-xs text-blue-300/90 leading-relaxed">
+                Mevcut seviyenizi, XP'nizi ve hedeflemek istediğiniz seviyeyi girerek ihtiyacınız olan tam üretim miktarını anlık olarak hesaplayabilirsiniz.
+            </p>
+        </div>
+
+        <div id="professions-container" class="space-y-4">
+            <div class="flex flex-col items-center justify-center py-12 text-gray-600">
+                <i class="fa-solid fa-spinner animate-spin text-2xl mb-2 text-amber-500"></i>
+                <p class="text-xs">Meslek veritabanı yükleniyor...</p>
+            </div>
+        </div>
+
+    </main>
+
+    <footer class="max-w-md mx-auto text-center mt-12 text-[11px] text-gray-600 px-4">
+        <p>© 2026 Rise Online Crafting Companion</p>
+        <p class="mt-1">Veriler yerel tarayıcı hafızasında (LocalStorage) güvenle saklanır.</p>
+    </footer>
 
     <script src="app.js"></script>
-</body>
-</html>
-            padding: 14px; 
-            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.6); 
-            border: 1px solid rgba(255, 255, 255, 0.04); 
-            display: flex;
-            flex-direction: column; 
-        }
-        
-        /* HEADER */
-        .header { 
-            text-align: center; 
-            margin-bottom: 10px; 
-            border-bottom: 1px solid rgba(255, 255, 255, 0.06); 
-            padding-bottom: 6px;
-            flex-shrink: 0;
-        }
-        .header h1 { font-size: 1rem; color: #fff; font-weight: 700; }
-        .header p { font-size: 0.68rem; color: #38bdf8; text-transform: uppercase; letter-spacing: 0.05em; margin-top: 2px; }
-
-        /* LIVE STATUS INDICATOR */
-        .live-status {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            font-size: 0.65rem;
-            color: #64748b;
-            margin-bottom: 8px;
-            padding: 2px 4px;
-            flex-shrink: 0;
-        }
-        .live-dot-wrapper { display: flex; align-items: center; gap: 4px; color: #10b981; font-weight: bold; }
-        .live-dot { width: 5px; height: 5px; background: #10b981; border-radius: 50%; animation: pulse 1.5s infinite; }
-        @keyframes pulse {
-            0% { transform: scale(0.9); opacity: 0.6; }
-            50% { transform: scale(1.2); opacity: 1; }
-            100% { transform: scale(0.9); opacity: 0.6; }
-        }
-
-        /* NAV TABS */
-        .nav-tabs {
-            display: flex;
-            background: rgba(15, 23, 42, 0.6);
-            padding: 3px;
-            border-radius: 10px;
-            margin-bottom: 10px;
-            border: 1px solid rgba(255, 255, 255, 0.03);
-            flex-shrink: 0;
-        }
-        .tab-btn {
-            flex: 1;
-            background: transparent;
-            border: none;
-            color: #64748b;
-            font-size: 0.72rem;
-            font-weight: 700;
-            padding: 6px 0;
-            border-radius: 6px;
-            cursor: pointer;
-            transition: all 0.2s ease;
-            text-transform: uppercase;
-        }
-        .tab-btn.active {
-            background: rgba(56, 189, 248, 0.12);
-            color: #38bdf8;
-            border: 1px solid rgba(56, 189, 248, 0.2);
-        }
-
-        /* SEKMELERİN İÇERİK ALANI */
-        .tab-content {
-            flex: 1;
-            display: none;
-            flex-direction: column;
-            overflow: hidden;
-        }
-        .tab-content.active {
-            display: flex;
-        }
-
-        /* ÖZET KARTLARI */
-        .summary-card { 
-            background: rgba(30, 41, 59, 0.3); 
-            border: 1px solid rgba(255, 255, 255, 0.04); 
-            border-radius: 12px; 
-            padding: 10px; 
-            margin-bottom: 6px;
-            flex-shrink: 0;
-        }
-        .grid-cards {
-            display: grid; 
-            grid-template-columns: 1fr 1fr; 
-            gap: 6px;
-            flex-shrink: 0;
-        }
-        .label { font-size: 0.65rem; color: #64748b; text-transform: uppercase; font-weight: 600; }
-        .value { font-size: 1.15rem; font-weight: 800; margin-top: 2px; }
-        .color-total { color: #ffffff; }
-        .color-paid { color: #10b981; }
-        .color-remaining { color: #f59e0b; }
-        .color-asset { color: #38bdf8; text-shadow: 0 0 10px rgba(56, 189, 248, 0.2); }
-
-        /* İLERLEME ÇUBUĞU */
-        .progress-container { 
-            margin: 4px 0 8px 0; 
-            flex-shrink: 0;
-        }
-        .progress-bar-bg { width: 100%; height: 6px; background: rgba(255,255,255,0.05); border-radius: 3px; overflow: hidden; }
-        .progress-bar-fill { height: 100%; width: 0%; background: linear-gradient(90deg, #10b981, #3b82f6); transition: width 0.5s ease; }
-        .progress-text { display: flex; justify-content: space-between; font-size: 0.68rem; color: #94a3b8; margin-top: 3px; font-weight: 600; }
-
-        /* KAYDIRILABİLİR AY LİSTESİ */
-        .list-wrapper {
-            flex: 1; 
-            display: flex;
-            flex-direction: column;
-            overflow: hidden;
-            margin-bottom: 8px;
-        }
-        .list-title { font-size: 0.7rem; color: #94a3b8; text-transform: uppercase; margin-bottom: 4px; font-weight: 600; }
-        .history-list { 
-            flex: 1;
-            overflow-y: auto; 
-            display: flex; 
-            flex-direction: column; 
-            gap: 5px; 
-            -webkit-overflow-scrolling: touch; 
-        }
-        .history-list::-webkit-scrollbar { width: 3px; }
-        .history-list::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 2px; }
-        
-        .month-row { display: flex; justify-content: space-between; background: rgba(255,255,255,0.02); padding: 6px 10px; border-radius: 6px; font-size: 0.8rem; border: 1px solid rgba(255,255,255,0.01); }
-        .month-name { font-weight: 600; color: #cbd5e1; }
-        .month-val { font-family: monospace; font-weight: 700; color: #fff; }
-
-        /* ALTLIK INPUT FORMLARI */
-        .bottom-form { 
-            padding-top: 8px; 
-            border-top: 1px dashed rgba(255, 255, 255, 0.1); 
-            display: flex; 
-            gap: 6px; 
-            flex-shrink: 0;
-        }
-        .bottom-form input, .bottom-form select { background: #111827; border: 1px solid rgba(255,255,255,0.08); border-radius: 6px; color: #fff; padding: 8px; font-size: 0.8rem; outline: none; }
-        .bottom-form select { flex: 1.2; }
-        .bottom-form input { flex: 1; font-family: monospace; text-align: right; }
-        .action-btn { background: #38bdf8; color: #070a12; border: none; padding: 0 12px; border-radius: 6px; font-weight: 700; cursor: pointer; font-size: 0.8rem; }
-
-        /* HESAPLAYICI INPUT GRUBU */
-        .calc-inputs {
-            display: flex;
-            flex-direction: column;
-            gap: 6px;
-            margin-bottom: 8px;
-            flex-shrink: 0;
-        }
-        .input-row {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            background: rgba(255,255,255,0.02);
-            padding: 6px 10px;
-            border-radius: 8px;
-            border: 1px solid rgba(255,255,255,0.04);
-        }
-        .input-row label { font-size: 0.75rem; color: #cbd5e1; font-weight: 500; }
-        .input-row input { width: 110px; background: #0f172a; border: 1px solid rgba(56, 189, 248, 0.2); border-radius: 4px; color: #38bdf8; padding: 4px 6px; font-family: monospace; text-align: right; font-size: 0.85rem; outline: none; font-weight: bold; }
-    </style>
-</head>
-<body>
-
-<div class="app-container">
-    <div class="header">
-        <h1>Sanofi Hisse Hakları</h1>
-        <p>Bütçe & Birebir Gerçek Finans Akışı</p>
-    </div>
-
-    <div class="live-status">
-        <span>Investing / Google Senkronizasyonu:</span>
-        <div class="live-dot-wrapper">
-            <div class="live-dot"></div>
-            <span id="ui-sync-text">Eşitleniyor...</span>
-        </div>
-    </div>
-
-    <div class="nav-tabs">
-        <button class="tab-btn active" id="btn-borc" onclick="v17_switchTab('borc')">Borç Takibi</button>
-        <button class="tab-btn" id="btn-varlik" onclick="v17_switchTab('varlik')">Varlık Hesaplayıcı</button>
-    </div>
-
-    <div id="content-borc" class="tab-content active">
-        <div class="summary-card">
-            <div class="label">Toplam Sözleşme Tutarı</div>
-            <div class="value color-total">₺274.008</div>
-        </div>
-
-        <div class="grid-cards">
-            <div class="summary-card">
-                <div class="label">Toplam Ödenen</div>
-                <div class="value color-paid" id="ui-toplam-odenen">₺0</div>
-            </div>
-            <div class="summary-card">
-                <div class="label">Kalan Net Borç</div>
-                <div class="value color-remaining" id="ui-kalan-borc">₺0</div>
-            </div>
-        </div>
-
-        <div class="progress-container">
-            <div class="progress-bar-bg">
-                <div class="progress-bar-fill" id="ui-progress-fill"></div>
-            </div>
-            <div class="progress-text">
-                <span>Ödeme İlerlemesi</span>
-                <span id="ui-progress-percent">%0</span>
-            </div>
-        </div>
-
-        <div class="list-wrapper">
-            <div class="list-title">Maaş Kesinti Geçmişi</div>
-            <div class="history-list" id="ui-history-list">
-                </div>
-        </div>
-
-        <div class="bottom-form">
-            <select id="input-ay">
-                <option value="TEMMUZ">TEMMUZ</option>
-                <option value="AĞUSTOS">AĞUSTOS</option>
-                <option value="EYLÜL">EYLÜL</option>
-                <option value="EKİM">EKİM</option>
-                <option value="KASIM">KASIM</option>
-                <option value="ARALIK">ARALIK</option>
-                <option value="OCAK">OCAK</option>
-                <option value="ŞUBAT">ŞUBAT</option>
-                <option value="MART">MART</option>
-                <option value="NİSAN">NİSAN</option>
-                <option value="MAYIS">MAYIS</option>
-                <option value="HAZİRAN">HAZİRAN</option>
-            </select>
-            <input type="number" id="input-tutar" placeholder="Tutar (TL)" inputmode="numeric">
-            <button class="action-btn" onclick="v17_yeniAyEkle()">Ekle</button>
-        </div>
-    </div>
-
-    <div id="content-varlik" class="tab-content">
-        <div class="summary-card" style="background: rgba(168, 85, 247, 0.05); border: 1px solid rgba(168, 85, 247, 0.15);">
-            <div style="display: flex; justify-content: space-between; align-items: center;">
-                <div class="label" style="color: #c084fc;">Hisse Adetiniz</div>
-                <input type="number" id="calc-hisse-adedi" step="0.0001" value="92.8004" inputmode="decimal" oninput="v17_varlikHesapla()" style="width: 120px; background: #111827; border: 1px solid rgba(168, 85, 247, 0.3); border-radius: 6px; color: #fff; padding: 4px 8px; font-family: monospace; text-align: right; font-weight: 700; outline: none;">
-            </div>
-        </div>
-
-        <div class="calc-inputs">
-            <div class="input-row">
-                <label>Sanofi Real-Time Paris (EUR):</label>
-                <input type="number" id="calc-hisse-eur" step="0.01" value="92.15" oninput="v17_varlikHesapla()">
-            </div>
-            <div class="input-row">
-                <label>Serbest Piyasa Euro / TL (₺):</label>
-                <input type="number" id="calc-euro-tl" step="0.01" value="53.13" oninput="v17_varlikHesapla()">
-            </div>
-        </div>
-
-        <div class="list-wrapper" style="justify-content: flex-start; gap: 6px;">
-            <div class="list-title">Doğru Varlık Tablosu</div>
-            
-            <div class="month-row">
-                <span class="month-name">1 Hisse Değeri (TL)</span>
-                <span class="month-val" id="res-tek-hisse-tl" style="color: #cbd5e1;">₺0</span>
-            </div>
-            <div class="month-row">
-                <span class="month-name">Toplam Portföy (EUR)</span>
-                <span class="month-val" id="res-toplam-eur" style="color: #e2e8f0;">€0</span>
-            </div>
-            
-            <div class="summary-card" style="margin-top: 6px; background: rgba(56, 189, 248, 0.05); border: 1px solid rgba(56, 189, 248, 0.15); padding: 8px 10px;">
-                <div class="label" style="color: #38bdf8;">Toplam Varlık Net TL Değeri</div>
-                <div class="value color-asset" id="res-toplam-tl" style="font-size: 1.2rem;">₺0</div>
-            </div>
-        </div>
-    </div>
-</div>
-
-<script>
-    const v17_sabitToplamBorc = 274008;
-
-    let v17_kesintiVerileri = [
-        { ay: "TEMMUZ", tutar: 8383 },
-        { ay: "AĞUSTOS", tutar: 11707 },
-        { ay: "EYLÜL", tutar: 11308 },
-        { ay: "EKİM", tutar: 6566 },
-        { ay: "KASIM", tutar: 8418 },
-        { ay: "ARALIK", tutar: 10168 },
-        { ay: "OCAK", tutar: 9090 },
-        { ay: "ŞUBAT", tutar: 9431 },
-        { ay: "MART", tutar: 16632 },
-        { ay: "NİSAN", tutar: 7854 },
-        { ay: "MAYIS", tutar: 8426 },
-        { ay: "HAZİRAN", tutar: 17603 }
-    ];
-
-    const v17_fmtTL = new Intl.NumberFormat('tr-TR', { style: 'currency', currency: 'TRY', minimumFractionDigits: 0, maximumFractionDigits: 0 });
-    const v17_fmtTLDesi = new Intl.NumberFormat('tr-TR', { style: 'currency', currency: 'TRY', minimumFractionDigits: 2, maximumFractionDigits: 2 });
-    const v17_fmtEUR = new Intl.NumberFormat('de-DE', { style: 'currency', currency: 'EUR' });
-
-    function v17_switchTab(tabName) {
-        document.getElementById('btn-borc').classList.toggle('active', tabName === 'borc');
-        document.getElementById('btn-varlik').classList.toggle('active', tabName === 'varlik');
-        
-        document.getElementById('content-borc').classList.toggle('active', tabName === 'borc');
-        document.getElementById('content-varlik').classList.toggle('active', tabName === 'varlik');
-        
-        if(tabName === 'varlik') v17_varlikHesapla();
-    }
-
-    function v17_paneliGuncelle() {
-        const toplamOdenen = v17_kesintiVerileri.reduce((sum, item) => sum + item.tutar, 0);
-        const kalanBorc = v17_sabitToplamBorc - toplamOdenen;
-        const odemeYuzdesi = (toplamOdenen / v17_sabitToplamBorc) * 100;
-
-        document.getElementById('ui-toplam-odenen').innerText = v17_fmtTL.format(toplamOdenen);
-        document.getElementById('ui-kalan-borc').innerText = v17_fmtTL.format(kalanBorc >= 0 ? kalanBorc : 0);
-        
-        document.getElementById('ui-progress-fill').style.width = `${Math.min(odemeYuzdesi, 100)}%`;
-        document.getElementById('ui-progress-percent').innerText = `%${odemeYuzdesi.toFixed(1)}`;
-
-        const listContainer = document.getElementById('ui-history-list');
-        listContainer.innerHTML = "";
-        
-        v17_kesintiVerileri.forEach(item => {
-            const row = document.createElement('div');
-            row.className = 'month-row';
-            row.innerHTML = `
-                <span class="month-name">${item.ay}</span>
-                <span class="month-val">${v17_fmtTL.format(item.tutar)}</span>
-            `;
-            listContainer.appendChild(row);
-        });
-        
-        setTimeout(() => { listContainer.scrollTop = listContainer.scrollHeight; }, 50);
-    }
-
-    function v17_yeniAyEkle() {
-        const aySelect = document.getElementById('input-ay');
-        const tutarInput = document.getElementById('input-tutar');
-
-        const secilenAy = aySelect.value;
-        const girilenTutar = parseFloat(tutarInput.value);
-
-        if (isNaN(girilenTutar) || girilenTutar <= 0) {
-            alert("Lütfen geçerli bir kesinti tutarı giriniz.");
-            return;
-        }
-
-        v17_kesintiVerileri.push({ ay: secilenAy, tutar: girilenTutar });
-        tutarInput.value = "";
-        v17_paneliGuncelle();
-    }
-
-    // %100 INVESTING/GOOGLE SENKRONİZASYONU SAĞLAYAN GÜVENLİ ÇEKİRDEK
-    async function v17_kusursuzFinansMekanizmasi() {
-        try {
-            // Döviz kuru için serbest piyasa anlık küresel bankalararası eşitleme verisi (Investing ile aynı kaynaktır)
-            const kurlarRes = await fetch('https://open.er-api.com/v6/latest/EUR');
-            if(kurlarRes.ok) {
-                const kurlarData = await kurlarRes.json();
-                if(kurlarData && kurlarData.rates && kurlarData.rates.TRY) {
-                    // Google'daki serbest piyasa (virgülden sonraki kaymalar temizlenir)
-                    const netEuroTl = parseFloat(kurlarData.rates.TRY);
-                    document.getElementById('calc-euro-tl').value = netEuroTl.toFixed(2);
-                }
-            }
-
-            // Paris Borsası (EPA:SAN) - Doğrudan resmi borsa sembolü eşleştirmesi ile ham veri çekimi
-            const borsaRes = await fetch('https://api.twelvedata.com/price?symbol=SAN&exchange=XPAR&apikey=demo');
-            if(borsaRes.ok) {
-                const borsaData = await borsaRes.json();
-                if(borsaData && borsaData.price) {
-                    document.getElementById('calc-hisse-eur').value = parseFloat(borsaData.price).toFixed(2);
-                }
-            } else {
-                // Alternatif küresel resmi yedek kanal (Borsa kapalıyken veya sınır durumunda tetiklenir)
-                const yedekRes = await fetch('https://financialmodelingprep.com/api/v3/quote/SAN.PA?apikey=demo');
-                if(yedekRes.ok) {
-                    const yedekData = await yedekRes.json();
-                    if(yedekData && yedekData[0] && yedekData[0].price) {
-                        document.getElementById('calc-hisse-eur').value = parseFloat(yedekData[0].price).toFixed(2);
-                    }
-                }
-            }
-
-            document.getElementById('ui-sync-text').innerText = "Veriler Eşitlendi";
-            v17_varlikHesapla();
-        } catch (e) {
-            document.getElementById('ui-sync-text').innerText = "Yenileniyor...";
-        }
-    }
-
-    function v17_varlikHesapla() {
-        const dinamikHisseAdedi = parseFloat(document.getElementById('calc-hisse-adedi').value) || 0;
-        const hisseFiyatiEur = parseFloat(document.getElementById('calc-hisse-eur').value) || 0;
-        const euroTlKuru = parseFloat(document.getElementById('calc-euro-tl').value) || 0;
-
-        const tekHisseTl = hisseFiyatiEur * euroTlKuru;
-        const toplamEur = dinamikHisseAdedi * hisseFiyatiEur;
-        const toplamTl = toplamEur * euroTlKuru;
-
-        document.getElementById('res-tek-hisse-tl').innerText = v17_fmtTLDesi.format(tekHisseTl);
-        document.getElementById('res-toplam-eur').innerText = v17_fmtEUR.format(toplamEur);
-        document.getElementById('res-toplam-tl').innerText = v17_fmtTL.format(toplamTl);
-    }
-
-    // Uygulama başlangıç tetiklemeleri
-    v17_paneliGuncelle();
-    v17_varlikHesapla();
-    v17_kusursuzFinansMekanizmasi();
-    
-    // Her 15 saniyede bir verileri sarsıntısız bir şekilde günceller
-    setInterval(v17_kusursuzFinansMekanizmasi, 15000);
-</script>
-
 </body>
 </html>
