@@ -1,4 +1,4 @@
-// 4 Ana XP Grubu Verisi (Görsellerden Çıkarılan Net Logaritma)
+// XP Grupları Veritabanı
 const xpGroups = {
     heavy: [0, 12000, 24000, 36000, 48000, 60000, 72000, 96000, 120000, 144000, 192000, 240000, 288000, 360000, 432000, 504000, 600000, 696000, 792000, 912000, 1032000, 1152000, 1296000, 1440000, 1584000, 1752000, 1920000, 2160000, 2400000, 2880000, 3360000, 4080000, 4800000, 5760000, 6720000, 7920000, 9120000, 10560000, 12240000, 14160000, 16800000],
     medium: [0, 9000, 18000, 27000, 36000, 45000, 54000, 72000, 90000, 108000, 144000, 180000, 216000, 270000, 324000, 378000, 450000, 522000, 594000, 684000, 774000, 864000, 972000, 1080000, 1188000, 1314000, 1440000, 1620000, 1800000, 2160000, 2520000, 3060000, 3600000, 4320000, 5040000, 5940000, 6840000, 7920000, 9180000, 10620000, 12600000],
@@ -6,7 +6,16 @@ const xpGroups = {
     easy: [0, 3000, 6000, 9000, 12000, 15000, 18000, 24000, 30000, 36000, 48000, 60000, 72000, 90000, 108000, 126000, 150000, 174000, 198000, 228000, 258000, 288000, 324000, 360000, 396000, 438000, 480000, 540000, 600000, 720000, 840000, 1020000, 1200000, 1440000, 1680000, 1980000, 2280000, 2640000, 3060000, 3600000, 4200000]
 };
 
-// 10 Ana Meslek Tanımı ve Grupları
+// Aktif Eklenen Reçeteler (Sen gönderdikçe burası büyüyecek)
+const recipes = {
+    tailoring: [
+        { name: "Cotton (İşleme)", levelRequired: 1, xpGiven: 52 },
+        { name: "Cotton Yarn", levelRequired: 1, xpGiven: 104 },
+        { name: "Fabric", levelRequired: 1, xpGiven: 208 },
+        { name: "Priest Leather Boots", levelRequired: 4, xpGiven: 1300 }
+    ]
+};
+
 const initialProfessions = [
     { id: 'alchemy', name: 'Alchemy', group: 'standard' },
     { id: 'armor_smithing', name: 'Armor Smithing', group: 'heavy' },
@@ -20,7 +29,6 @@ const initialProfessions = [
     { id: 'weapon_smithing', name: 'Weapon Smithing', group: 'heavy' }
 ];
 
-// Tarayıcı hafızasından (localStorage) verileri çek veya sıfırdan oluştur
 let userProgress = JSON.parse(localStorage.getItem('rise_craft_progress')) || 
     initialProfessions.map(p => ({ ...p, level: 1, currentXp: 0 }));
 
@@ -38,11 +46,20 @@ function calculateGrandMasterStatus() {
     else if (minLevel >= 30) statusText = "🥇 GrandMaster 3";
     else if (minLevel >= 20) statusText = "🥈 GrandMaster 2";
     else if (minLevel >= 10) statusText = "🥉 GrandMaster 1";
-    else {
-        statusText = `Gelişmekte (En düşük meslek leveli: ${minLevel}/10)`;
-    }
+    else statusText = `Gelişmekte (En düşük: ${minLevel}/10)`;
     
     document.getElementById('gm-status').innerText = statusText;
+}
+
+// Belirli bir level aralığındaki toplam gereken XP'yi bulur
+function getXpRequired(group, currentLvl, targetLvl, currentXp) {
+    const table = xpGroups[group];
+    let total = 0;
+    for (let i = currentLvl; i < targetLvl; i++) {
+        total += table[i] || 0;
+    }
+    total = total - currentXp;
+    return total > 0 ? total : 0;
 }
 
 function renderProfessions() {
@@ -54,45 +71,94 @@ function renderProfessions() {
         const nextLevelXp = xpTable[prof.level] || 0;
         const pct = nextLevelXp > 0 ? (prof.currentXp / nextLevelXp) * 100 : 100;
 
+        // Reçete Seçenekleri HTML
+        let recipeOptions = `<option value="">-- Reçete Seçin --</option>`;
+        if (recipes[prof.id]) {
+            recipes[prof.id].forEach(r => {
+                if (prof.level >= r.levelRequired) {
+                    recipeOptions += `<option value="${r.xpGiven}">${r.name} (+${r.xpGiven} XP)</option>`;
+                }
+            });
+        }
+
         const card = document.createElement('div');
         card.className = "bg-gray-900 border border-gray-800 rounded-xl p-5 shadow-sm hover:border-gray-700 transition duration-200";
         card.innerHTML = `
             <div class="flex justify-between items-center mb-4">
-                <h3 class="text-lg font-bold text-gray-200">${prof.name}</h3>
+                <h3 class="text-lg font-bold text-amber-500">${prof.name}</h3>
                 <span class="text-xs bg-gray-800 text-gray-400 px-2 py-1 rounded">Grup: ${prof.group.toUpperCase()}</span>
             </div>
             
             <div class="grid grid-cols-2 gap-4 mb-4">
                 <div>
-                    <label class="block text-xs text-gray-500 mb-1">Seviye (1-40)</label>
+                    <label class="block text-xs text-gray-500 mb-1">Mevcut Seviye</label>
                     <input type="number" min="1" max="40" value="${prof.level}" 
-                        class="w-full bg-black border border-gray-700 rounded p-2 text-amber-500 font-bold focus:outline-none focus:border-amber-500"
+                        class="w-full bg-black border border-gray-700 rounded p-2 text-white font-bold"
                         onchange="updateLevel(${index}, this.value)">
                 </div>
                 <div>
                     <label class="block text-xs text-gray-500 mb-1">Mevcut XP</label>
                     <input type="number" min="0" max="${nextLevelXp}" value="${prof.currentXp}" 
-                        class="w-full bg-black border border-gray-700 rounded p-2 text-gray-300 focus:outline-none focus:border-amber-500"
+                        class="w-full bg-black border border-gray-700 rounded p-2 text-gray-300"
                         onchange="updateXp(${index}, this.value)">
                 </div>
             </div>
 
-            <div class="w-full bg-black rounded-full h-2.5 mb-1 overflow-hidden">
-                <div class="bg-amber-500 h-2.5 rounded-full transition-all duration-300" style="width: ${pct}%"></div>
+            <div class="w-full bg-black rounded-full h-2 overflow-hidden mb-1">
+                <div class="bg-amber-500 h-2 rounded-full" style="width: ${pct}%"></div>
             </div>
-            <div class="flex justify-between text-xs text-gray-500">
+            <div class="flex justify-between text-xs text-gray-400 mb-4">
                 <span>%${pct.toFixed(1)}</span>
                 <span>${prof.currentXp.toLocaleString()} / ${nextLevelXp.toLocaleString()} XP</span>
+            </div>
+
+            <div class="bg-black/50 border border-gray-800/80 rounded-lg p-3 mt-2">
+                <p class="text-xs font-semibold text-gray-400 mb-2 uppercase tracking-wider">🎯 Üretim Hesaplayıcı</p>
+                <div class="grid grid-cols-2 gap-2 mb-2">
+                    <input type="number" id="target-${index}" min="${prof.level + 1}" max="40" placeholder="Hedef Seviye" 
+                        class="bg-black border border-gray-700 rounded p-1 text-xs text-center text-white">
+                    <select id="select-${index}" class="bg-black border border-gray-700 rounded p-1 text-xs text-gray-300">
+                        ${recipeOptions}
+                    </select>
+                </div>
+                <button onclick="runCalculation(${index})" class="w-full bg-amber-600 hover:bg-amber-500 text-white font-bold text-xs py-1.5 px-3 rounded transition">
+                    Hesapla
+                </button>
+                <div id="result-${index}" class="text-xs text-center mt-2 text-amber-400 font-semibold hidden"></div>
             </div>
         `;
         container.appendChild(card);
     });
 }
 
+window.runCalculation = function(index) {
+    const prof = userProgress[index];
+    const targetInput = document.getElementById(`target-${index}`).value;
+    const selectXp = document.getElementById(`select-${index}`).value;
+    const resultDiv = document.getElementById(`result-${index}`);
+
+    const targetLvl = parseInt(targetInput);
+    const xpPerCraft = parseInt(selectXp);
+
+    if (!targetLvl || targetLvl <= prof.level || targetLvl > 40) {
+        alert("Lütfen mevcut seviyenizden büyük ve en fazla 40 olacak geçerli bir hedef seviye girin.");
+        return;
+    }
+    if (!xpPerCraft) {
+        alert("Lütfen hesaplama yapmak için bir reçete seçin.");
+        return;
+    }
+
+    const neededXp = getXpRequired(prof.group, prof.level, targetLvl, prof.currentXp);
+    const craftCount = Math.ceil(neededXp / xpPerCraft);
+
+    resultDiv.innerHTML = `Hedefe kalan XP: <span class="text-white">${neededXp.toLocaleString()}</span><br>Gereken Üretim Sayısı: <span class="text-white text-sm font-bold">${craftCount.toLocaleString()} Adet</span>`;
+    resultDiv.classList.remove('hidden');
+}
+
 window.updateLevel = function(index, value) {
     let lvl = parseInt(value) || 1;
-    if (lvl < 1) lvl = 1;
-    if (lvl > 40) lvl = 40;
+    if (lvl < 1) lvl = 1; if (lvl > 40) lvl = 40;
     userProgress[index].level = lvl;
     saveProgress();
     renderProfessions();
@@ -101,13 +167,11 @@ window.updateLevel = function(index, value) {
 window.updateXp = function(index, value) {
     let xp = parseInt(value) || 0;
     const maxVal = xpGroups[userProgress[index].group][userProgress[index].level] || 0;
-    if (xp < 0) xp = 0;
-    if (xp > maxVal) xp = maxVal;
+    if (xp < 0) xp = 0; if (xp > maxVal) xp = maxVal;
     userProgress[index].currentXp = xp;
     saveProgress();
     renderProfessions();
 }
 
-// İlk Çalıştırma
 calculateGrandMasterStatus();
 renderProfessions();
