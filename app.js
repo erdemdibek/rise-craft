@@ -60,6 +60,7 @@ let selectedProfessionId = null;
 function saveProgress() {
     localStorage.setItem('rise_craft_progress', JSON.stringify(userProgress));
     calculateGrandMasterStatus();
+    renderMilestonesDashboard();
 }
 
 function calculateGrandMasterStatus() {
@@ -260,7 +261,132 @@ function runCalculation(index) {
     resultDiv.classList.remove('hidden');
 }
 
-// Global Pencereler
+// GrandMaster Yol Haritası ve Otomatik Materyal Analiz Paneli
+function renderMilestonesDashboard() {
+    const container = document.getElementById('gm-milestones-container');
+    if (!container) return;
+    container.innerHTML = '';
+
+    userProgress.forEach((prof) => {
+        // Seviye 40 ve üstü ise hesaplama alanını kapat
+        if (prof.level >= 40) {
+            const maxCard = document.createElement('div');
+            maxCard.className = "bg-black/40 border border-gray-950 p-4 rounded-xl flex flex-col justify-between opacity-60";
+            maxCard.innerHTML = `
+                <div class="flex justify-between items-center mb-1">
+                    <span class="text-xs font-bold text-gray-400">${prof.name}</span>
+                    <span class="text-[10px] bg-amber-500/20 text-amber-400 font-bold px-1.5 py-0.5 rounded">MAXED</span>
+                </div>
+                <div class="text-[11px] text-gray-500 italic mt-2">Bu meslekte zirveye ulaştınız!</div>
+            `;
+            container.appendChild(maxCard);
+            return;
+        }
+
+        // Dinamik Hedef Seviye Belirleme (10, 20, 30, 40)
+        let targetLvl = 10;
+        if (prof.level >= 30) targetLvl = 40;
+        else if (prof.level >= 20) targetLvl = 30;
+        else if (prof.level >= 10) targetLvl = 20;
+
+        // Hedef Seviyeye Kalan XP Hesaplaması
+        const table = xpGroups[prof.group];
+        let neededXp = 0;
+        for (let i = prof.level; i < targetLvl; i++) { neededXp += table[i] || 0; }
+        neededXp = neededXp - prof.currentXp;
+        if (neededXp < 0) neededXp = 0;
+
+        // Mevcut seviye grubuna uygun olan en verimli baz reçeteyi seç
+        const currentRecipes = recipes[prof.id] || [];
+        let baseRecipe = null;
+
+        if (currentRecipes.length > 0) {
+            const validRecipes = currentRecipes.filter(r => prof.level >= r.levelRequired && r.levelRequired < targetLvl);
+            // Varsa zincir reçetelerine (Chain) öncelik ver, yoksa ilk sıradakini yakala
+            baseRecipe = validRecipes.find(r => r.isChain) || validRecipes[0];
+        }
+
+        let materialAnalysisHtml = "";
+
+        if (baseRecipe) {
+            const craftCount = Math.ceil(neededXp / baseRecipe.xpGiven);
+            
+            // Eğer Seçilen Reçete Leatherworking İçindeki Bir ÖZEL ZİNCİR İse
+            if (prof.id === "leatherworking" && baseRecipe.isChain && baseRecipe.parentRawId) {
+                const rawMultiplier = baseRecipe.rawMultiplier || 3;
+                const totalRaw = craftCount * rawMultiplier;
+                const totalHide = totalRaw * 3;
+                const animal = baseRecipe.id.split('_')[2];
+                
+                materialAnalysisHtml = `
+                    <div class="text-[10px] text-amber-500 font-bold mt-2 mb-1">🔗 Zincir: ${baseRecipe.name.split(' (+')[0]}</div>
+                    <div class="text-[10px] space-y-0.5 text-gray-400 bg-black/30 p-2 rounded border border-gray-950">
+                        <div class="flex justify-between"><span>🛠️ Tanned Üretim:</span> <span class="text-white font-bold">${craftCount.toLocaleString()}</span></div>
+                        <div class="flex justify-between"><span>📦 Ara Ürün (Raw):</span> <span class="text-white font-bold">${totalRaw.toLocaleString()}</span></div>
+                        <div class="flex justify-between text-orange-300"><span>🌿 Ham Deri (${animal}):</span> <span class="text-emerald-400 font-black">${totalHide.toLocaleString()}</span></div>
+                    </div>
+                `;
+            } 
+            // Diğer Zincir Tipi Meslekler İçin (Carpentry, Blacksmithing vb.) Yapılan Analiz
+            else if (baseRecipe.isChain && (prof.id === "blacksmithing" || prof.id === "carpentry" || prof.id === "tailoring")) {
+                const multiplier = baseRecipe.id.includes('iron') || baseRecipe.id.includes('oak') || baseRecipe.id.includes('linen') ? 3 : 2;
+                const rawMatCount = craftCount * multiplier;
+                const matName = prof.id === "blacksmithing" ? "Ore" : prof.id === "carpentry" ? "Log" : "Fabric";
+                
+                materialAnalysisHtml = `
+                    <div class="text-[10px] text-amber-500 font-bold mt-2 mb-1">🔗 Zincir: ${baseRecipe.name.split(' (')[0]}</div>
+                    <div class="text-[10px] space-y-0.5 text-gray-400 bg-black/30 p-2 rounded border border-gray-950">
+                        <div class="flex justify-between"><span>🛠️ Ana Üretim:</span> <span class="text-white font-bold">${craftCount.toLocaleString()}</span></div>
+                        <div class="flex justify-between text-orange-300"><span>⛏️ Ham Madde (${matName}):</span> <span class="text-emerald-400 font-black">${rawMatCount.toLocaleString()}</span></div>
+                    </div>
+                `;
+            } 
+            // Normal Fallback Reçeteleri İçin Dinamik Materyal Çözümlemesi (Alchemy, Jewel Crafting vb.)
+            else if (baseRecipe.materials) {
+                let matsHtml = "";
+                Object.keys(baseRecipe.materials).forEach(matKey => {
+                    const totalMat = baseRecipe.materials[matKey] * craftCount;
+                    const cleanMatName = matKey.replace(/([A-Z])/g, ' $1').toLowerCase();
+                    matsHtml += `<div class="flex justify-between"><span>• ${cleanMatName}:</span> <span class="text-white font-bold">${totalMat.toLocaleString()}</span></div>`;
+                });
+                
+                materialAnalysisHtml = `
+                    <div class="text-[10px] text-amber-500 font-bold mt-2 mb-1">🎯 Önerilen: ${baseRecipe.name.split(' (+')[0]} (${craftCount.toLocaleString()}x)</div>
+                    <div class="text-[10px] space-y-0.5 text-gray-400 bg-black/30 p-2 rounded border border-gray-950 max-h-[70px] overflow-y-auto">
+                        ${matsHtml}
+                    </div>
+                `;
+            }
+        } else {
+            materialAnalysisHtml = `<div class="text-[10px] text-gray-500 italic mt-2">Bu seviye aralığı için aktif reçete verisi bulunamadı.</div>`;
+        }
+
+        // Kart Arayüz Elementinin İnşa Edilmesi
+        const card = document.createElement('div');
+        card.className = "bg-black/50 border border-gray-950 p-4 rounded-xl flex flex-col justify-between hover:border-gray-800 transition duration-150 shadow-inner";
+        card.innerHTML = `
+            <div>
+                <div class="flex justify-between items-center mb-1">
+                    <span class="text-xs font-black text-gray-200">${prof.name}</span>
+                    <span class="text-[10px] bg-gray-900 text-amber-400 font-extrabold px-1.5 py-0.5 rounded border border-gray-800">🎯 Hedef Lvl ${targetLvl}</span>
+                </div>
+                <div class="flex justify-between text-[11px] my-1">
+                    <span class="text-gray-400">Kalan Gereken XP:</span>
+                    <span class="font-bold text-amber-500">${neededXp.toLocaleString()} XP</span>
+                </div>
+                <div class="w-full bg-black/80 rounded-full h-1 my-1.5 overflow-hidden">
+                    <div class="bg-gradient-to-r from-amber-600 to-amber-400 h-1 rounded-full" style="width: ${((table[prof.level] - neededXp) / table[prof.level] * 100) || 0}%"></div>
+                </div>
+            </div>
+            <div>
+                ${materialAnalysisHtml}
+            </div>
+        `;
+        container.appendChild(card);
+    });
+}
+
+// Global Pencereler ve Tetikleyiciler
 window.closeDetailPanel = function() {
     selectedProfessionId = null;
     document.getElementById('active-detail-panel').classList.add('hidden');
@@ -288,4 +414,5 @@ window.updateXp = function(index, value) {
 window.addEventListener('DOMContentLoaded', () => {
     calculateGrandMasterStatus();
     renderGridDashboard();
+    renderMilestonesDashboard();
 });
