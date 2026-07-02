@@ -6,13 +6,13 @@ const xpGroups = {
     easy: [0, 3000, 6000, 9000, 12000, 15000, 18000, 24000, 30000, 36000, 48000, 60000, 72000, 90000, 108000, 126000, 150000, 174000, 198000, 228000, 258000, 288000, 324000, 360000, 396000, 438000, 480000, 540000, 600000, 720000, 840000, 1020000, 1200000, 1440000, 1680000, 1980000, 2280000, 2640000, 3060000, 3600000, 4200000]
 };
 
-// Aktif Eklenen Reçeteler (Sen gönderdikçe burası büyüyecek)
+// Detaylı Reçete İlişkileri ve Girdileri (v2.1 Zincirleme Hesaplama İçin)
 const recipes = {
     tailoring: [
-        { name: "Cotton (İşleme)", levelRequired: 1, xpGiven: 52 },
-        { name: "Cotton Yarn", levelRequired: 1, xpGiven: 104 },
-        { name: "Fabric", levelRequired: 1, xpGiven: 208 },
-        { name: "Priest Leather Boots", levelRequired: 4, xpGiven: 1300 }
+        { id: "cotton_process", name: "Cotton (İşleme)", levelRequired: 1, xpGiven: 52, isChain: false },
+        { id: "cotton_yarn", name: "Cotton Yarn", levelRequired: 1, xpGiven: 104, isChain: false },
+        { id: "fabric", name: "Fabric", levelRequired: 1, xpGiven: 208, isChain: false },
+        { id: "priest_boots", name: "Priest Leather Boots (Zincirleme Üretim)", levelRequired: 4, xpGiven: 1300, isChain: true }
     ]
 };
 
@@ -51,7 +51,6 @@ function calculateGrandMasterStatus() {
     document.getElementById('gm-status').innerText = statusText;
 }
 
-// Belirli bir level aralığındaki toplam gereken XP'yi bulur
 function getXpRequired(group, currentLvl, targetLvl, currentXp) {
     const table = xpGroups[group];
     let total = 0;
@@ -71,12 +70,11 @@ function renderProfessions() {
         const nextLevelXp = xpTable[prof.level] || 0;
         const pct = nextLevelXp > 0 ? (prof.currentXp / nextLevelXp) * 100 : 100;
 
-        // Reçete Seçenekleri HTML
         let recipeOptions = `<option value="">-- Reçete Seçin --</option>`;
         if (recipes[prof.id]) {
             recipes[prof.id].forEach(r => {
                 if (prof.level >= r.levelRequired) {
-                    recipeOptions += `<option value="${r.xpGiven}">${r.name} (+${r.xpGiven} XP)</option>`;
+                    recipeOptions += `<option value="${r.id}">${r.name}</option>`;
                 }
             });
         }
@@ -124,7 +122,7 @@ function renderProfessions() {
                 <button onclick="runCalculation(${index})" class="w-full bg-amber-600 hover:bg-amber-500 text-white font-bold text-xs py-1.5 px-3 rounded transition">
                     Hesapla
                 </button>
-                <div id="result-${index}" class="text-xs text-center mt-2 text-amber-400 font-semibold hidden"></div>
+                <div id="result-${index}" class="text-xs text-left mt-3 p-2 bg-black/60 rounded border border-gray-800 text-amber-400 font-medium hidden space-y-1"></div>
             </div>
         `;
         container.appendChild(card);
@@ -134,25 +132,81 @@ function renderProfessions() {
 window.runCalculation = function(index) {
     const prof = userProgress[index];
     const targetInput = document.getElementById(`target-${index}`).value;
-    const selectXp = document.getElementById(`select-${index}`).value;
+    const recipeId = document.getElementById(`select-${index}`).value;
     const resultDiv = document.getElementById(`result-${index}`);
 
     const targetLvl = parseInt(targetInput);
-    const xpPerCraft = parseInt(selectXp);
 
     if (!targetLvl || targetLvl <= prof.level || targetLvl > 40) {
-        alert("Lütfen mevcut seviyenizden büyük ve en fazla 40 olacak geçerli bir hedef seviye girin.");
+        alert("Lütfen geçerli bir hedef seviye girin.");
         return;
     }
-    if (!xpPerCraft) {
-        alert("Lütfen hesaplama yapmak için bir reçete seçin.");
+    if (!recipeId) {
+        alert("Lütfen bir reçete seçin.");
         return;
     }
 
     const neededXp = getXpRequired(prof.group, prof.level, targetLvl, prof.currentXp);
-    const craftCount = Math.ceil(neededXp / xpPerCraft);
 
-    resultDiv.innerHTML = `Hedefe kalan XP: <span class="text-white">${neededXp.toLocaleString()}</span><br>Gereken Üretim Sayısı: <span class="text-white text-sm font-bold">${craftCount.toLocaleString()} Adet</span>`;
+    // ÖZEL DURUM: Priest Leather Boots Zincirleme Hesaplama
+    if (prof.id === "tailoring" && recipeId === "priest_boots") {
+        if (prof.level < 4) {
+            alert("Priest Leather Boots üretebilmek için mevcut seviyeniz en az 4 olmalıdır!");
+            return;
+        }
+
+        /* MATEMATİKSEL ZİNCİR YAPISI:
+           1 Bot = 1300 XP (Saf üretim)
+           Bot girdisi: 2 Fabric + 2 Leather
+           2 Fabric üretmek için:
+             - 2 Fabric üretimi = 2 * 208 XP = 416 XP
+             - 6 Cotton Yarn üretimi = 6 * 104 XP = 624 XP
+             - 18 Cotton İşleme üretimi = 18 * 52 XP = 936 XP
+           Yani sıfırdan hammaddelerle gelen 1 adet Bot üretildiğinde kazanılan toplam XP:
+           1300 (Bot) + 416 (Fabric) + 624 (Yarn) + 936 (Cotton) = 3276 XP yapar!
+           Gereken pamuk: 18 * 3 = 54 adet ham pamuk.
+        */
+        const xpPerFullChain = 1300 + 416 + 624 + 936; // 3276 XP
+        const chainCount = Math.ceil(neededXp / xpPerFullChain);
+        
+        const totalFabric = chainCount * 2;
+        const totalYarn = chainCount * 6;
+        const totalProcessedCotton = chainCount * 18;
+        const totalRawCottonInput = totalProcessedCotton * 3;
+        const totalLeather = chainCount * 2;
+
+        resultDiv.innerHTML = `
+            <div class="text-white font-bold border-b border-gray-800 pb-1 mb-1 text-center">ZİNCİRLEME ÜRETİM ÖZETİ</div>
+            <div>🎯 Hedefe Kalan Net XP: <span class="text-white font-bold">${neededXp.toLocaleString()}</span></div>
+            <div class="text-gray-400 mt-1">Sıfırdan toplanan pamuklarla üretilecek miktar:</div>
+            <div class="pl-2 border-l border-amber-500/50 my-1 text-white">
+                • <span class="text-amber-400 font-bold">${chainCount.toLocaleString()} Adet</span> Priest Leather Boots<br>
+                • <span class="text-amber-400 font-bold">${totalFabric.toLocaleString()} Adet</span> Fabric<br>
+                • <span class="text-amber-400 font-bold">${totalYarn.toLocaleString()} Adet</span> Cotton Yarn<br>
+                • <span class="text-amber-400 font-bold">${totalProcessedCotton.toLocaleString()} Kez</span> Cotton İşleme
+            </div>
+            <div class="border-t border-gray-800 pt-1 mt-1 font-bold text-green-400">
+                🌿 Toplam Gereken Ham Pamuk: ${totalRawCottonInput.toLocaleString()} Adet
+            </div>
+            <div class="font-bold text-gray-300">
+                🧳 Toplam Gereken Deri (Leather): ${totalLeather.toLocaleString()} Adet
+            </div>
+        `;
+    } else {
+        // Standart Tekli Hesaplama Düzeni
+        const tailoringRecipes = recipes[prof.id] || [];
+        const selectedRecipe = tailoringRecipes.find(r => r.id === recipeId);
+        const xpPerCraft = selectedRecipe ? selectedRecipe.xpGiven : 0;
+
+        if (!xpPerCraft) return;
+        const craftCount = Math.ceil(neededXp / xpPerCraft);
+
+        resultDiv.innerHTML = `
+            <div>🎯 Hedefe Kalan XP: <span class="text-white">${neededXp.toLocaleString()}</span></div>
+            <div>🔨 Gereken Üretim Sayısı: <span class="text-white text-sm font-bold">${craftCount.toLocaleString()} Adet</span></div>
+        `;
+    }
+    
     resultDiv.classList.remove('hidden');
 }
 
