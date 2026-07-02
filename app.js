@@ -23,22 +23,18 @@ const recipes = {
         { id: "tomato_soup", name: "Lv4 - Tomato Soup (+124 XP)", levelRequired: 4, xpGiven: 124, isChain: false }
     ],
     armor_smithing: [
-        { 
-            id: "lvl1_elite_gear", 
-            name: "Lv1 - Elite Boots / Gloves (+13000 XP)", 
-            levelRequired: 1, 
-            xpGiven: 13000, 
-            isChain: false,
-            materials: { stag: 4, boar: 0, zebra: 0, copper: 4, iron: 0, baseItem: 1 }
-        },
-        { 
-            id: "lvl10_imperial_gear", 
-            name: "Lv10 - Imperial Boots / Gloves (+26000 XP)", 
-            levelRequired: 10, 
-            xpGiven: 26000, 
-            isChain: false,
-            materials: { stag: 4, boar: 2, zebra: 1, copper: 4, iron: 2, baseItem: 1 }
-        }
+        { id: "lvl1_elite_gear", name: "Lv1 - Elite Boots / Gloves (+13000 XP)", levelRequired: 1, xpGiven: 13000, isChain: false, materials: { stag: 4, boar: 0, zebra: 0, copper: 4, iron: 0, baseItem: 1 } },
+        { id: "lvl10_imperial_gear", name: "Lv10 - Imperial Boots / Gloves (+26000 XP)", levelRequired: 10, xpGiven: 26000, isChain: false, materials: { stag: 4, boar: 2, zebra: 1, copper: 4, iron: 2, baseItem: 1 } }
+    ],
+    blacksmithing: [
+        // Seviye 1
+        { id: "copper_plate", name: "Lv1 - Copper Plate (+41 XP)", levelRequired: 1, xpGiven: 41, isChain: false, materials: { copperOre: 3, charcoal: 3 } },
+        { id: "copper_stick", name: "Lv1 - Copper Stick (+83 XP)", levelRequired: 1, xpGiven: 83, isChain: false, materials: { copperPlate: 3 } },
+        // Seviye 10
+        { id: "iron_plate", name: "Lv10 - Iron Plate (+124 XP)", levelRequired: 10, xpGiven: 124, isChain: false, materials: { ironOre: 3, charcoal: 3 } },
+        { id: "iron_stick", name: "Lv10 - Iron Stick (+249 XP)", levelRequired: 10, xpGiven: 249, isChain: false, materials: { ironPlate: 3 } },
+        { id: "iron_bar", name: "Lv10 - Iron Bar (+208 XP)", levelRequired: 10, xpGiven: 208, isChain: false, materials: { ironOre: 5, charcoal: 5 } },
+        { id: "silver", name: "Lv10 - Silver (+12480 XP)", levelRequired: 10, xpGiven: 12480, isChain: false, materials: { silverDust: 5, charcoal: 1 } }
     ]
 };
 
@@ -221,7 +217,6 @@ window.runCalculation = function(index) {
     if (!selectedRecipe) return;
 
     if (prof.id === "tailoring" && selectedRecipe.isChain) {
-        // Tailoring Özel Zincir Hesaplaması
         const xpPerFabricChain = 208 + 312 + 468;
         const fabricBonusXpPerCraft = selectedRecipe.fabricNeed * xpPerFabricChain;
         const totalXpPerFullChainLoop = selectedRecipe.xpGiven + fabricBonusXpPerCraft;
@@ -263,30 +258,41 @@ window.runCalculation = function(index) {
         materialListHtml += `</div>`;
         resultDiv.innerHTML = materialListHtml;
     } 
-    else if (prof.id === "armor_smithing" && selectedRecipe.materials) {
-        // Armor Smithing için Materyal Hesaplama Ekranı
+    else if ((prof.id === "armor_smithing" || prof.id === "blacksmithing") && selectedRecipe.materials) {
         const craftCount = Math.ceil(neededXp / selectedRecipe.xpGiven);
         const mats = selectedRecipe.materials;
 
+        let dynamicMatsHtml = "";
+        
+        // Blacksmithing & Armor Smithing Materyal Çarpanları Dağılımı
+        if (mats.copperOre) dynamicMatsHtml += `<div class="flex justify-between border-b border-gray-900/40 pb-1 text-orange-300"><span>🪨 Copper Ore:</span> <span class="font-bold text-white">${(mats.copperOre * craftCount).toLocaleString()} Adet</span></div>`;
+        if (mats.copperPlate) dynamicMatsHtml += `<div class="flex justify-between border-b border-gray-900/40 pb-1 text-orange-400"><span>🪙 Copper Plate:</span> <span class="font-bold text-white">${(mats.copperPlate * craftCount).toLocaleString()} Adet</span></div>`;
+        if (mats.ironOre) dynamicMatsHtml += `<div class="flex justify-between border-b border-gray-900/40 pb-1 text-blue-300"><span>🪨 Iron Ore:</span> <span class="font-bold text-white">${(mats.ironOre * craftCount).toLocaleString()} Adet</span></div>`;
+        if (mats.ironPlate) dynamicMatsHtml += `<div class="flex justify-between border-b border-gray-900/40 pb-1 text-blue-400"><span>⛓️ Iron Plate:</span> <span class="font-bold text-white">${(mats.ironPlate * craftCount).toLocaleString()} Adet</span></div>`;
+        if (mats.silverDust) dynamicMatsHtml += `<div class="flex justify-between border-b border-gray-900/40 pb-1 text-slate-300"><span>✨ Silver Dust:</span> <span class="font-bold text-white">${(mats.silverDust * craftCount).toLocaleString()} Adet</span></div>`;
+        if (mats.charcoal) dynamicMatsHtml += `<div class="flex justify-between border-b border-gray-900/40 pb-1 text-gray-400"><span>🪵 Charcoal:</span> <span class="font-bold text-white">${(mats.charcoal * craftCount).toLocaleString()} Adet</span></div>`;
+        
+        // Armor Smithing Derileri & Temel Parça
+        if (mats.stag) dynamicMatsHtml += `<div class="flex justify-between border-b border-gray-900/40 pb-1"><span>🦌 Tanned Leather (Stag):</span> <span class="font-bold text-white">${(mats.stag * craftCount).toLocaleString()} Adet</span></div>`;
+        if (mats.boar) dynamicMatsHtml += `<div class="flex justify-between border-b border-gray-900/40 pb-1"><span>🐗 Tanned Leather (Boar):</span> <span class="font-bold text-white">${(mats.boar * craftCount).toLocaleString()} Adet</span></div>`;
+        if (mats.zebra) dynamicMatsHtml += `<div class="flex justify-between border-b border-gray-900/40 pb-1"><span>🦓 Tanned Leather (Zebra):</span> <span class="font-bold text-white">${(mats.zebra * craftCount).toLocaleString()} Adet</span></div>`;
+        if (mats.copper && prof.id === "armor_smithing") dynamicMatsHtml += `<div class="flex justify-between border-b border-gray-900/40 pb-1 text-orange-400"><span>🪙 Copper Plate:</span> <span class="font-bold text-white">${(mats.copper * craftCount).toLocaleString()} Adet</span></div>`;
+        if (mats.iron && prof.id === "armor_smithing") dynamicMatsHtml += `<div class="flex justify-between border-b border-gray-900/40 pb-1 text-blue-400"><span>⛓️ Iron Plate:</span> <span class="font-bold text-white">${(mats.iron * craftCount).toLocaleString()} Adet</span></div>`;
+        if (mats.baseItem) dynamicMatsHtml += `<div class="flex justify-between text-amber-500 font-bold mt-1 pt-1 border-t border-gray-950"><span>📦 Craftsız Temel Eşya (+1):</span> <span class="text-white font-black">${(mats.baseItem * craftCount).toLocaleString()} Adet</span></div>`;
+
         resultDiv.innerHTML = `
-            <div class="text-white font-bold border-b border-gray-950 pb-1.5 mb-2 text-center text-[10px] tracking-wider text-amber-500 uppercase">🛡️ Gereken Toplam Materyaller</div>
+            <div class="text-white font-bold border-b border-gray-950 pb-1.5 mb-2 text-center text-[10px] tracking-wider text-amber-500 uppercase">🛠️ Gereken Toplam Materyaller</div>
             <div class="mb-2">🎯 Hedefe Kalan Net XP: <span class="text-white font-bold">${neededXp.toLocaleString()} XP</span></div>
             <div class="mb-3 flex justify-between items-center bg-gray-950 p-2 rounded border border-gray-800">
                 <span class="text-gray-400 text-xs">Toplam Üretim Adedi:</span>
                 <span class="text-sm font-black text-amber-400">${craftCount.toLocaleString()} Adet</span>
             </div>
             <div class="space-y-1 text-xs text-gray-300">
-                <div class="flex justify-between border-b border-gray-900/40 pb-1"><span>🦌 Tanned Leather (Stag):</span> <span class="font-bold text-white">${(mats.stag * craftCount).toLocaleString()} Adet</span></div>
-                ${mats.boar > 0 ? `<div class="flex justify-between border-b border-gray-900/40 pb-1"><span>🐗 Tanned Leather (Boar):</span> <span class="font-bold text-white">${(mats.boar * craftCount).toLocaleString()} Adet</span></div>` : ''}
-                ${mats.zebra > 0 ? `<div class="flex justify-between border-b border-gray-900/40 pb-1"><span>🦓 Tanned Leather (Zebra):</span> <span class="font-bold text-white">${(mats.zebra * craftCount).toLocaleString()} Adet</span></div>` : ''}
-                <div class="flex justify-between border-b border-gray-900/40 pb-1 text-orange-400"><span>🪙 Copper Plate:</span> <span class="font-bold text-white">${(mats.copper * craftCount).toLocaleString()} Adet</span></div>
-                ${mats.iron > 0 ? `<div class="flex justify-between border-b border-gray-900/40 pb-1 text-blue-400"><span>⛓️ Iron Plate:</span> <span class="font-bold text-white">${(mats.iron * craftCount).toLocaleString()} Adet</span></div>` : ''}
-                <div class="flex justify-between text-amber-500 font-bold mt-1 pt-1 border-t border-gray-950"><span>📦 Craftsız Temel Eşya (+1):</span> <span class="text-white font-black">${(mats.baseItem * craftCount).toLocaleString()} Adet</span></div>
+                ${dynamicMatsHtml}
             </div>
         `;
     } 
     else {
-        // Cooking vb. Düz Tarifler
         const xpPerCraft = selectedRecipe.xpGiven;
         const craftCount = Math.ceil(neededXp / xpPerCraft);
         resultDiv.innerHTML = `
