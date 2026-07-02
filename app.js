@@ -1,4 +1,4 @@
-// Tüm Meslek Modüllerini İçeri Aktar
+// Tüm Meslek Modüllerii İçeri Aktar
 import { alchemyRecipes } from './recipes/alchemy.js';
 import { armorSmithingRecipes } from './recipes/armor_smithing.js';
 import { blacksmithingRecipes, calculateBlacksmithingChain } from './recipes/blacksmithing.js';
