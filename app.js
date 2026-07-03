@@ -49,6 +49,33 @@ let userProgress = JSON.parse(localStorage.getItem('rise_craft_progress')) ||
 
 let selectedProfessionId = null;
 
+// Aktif XP Bonus Durumlarını Yöneten Global Nesne
+let xpBonuses = {
+    craftPremium: true, // Şablon verileri %30 premiumlu olduğu için varsayılan true kalır
+    expPremium: false,
+    farmPremium: false,
+    crafterTitle: false,
+    eggPeppers: false,
+    gmEvent: 0,
+    kingEvent: 0
+};
+
+// Çakışan Premium Seçimlerini Tekilleştiren Fonksiyon
+window.handlePremiumChange = function(selectedPrem) {
+    xpBonuses.craftPremium = false;
+    xpBonuses.expPremium = false;
+    xpBonuses.farmPremium = false;
+
+    const checkbox = document.getElementById(`chk-${selectedPrem}`);
+    if (checkbox && checkbox.checked) {
+        xpBonuses[selectedPrem + 'Premium'] = true;
+    }
+
+    document.getElementById('chk-craft').checked = xpBonuses.craftPremium;
+    document.getElementById('chk-exp').checked = xpBonuses.expPremium;
+    document.getElementById('chk-farm').checked = xpBonuses.farmPremium;
+};
+
 function saveProgress() {
     localStorage.setItem('rise_craft_progress', JSON.stringify(userProgress));
     calculateGrandMasterStatus();
@@ -72,13 +99,11 @@ function calculateGrandMasterStatus() {
     
     document.getElementById('gm-status').innerText = statusText;
 
-    // Alt Bar İlerleme Yüzdesi Hesaplama (Tüm mesleklerin hedefe göre toplam durumu)
     let totalCurrentProgress = 0;
     let totalTargetSegment = 0;
 
     userProgress.forEach(prof => {
         const currentLvl = prof.level;
-        // Mevcut GM segmenti içindeki ilerlemesi
         const segmentEarned = Math.max(0, currentLvl - baseGmLevel);
         const segmentTotal = targetGmLevel - baseGmLevel;
         
@@ -205,6 +230,45 @@ function selectProfession(id) {
                 </div>
             </div>
 
+            <!-- Dinamik %XP Bonus Seçim Paneli -->
+            <div class="bg-black/40 border border-gray-850 rounded-2xl p-3.5 mb-4 space-y-2">
+                <button onclick="document.getElementById('bonus-sub-panel').classList.toggle('hidden')" class="w-full flex justify-between items-center text-[10px] font-black text-amber-400 uppercase tracking-wider">
+                    <span>⚡ XP Bonus Etkenleri Ayarla</span>
+                    <i class="fa-solid fa-chevron-down text-[8px]"></i>
+                </button>
+                
+                <div id="bonus-sub-panel" class="hidden pt-2 grid grid-cols-2 gap-2 text-[11px] border-t border-gray-800/60">
+                    <label class="flex items-center space-x-2 text-gray-300">
+                        <input type="checkbox" id="chk-craft" ${xpBonuses.craftPremium ? 'checked' : ''} onchange="handlePremiumChange('craft')" class="rounded accent-amber-500 bg-black border-gray-700">
+                        <span>Craft Prem (%30)</span>
+                    </label>
+                    <label class="flex items-center space-x-2 text-gray-300">
+                        <input type="checkbox" id="chk-exp" ${xpBonuses.expPremium ? 'checked' : ''} onchange="handlePremiumChange('exp')" class="rounded accent-amber-500 bg-black border-gray-700">
+                        <span>Exp Prem (%10)</span>
+                    </label>
+                    <label class="flex items-center space-x-2 text-gray-300">
+                        <input type="checkbox" id="chk-farm" ${xpBonuses.farmPremium ? 'checked' : ''} onchange="handlePremiumChange('farm')" class="rounded accent-amber-500 bg-black border-gray-700">
+                        <span>Farm Prem (%10)</span>
+                    </label>
+                    <label class="flex items-center space-x-2 text-gray-300">
+                        <input type="checkbox" id="chk-title" ${xpBonuses.crafterTitle ? 'checked' : ''} onchange="xpBonuses.crafterTitle = this.checked" class="rounded accent-amber-500 bg-black border-gray-700">
+                        <span>Crafter Ünvan (%5)</span>
+                    </label>
+                    <label class="flex items-center space-x-2 text-gray-300 col-span-2">
+                        <input type="checkbox" id="chk-pepper" ${xpBonuses.eggPeppers ? 'checked' : ''} onchange="xpBonuses.eggPeppers = this.checked" class="rounded accent-amber-500 bg-black border-gray-700">
+                        <span>Egg Stuffed Peppers (%10)</span>
+                    </label>
+                    <div class="col-span-1 bg-black/50 p-1.5 rounded border border-gray-850">
+                        <span class="text-[9px] text-gray-500 block">GM Etkinliği %</span>
+                        <input type="number" id="num-gm" value="${xpBonuses.gmEvent}" onchange="xpBonuses.gmEvent = parseInt(this.value) || 0" class="w-full bg-transparent text-white font-bold outline-none text-xs">
+                    </div>
+                    <div class="col-span-1 bg-black/50 p-1.5 rounded border border-gray-850">
+                        <span class="text-[9px] text-gray-500 block">Kral Etkinliği %</span>
+                        <input type="number" id="num-king" value="${xpBonuses.kingEvent}" onchange="xpBonuses.kingEvent = parseInt(this.value) || 0" class="w-full bg-transparent text-white font-bold outline-none text-xs">
+                    </div>
+                </div>
+            </div>
+
             <div class="bg-black/50 border border-gray-950 rounded-2xl p-4 shadow-inner">
                 <p class="text-[9px] font-black text-gray-400 mb-3 uppercase tracking-widest flex items-center gap-1.5">
                     <i class="fa-solid fa-calculator text-amber-500"></i> Hedef Hesaplayıcı
@@ -232,8 +296,6 @@ function selectProfession(id) {
 
     document.getElementById(`calc-btn-${profIndex}`).addEventListener('click', () => runCalculation(profIndex));
     detailPanel.classList.remove('hidden');
-    
-    // Mobil odaklanmayı kolaylaştırmak için görünümü panele kaydır
     detailPanel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 }
 
@@ -261,6 +323,28 @@ function runCalculation(index) {
     const selectedRecipe = currentRecipes.find(r => r.id === recipeId);
     if (!selectedRecipe) return;
 
+    // --- DİNAMİK XP HESAPLAMA VE MANİPÜLASYON ---
+    // 1. Reçetedeki orijinal şişirilmiş %30 Craft Prem verisini kırıp ham baz XP'yi buluyoruz
+    const baseRecipeXp = selectedRecipe.xpGiven / 1.30;
+
+    // 2. Aktif olan tüm güncel yüzdeleri topluyoruz
+    let totalBonusPercent = 0;
+    if (xpBonuses.craftPremium) totalBonusPercent += 30;
+    if (xpBonuses.expPremium) totalBonusPercent += 10;
+    if (xpBonuses.farmPremium) totalBonusPercent += 10;
+    if (xpBonuses.crafterTitle) totalBonusPercent += 5;
+    if (xpBonuses.eggPeppers) totalBonusPercent += 10;
+    totalBonusPercent += xpBonuses.gmEvent;
+    totalBonusPercent += xpBonuses.kingEvent;
+
+    // 3. Yeni dinamik net tekil üretim XP'sini hesapla
+    const dynamicXpPerCraft = baseRecipeXp * (1 + (totalBonusPercent / 100));
+    
+    // Geçici olarak alt modül/zincir fonksiyonlarının (calculateCarpentryChain vb.) doğru 
+    // çalışması için seçilen reçetenin nesne içindeki anlık değerini manipüle ediyoruz
+    const originalRecipeXp = selectedRecipe.xpGiven;
+    selectedRecipe.xpGiven = dynamicXpPerCraft;
+
     // --- ÖZEL MODÜLER ZİNCİR YÖNETİMİ ---
     if (prof.id === "carpentry" && selectedRecipe.isChain) {
         resultDiv.innerHTML = calculateCarpentryChain(neededXp, selectedRecipe, currentRecipes);
@@ -276,7 +360,7 @@ function runCalculation(index) {
     }
     // --- GENEL DİNAMİK MATERYAL HESAPLAYICI (FALLBACK) ---
     else if (selectedRecipe.materials) {
-        const craftCount = Math.ceil(neededXp / selectedRecipe.xpGiven);
+        const craftCount = Math.ceil(neededXp / dynamicXpPerCraft);
         const mats = selectedRecipe.materials;
         let dynamicMatsHtml = "";
         
@@ -293,7 +377,8 @@ function runCalculation(index) {
 
         resultDiv.innerHTML = `
             <div class="text-amber-500 font-black border-b border-gray-900 pb-2 mb-2 text-center text-[10px] tracking-widest uppercase">🛠️ Gereken Toplam Materyaller</div>
-            <div class="mb-1.5 flex justify-between text-[11px] font-bold text-gray-400"><span>Hedefe Kalan Net XP:</span> <span class="text-white">${neededXp.toLocaleString()} XP</span></div>
+            <div class="mb-1 flex justify-between text-[11px] font-bold text-gray-400"><span>Hedefe Kalan Net XP:</span> <span class="text-white">${neededXp.toLocaleString()} XP</span></div>
+            <div class="mb-1.5 flex justify-between text-[11px] font-bold text-gray-400"><span>Üretim Başına Net XP:</span> <span class="text-emerald-400 font-black">${Math.floor(dynamicXpPerCraft).toLocaleString()} XP (%${totalBonusPercent} Bonus)</span></div>
             <div class="mb-3 flex justify-between items-center bg-black/40 p-2.5 rounded-xl border border-gray-900">
                 <span class="text-gray-400 font-bold text-xs">Toplam Üretim:</span>
                 <span class="text-sm font-black text-amber-400">${craftCount.toLocaleString()} Adet</span>
@@ -303,17 +388,20 @@ function runCalculation(index) {
     } 
     // --- DÜZ ÜRETİM / REÇETE DETAYI ---
     else {
-        const xpPerCraft = selectedRecipe.xpGiven;
-        const craftCount = Math.ceil(neededXp / xpPerCraft);
+        const craftCount = Math.ceil(neededXp / dynamicXpPerCraft);
         resultDiv.innerHTML = `
             <div class="text-amber-500 font-black border-b border-gray-900 pb-2 mb-2 text-center text-[10px] tracking-widest uppercase">🍳 Üretim Özeti</div>
-            <div class="mb-1.5 flex justify-between text-[11px] font-bold text-gray-400"><span>Hedefe Kalan Net XP:</span> <span class="text-white">${neededXp.toLocaleString()} XP</span></div>
+            <div class="mb-1 flex justify-between text-[11px] font-bold text-gray-400"><span>Hedefe Kalan Net XP:</span> <span class="text-white">${neededXp.toLocaleString()} XP</span></div>
+            <div class="mb-1.5 flex justify-between text-[11px] font-bold text-gray-400"><span>Üretim Başına Net XP:</span> <span class="text-emerald-400 font-black">${Math.floor(dynamicXpPerCraft).toLocaleString()} XP (%${totalBonusPercent} Bonus)</span></div>
             <div class="flex justify-between items-center bg-black/40 p-2.5 rounded-xl border border-gray-900">
                 <span class="text-gray-400 font-bold text-xs">Gereken Üretim Adedi:</span>
                 <span class="text-sm font-black text-amber-400">${craftCount.toLocaleString()} Adet</span>
             </div>
         `;
     }
+
+    // Reçete verisinin kararlılığını korumak için orijinal değerini geri yüklüyoruz
+    selectedRecipe.xpGiven = originalRecipeXp;
     resultDiv.classList.remove('hidden');
 }
 
