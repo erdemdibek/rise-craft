@@ -141,23 +141,53 @@ function renderGridDashboard() {
         const icon = professionIcons[prof.id] || "fa-gavel";
         const isSelected = selectedProfessionId === prof.id;
 
+        // --- LEVEL ARALIKLARINA GÖRE DİNAMİK KART RENKLERİ ---
+        let cardBgClass = 'bg-gray-900/40 border-gray-800/60 hover:border-gray-700 hover:bg-gray-900/80';
+        let levelBadgeClass = 'text-gray-400 bg-gray-950 border-gray-850';
+        let iconBgClass = 'bg-gray-950 text-gray-400 border border-gray-800/80';
+
+        if (prof.level >= 40) {
+            // Seviye 40: GM 4 - Efsanevi Mor Tema
+            cardBgClass = 'bg-gradient-to-b from-purple-950/40 to-black/40 border-purple-800/50 hover:border-purple-600 shadow-[0_4px_15px_rgba(168,85,247,0.05)]';
+            levelBadgeClass = 'text-purple-400 bg-purple-950/50 border-purple-900/50';
+            iconBgClass = 'bg-purple-950 text-purple-400 border border-purple-900/50';
+        } else if (prof.level >= 30) {
+            // Seviye 30-39: GM 3 - Altın / Kehribar Tema
+            cardBgClass = 'bg-gradient-to-b from-amber-950/40 to-black/40 border-amber-900/50 hover:border-amber-600 shadow-[0_4px_15px_rgba(245,158,11,0.05)]';
+            levelBadgeClass = 'text-amber-400 bg-amber-950/50 border-amber-900/50';
+            iconBgClass = 'bg-amber-950 text-amber-400 border border-amber-900/50';
+        } else if (prof.level >= 20) {
+            // Seviye 20-29: GM 2 - Gümüş / Platin Tema
+            cardBgClass = 'bg-gradient-to-b from-slate-800/40 to-black/40 border-slate-700/60 hover:border-slate-500 shadow-[0_4px_15px_rgba(148,163,184,0.05)]';
+            levelBadgeClass = 'text-slate-300 bg-slate-900/60 border-slate-800';
+            iconBgClass = 'bg-slate-900 text-slate-300 border border-slate-800';
+        } else if (prof.level >= 10) {
+            // Seviye 10-19: GM 1 - Bronz / Bakır Tema
+            cardBgClass = 'bg-gradient-to-b from-orange-950/30 to-black/40 border-orange-900/40 hover:border-orange-700 shadow-[0_4px_15px_rgba(234,88,12,0.05)]';
+            levelBadgeClass = 'text-orange-400 bg-orange-950/40 border-orange-900/50';
+            iconBgClass = 'bg-orange-950 text-orange-400 border border-orange-900/50';
+        }
+
+        // Eğer kart şu an SEÇİLİ ise, aktiflik stilini üzerine giydiriyoruz
+        if (isSelected) {
+            cardBgClass = 'bg-gradient-to-b from-amber-500/15 to-transparent border-amber-500/80 shadow-[0_4px_20px_rgba(245,158,11,0.12)] scale-[0.98]';
+            levelBadgeClass = 'text-amber-400 bg-amber-500/10 border-amber-500/30';
+            iconBgClass = 'bg-amber-500 text-black border-amber-400';
+        }
+
         const card = document.createElement('button');
         card.onclick = () => selectProfession(prof.id);
-        card.className = `w-full text-left p-3.5 rounded-2xl border transition-all duration-300 flex flex-col justify-between relative overflow-hidden ${
-            isSelected 
-            ? 'bg-gradient-to-b from-amber-500/15 to-transparent border-amber-500/80 shadow-[0_4px_20px_rgba(245,158,11,0.12)] scale-[0.98]' 
-            : 'bg-gray-900/40 border-gray-800/60 hover:border-gray-700 hover:bg-gray-900/80'
-        }`;
+        card.className = `w-full text-left p-3.5 rounded-2xl border transition-all duration-300 flex flex-col justify-between relative overflow-hidden ${cardBgClass}`;
 
         card.innerHTML = `
             <div class="flex items-center justify-between w-full mb-3.5 z-10">
                 <div class="flex items-center space-x-2.5">
-                    <div class="w-7 h-7 rounded-lg flex items-center justify-center ${isSelected ? 'bg-amber-500 text-black' : 'bg-gray-950 text-gray-400'} border ${isSelected ? 'border-amber-400' : 'border-gray-800/80'} transition-colors duration-200">
+                    <div class="w-7 h-7 rounded-lg flex items-center justify-center ${iconBgClass} transition-colors duration-200">
                         <i class="fa-solid ${icon} text-xs"></i>
                     </div>
                     <span class="text-xs font-black text-gray-100 tracking-wide">${prof.name}</span>
                 </div>
-                <span class="text-[10px] font-black ${isSelected ? 'text-amber-400 bg-amber-500/10 border-amber-500/30' : 'text-gray-400 bg-gray-950 border-gray-850'} px-2 py-0.5 rounded-md border shadow-sm">
+                <span class="text-[10px] font-black px-2 py-0.5 rounded-md border shadow-sm ${levelBadgeClass}">
                     Lvl ${prof.level}
                 </span>
             </div>
@@ -230,7 +260,6 @@ function selectProfession(id) {
                 </div>
             </div>
 
-            <!-- Dinamik %XP Bonus Seçim Paneli -->
             <div class="bg-black/40 border border-gray-850 rounded-2xl p-3.5 mb-4 space-y-2">
                 <button onclick="document.getElementById('bonus-sub-panel').classList.toggle('hidden')" class="w-full flex justify-between items-center text-[10px] font-black text-amber-400 uppercase tracking-wider">
                     <span>⚡ XP Bonus Etkenleri Ayarla</span>
@@ -324,10 +353,8 @@ function runCalculation(index) {
     if (!selectedRecipe) return;
 
     // --- DİNAMİK XP HESAPLAMA VE MANİPÜLASYON ---
-    // 1. Reçetedeki orijinal şişirilmiş %30 Craft Prem verisini kırıp ham baz XP'yi buluyoruz
     const baseRecipeXp = selectedRecipe.xpGiven / 1.30;
 
-    // 2. Aktif olan tüm güncel yüzdeleri topluyoruz
     let totalBonusPercent = 0;
     if (xpBonuses.craftPremium) totalBonusPercent += 30;
     if (xpBonuses.expPremium) totalBonusPercent += 10;
@@ -337,11 +364,8 @@ function runCalculation(index) {
     totalBonusPercent += xpBonuses.gmEvent;
     totalBonusPercent += xpBonuses.kingEvent;
 
-    // 3. Yeni dinamik net tekil üretim XP'sini hesapla
     const dynamicXpPerCraft = baseRecipeXp * (1 + (totalBonusPercent / 100));
     
-    // Geçici olarak alt modül/zincir fonksiyonlarının (calculateCarpentryChain vb.) doğru 
-    // çalışması için seçilen reçetenin nesne içindeki anlık değerini manipüle ediyoruz
     const originalRecipeXp = selectedRecipe.xpGiven;
     selectedRecipe.xpGiven = dynamicXpPerCraft;
 
@@ -400,7 +424,6 @@ function runCalculation(index) {
         `;
     }
 
-    // Reçete verisinin kararlılığını korumak için orijinal değerini geri yüklüyoruz
     selectedRecipe.xpGiven = originalRecipeXp;
     resultDiv.classList.remove('hidden');
 }
