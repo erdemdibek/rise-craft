@@ -23,7 +23,6 @@
         .animate-fadeIn {
             animation: fadeIn 0.3s cubic-bezier(0.4, 0, 0.2, 1) forwards;
         }
-        /* Glassmorphism ve premium gölgeler */
         .glass-panel {
             background: rgba(17, 24, 39, 0.7);
             backdrop-filter: blur(12px);
@@ -34,49 +33,140 @@
 <body class="text-gray-100 min-h-screen pb-24 selection:bg-amber-500 selection:text-black">
 
     <header class="glass-panel border-b border-gray-800/60 sticky top-0 z-50 shadow-lg">
-        <div class="max-w-md mx-auto px-5 py-4 flex justify-between items-center">
+        <div class="max-w-md mx-auto px-5 py-3 flex justify-between items-center">
             <div class="flex items-center space-x-3">
                 <div class="bg-gradient-to-br from-amber-500 to-orange-600 text-black p-2 rounded-xl shadow-[0_0_15px_rgba(245,158,11,0.3)] flex items-center justify-center w-9 h-9">
                     <i class="fa-solid fa-gavel text-sm"></i>
                 </div>
                 <div>
                     <h1 class="text-xs font-black tracking-widest text-transparent bg-clip-text bg-gradient-to-r from-white via-gray-200 to-gray-400 uppercase">RISE CRAFT</h1>
-                    <p class="text-[9px] text-amber-500 font-extrabold tracking-widest uppercase">Companion v2.0</p>
+                    <p class="text-[9px] text-amber-500 font-extrabold tracking-widest uppercase">Companion v3.0</p>
                 </div>
             </div>
             <div class="bg-black/40 border border-gray-800/80 rounded-xl px-3 py-1.5 shadow-inner">
                 <p id="gm-status" class="text-[11px] font-black tracking-wide text-amber-400">Hesaplanıyor...</p>
             </div>
         </div>
+        
+        <div class="max-w-md mx-auto px-4 pb-2 flex border-t border-gray-800/40 pt-2">
+            <button id="btn-tab-dashboard" onclick="switchTab('dashboard')" class="flex-1 text-center py-2 text-xs font-black tracking-wider uppercase border-b-2 border-amber-500 text-amber-400 transition-all">
+                <i class="fa-solid fa-chart-pie mr-1"></i> Gösterge Paneli
+            </button>
+            <button id="btn-tab-simulator" onclick="switchTab('simulator')" class="flex-1 text-center py-2 text-xs font-black tracking-wider uppercase border-b-2 border-transparent text-gray-400 hover:text-gray-200 transition-all">
+                <i class="fa-solid fa-calculator mr-1"></i> Craft Simülatörü
+            </button>
+        </div>
     </header>
 
     <main class="max-w-md mx-auto px-4 mt-5 space-y-5">
         
-        <div>
-            <div class="flex items-center justify-between mb-3 px-1">
+        <div id="tab-content-dashboard" class="space-y-4">
+            <div class="flex items-center justify-between mb-1 px-1">
                 <p class="text-[10px] font-black text-gray-400 uppercase tracking-widest flex items-center gap-1.5">
-                    <span class="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse"></span> Zanaat Meslekleri
+                    <span class="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse"></span> Karakter Seviye Durumu
                 </p>
+                <span class="text-[9px] text-gray-500 font-bold">Kartlara tıklayarak seviye güncelleyebilirsiniz.</span>
             </div>
             <div id="professions-grid" class="grid grid-cols-2 gap-2.5">
-                <!-- JavaScript tarafından dinamik doldurulur -->
-            </div>
+                </div>
+            
+            <div id="active-detail-panel" class="hidden"></div>
         </div>
 
-        <!-- Bonus Seçim Alanı ve Hesaplayıcı app.js tarafından bu panele enjekte edilir -->
-        <div id="active-detail-panel" class="hidden"></div>
+        <div id="tab-content-simulator" class="hidden space-y-4 animate-fadeIn">
+            <div class="bg-gray-900/90 border border-gray-800 rounded-3xl p-5 shadow-2xl glass-panel">
+                <div class="flex items-center space-x-3 border-b border-gray-800 pb-3.5 mb-4">
+                    <div class="w-8 h-8 rounded-xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-amber-400">
+                        <i class="fa-solid fa-wand-magic-sparkles text-xs"></i>
+                    </div>
+                    <div>
+                        <h3 class="text-sm font-black text-white">Akıllı Üretim Planlayıcı</h3>
+                        <p class="text-[9px] text-gray-500 font-bold uppercase tracking-wider">Zincirleme Maliyet & Pazar Hesabı</p>
+                    </div>
+                </div>
+
+                <div class="space-y-3 mb-4">
+                    <div>
+                        <label class="block text-[9px] uppercase font-black text-gray-400 mb-1 tracking-widest">Planlanacak Meslek Seçimi</label>
+                        <select id="sim-profession-select" onchange="onSimulatorProfessionChange()" class="w-full bg-black border border-gray-800 rounded-xl px-3 text-xs font-bold text-gray-300 focus:border-amber-500 outline-none h-11">
+                            </select>
+                    </div>
+                    
+                    <div class="grid grid-cols-2 gap-3">
+                        <div>
+                            <label class="block text-[9px] uppercase font-black text-gray-400 mb-1 tracking-widest font-black text-amber-500">Hedef Seviye (Level)</label>
+                            <input type="number" id="sim-target-level" min="2" max="40" value="10" oninput="runSimulatorCalculation()"
+                                class="w-full bg-black border border-gray-800 rounded-xl p-3 text-xs font-black text-center text-white focus:border-amber-500 outline-none h-11">
+                        </div>
+                        <div>
+                            <label class="block text-[9px] uppercase font-black text-gray-400 mb-1 tracking-widest">Kullanılacak Reçete</label>
+                            <select id="sim-recipe-select" onchange="runSimulatorCalculation()" class="w-full bg-black border border-gray-800 rounded-xl px-3 text-xs font-bold text-gray-300 focus:border-amber-500 outline-none h-11">
+                                </select>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="bg-black/40 border border-gray-850 rounded-2xl p-3.5 mb-4 space-y-2">
+                    <button onclick="document.getElementById('sim-bonus-panel').classList.toggle('hidden')" class="w-full flex justify-between items-center text-[10px] font-black text-amber-400 uppercase tracking-wider">
+                        <span>⚡ XP Çarpan Etkenlerini Düzenle</span>
+                        <i class="fa-solid fa-chevron-down text-[8px]"></i>
+                    </button>
+                    
+                    <div id="sim-bonus-panel" class="hidden pt-2 grid grid-cols-2 gap-2 text-[11px] border-t border-gray-800/60">
+                        <label class="flex items-center space-x-2 text-gray-300">
+                            <input type="checkbox" id="sim-chk-craft" checked onchange="handleSimPremiumChange('craft')" class="rounded accent-amber-500 bg-black border-gray-700">
+                            <span>Craft Prem (%30)</span>
+                        </label>
+                        <label class="flex items-center space-x-2 text-gray-300">
+                            <input type="checkbox" id="sim-chk-exp" onchange="handleSimPremiumChange('exp')" class="rounded accent-amber-500 bg-black border-gray-700">
+                            <span>Exp Prem (%10)</span>
+                        </label>
+                        <label class="flex items-center space-x-2 text-gray-300">
+                            <input type="checkbox" id="sim-chk-farm" onchange="handleSimPremiumChange('farm')" class="rounded accent-amber-500 bg-black border-gray-700">
+                            <span>Farm Prem (%10)</span>
+                        </label>
+                        <label class="flex items-center space-x-2 text-gray-300">
+                            <input type="checkbox" id="sim-chk-title" onchange="updateSimBonus()" class="rounded accent-amber-500 bg-black border-gray-700">
+                            <span>Crafter Ünvan (%5)</span>
+                        </label>
+                        <label class="flex items-center space-x-2 text-gray-300 col-span-2">
+                            <input type="checkbox" id="sim-chk-pepper" onchange="updateSimBonus()" class="rounded accent-amber-500 bg-black border-gray-700">
+                            <span>Egg Stuffed Peppers (%10)</span>
+                        </label>
+                        <div class="col-span-1 bg-black/50 p-1.5 rounded border border-gray-850">
+                            <span class="text-[9px] text-gray-500 block">GM Etkinliği %</span>
+                            <input type="number" id="sim-num-gm" value="0" oninput="updateSimBonus()" class="w-full bg-transparent text-white font-bold outline-none text-xs">
+                        </div>
+                        <div class="col-span-1 bg-black/50 p-1.5 rounded border border-gray-850">
+                            <span class="text-[9px] text-gray-500 block">Kral Etkinliği %</span>
+                            <input type="number" id="sim-num-king" value="0" oninput="updateSimBonus()" class="w-full bg-transparent text-white font-bold outline-none text-xs">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="bg-black/50 border border-gray-950 rounded-2xl p-4 shadow-inner space-y-3">
+                    <p class="text-[9px] font-black text-gray-400 uppercase tracking-widest flex items-center gap-1.5">
+                        <i class="fa-solid fa-shop text-amber-500"></i> Pazar Fiyatları & Üretim Tercihleri
+                    </p>
+                    
+                    <div id="sim-market-matrix" class="space-y-2 max-h-[220px] overflow-y-auto custom-scrollbar pr-1">
+                        </div>
+                </div>
+
+                <div id="sim-result-panel" class="mt-4 p-4 bg-gray-950/90 rounded-2xl border border-gray-850 hidden space-y-2 shadow-inner">
+                    </div>
+            </div>
+        </div>
 
     </main>
 
     <div class="fixed bottom-0 left-0 right-0 glass-panel border-t border-gray-800/80 py-3.5 px-4 z-40 shadow-[0_-10px_25px_rgba(0,0,0,0.5)]">
         <div class="max-w-md mx-auto">
             <div id="gm-bar-container">
-                <!-- JavaScript tarafından dinamik doldurulur -->
-            </div>
+                </div>
         </div>
     </div>
 
-    <!-- Modül mimarisi aktif -->
     <script type="module" src="app.js"></script>
 </body>
 </html>
